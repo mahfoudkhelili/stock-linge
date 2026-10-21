@@ -24,6 +24,13 @@ export default function App() {
   const [sortKey, setSortKey] = useState('product_ref');
   const [sortDirection, setSortDirection] = useState('asc');
   const [showCodeColumn, setShowCodeColumn] = useState(true);
+  const [pageOrder, setPageOrder] = useState([]);
+  const [hiddenPages, setHiddenPages] = useState([]);
+  const [pagePermissions, setPagePermissions] = useState({});
+  const [photoPreview, setPhotoPreview] = useState(null);
+  const [photoContext, setPhotoContext] = useState(null);
+  const [photoPressTimer, setPhotoPressTimer] = useState(null);
+  const [tableSearch, setTableSearch] = useState('');
   const [activePage, setActivePage] = useState('dashboard');
   const [searchTerm, setSearchTerm] = useState('');
   const [productPhotos, setProductPhotos] = useState([]);
@@ -702,7 +709,7 @@ export default function App() {
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
         .select(
-          'full_name, role, is_active, preferred_language, can_view_negative_stock, can_view_zero_negative_products, can_view_requests, can_view_other_notes, preferred_theme'
+          'full_name, role, is_active, preferred_language, can_view_negative_stock, can_view_zero_negative_products, can_view_requests, can_view_other_notes, preferred_theme, page_order, hidden_pages, page_permissions'
         )
         .eq('id', data.user.id)
         .single();
@@ -729,6 +736,9 @@ export default function App() {
       }
 
       setUser({ ...data.user, profile });
+      setPageOrder(Array.isArray(profile.page_order) ? profile.page_order : []);
+      setHiddenPages(Array.isArray(profile.hidden_pages) ? profile.hidden_pages : []);
+      setPagePermissions(profile.page_permissions && typeof profile.page_permissions === 'object' ? profile.page_permissions : {});
       setLanguage(profile.preferred_language === 'ar' ? 'ar' : 'fr');
       setTheme(
         ['dark', 'system'].includes(profile.preferred_theme)
@@ -936,7 +946,7 @@ export default function App() {
       const { data, error } = await supabase
         .from('profiles')
         .select(
-          'id, full_name, role, is_active, can_view_negative_stock, can_view_zero_negative_products'
+          'id, full_name, role, is_active, can_view_negative_stock, can_view_zero_negative_products, page_permissions'
         )
         .order('full_name', { ascending: true });
 
@@ -1088,9 +1098,7 @@ export default function App() {
   async function saveThemeSetting(nextTheme) {
     const previous = theme;
     setTheme(nextTheme);
-    const { error } = await supabase.rpc('set_my_preferred_theme', {
-      p_theme: nextTheme,
-    });
+    const { error } = await supabase.rpc('set_my_preferred_theme', { p_theme: nextTheme });
     if (error) {
       setTheme(previous);
       setMessage('Erreur sauvegarde du thème : ' + error.message);
@@ -1185,6 +1193,45 @@ export default function App() {
     });
   }
 
+  async function uploadProductPhoto(file, product) {
+    if (user?.profile?.role !== 'admin') { window.alert('Seul l’administrateur peut gérer les photos.'); return; }
+    if (!file || !product?.id) return;
+    setPhotoUploading(true);
+    try {
+      const blob = await compressImage(file);
+      const safeRef = String(product.product_ref || product.id).replace(/[^a-zA-Z0-9_-]/g, '_');
+      const path = `${safeRef}.jpg`;
+      const { error: uploadError } = await supabase.storage.from('product-photos').upload(path, blob, { contentType: 'image/jpeg', upsert: true });
+      if (uploadError) throw uploadError;
+      const { data: urlData } = supabase.storage.from('product-photos').getPublicUrl(path);
+      const photoUrl = `${urlData.publicUrl}${urlData.publicUrl.includes('?') ? '&' : '?'}v=${Date.now()}`;
+      const { error: saveError } = await supabase.from('product_photos').upsert({ product_id: product.id, storage_path: path, photo_url: photoUrl, updated_at: new Date().toISOString() }, { onConflict: 'product_id' });
+      if (saveError) throw saveError;
+      setMessage(`Photo enregistrée pour ${product.name} (${Math.round(blob.size / 1024)} Ko).`);
+      await loadProductPhotos();
+    } catch (error) { setMessage('Erreur photo : ' + (error?.message || String(error))); }
+    finally { setPhotoUploading(false); }
+  }
+
+  async function deleteProductPhoto(photoOrProduct) {
+    if (!isAdmin) return;
+    const productId = photoOrProduct.product_id || photoOrProduct.id;
+    const photo = productPhotos.find((p) => p.product_id === productId);
+    if (!photo) return;
+    if (!window.confirm('Supprimer uniquement la photo ? Le produit restera dans le stock.')) return;
+    try {
+      if (photo.storage_path) {
+        const { error: storageError } = await supabase.storage.from('product-photos').remove([photo.storage_path]);
+        if (storageError) console.warn('Suppression stockage photo:', storageError.message);
+      }
+      const { error } = await supabase.from('product_photos').delete().eq('product_id', productId);
+      if (error) throw error;
+      setPhotoContext(null);
+      setMessage('Photo supprimée. Le produit est conservé.');
+      await loadProductPhotos();
+    } catch (error) { setMessage('Erreur suppression photo : ' + error.message); }
+  }
+
   async function saveProductPhoto() {
     if (!photoProductId || !photoFile) {
       window.alert('Choisissez un produit et une photo.');
@@ -1245,17 +1292,34 @@ export default function App() {
     );
   }
 
+  async function savePagePreferences(nextOrder, nextHidden) {
+    setPageOrder(nextOrder); setHiddenPages(nextHidden);
+    const { error } = await supabase.rpc('set_my_page_preferences', { p_page_order: nextOrder, p_hidden_pages: nextHidden });
+    if (error) { setMessage('Erreur sauvegarde des pages : ' + error.message); return; }
+    setUser((current)=>current ? {...current,profile:{...current.profile,page_order:nextOrder,hidden_pages:nextHidden}} : current);
+    setMessage('Ordre et visibilité des pages enregistrés.');
+  }
+
+  async function savePagePermission(profileId, pageId, allowed) {
+    const account = accountPermissions.find((x)=>x.id===profileId);
+    const next = {...(account?.page_permissions || {}), [pageId]: allowed};
+    setAccountPermissions((cur)=>cur.map((x)=>x.id===profileId?{...x,page_permissions:next}:x));
+    const {error}=await supabase.from('profiles').update({page_permissions:next}).eq('id',profileId);
+    if(error){setPermissionsMessage('Erreur permission section : '+error.message);return;}
+    setPermissionsMessage('Permission de section enregistrée.');
+  }
+
   function navigateTo(page) {
     setActivePage(page);
     setCurrentPage(1);
     setSearchTerm('');
+    setTableSearch('');
     if (page === 'hidden') loadHiddenProducts();
     if (page === 'analysis') {
       loadSuggestedProducts();
       loadStockDecreaseAnalysis();
     }
-    if (page === 'history' && user?.profile?.role === 'admin')
-      loadStockHistory();
+    if (page === 'history' && canViewPage('history')) loadStockHistory();
     if (page === 'requests') loadReplenishmentRequests();
     if (page === 'notes') loadProductNotes();
     if (page === 'settings' && user?.profile?.role === 'admin') {
@@ -1278,11 +1342,19 @@ export default function App() {
       icon: '▦',
     },
     {
+      id: 'analysis',
+      label: language === 'ar' ? 'تحليل المنتجات' : 'Analyse des produits',
+      icon: '⌁',
+      admin: true,
+    },
+    {
       id: 'arina',
       label: language === 'ar' ? 'مراتب Europ Arina' : 'Matelas Europ Arina',
       icon: '▣',
     },
-    { id: 'textiles', label: 'CHORA / VOILAGE / RIDEAU', icon: '▤' },
+    { id: 'chora', label: 'Chora', icon: '▤' },
+    { id: 'voilage', label: 'Voilage', icon: '▤' },
+    { id: 'rideau', label: 'Rideau', icon: '▤' },
     {
       id: 'photos',
       label: language === 'ar' ? 'صور المنتجات' : 'Photos des produits',
@@ -1307,12 +1379,6 @@ export default function App() {
       admin: true,
     },
     {
-      id: 'analysis',
-      label: language === 'ar' ? 'تحليل المنتجات' : 'Analyse des produits',
-      icon: '⌁',
-      admin: true,
-    },
-    {
       id: 'hidden',
       label: language === 'ar' ? 'المنتجات المخفية' : 'Produits masqués',
       icon: '◉',
@@ -1326,28 +1392,36 @@ export default function App() {
   ];
 
   const isAdmin = user?.profile?.role === 'admin';
+  const canViewPage = (pageId) => isAdmin || pagePermissions[pageId] === true || (!navItems?.find?.((item) => item.id === pageId)?.admin && !navItems?.find?.((item) => item.id === pageId)?.adminOnly && pagePermissions[pageId] !== false);
   const normalizeName = (value) =>
     String(value || '')
       .toLocaleUpperCase('fr')
       .normalize('NFD')
       .replace(/[\u0300-\u036f]/g, '')
       .replace(/[^A-Z0-9]/g, '');
+  const matchesTableSearch = (query, ...values) => {
+    const tokens = String(query || '').toLocaleUpperCase('fr').normalize('NFD').replace(/[\u0300-\u036f]/g, '').split(/[^A-Z0-9]+/).filter(Boolean);
+    if (!tokens.length) return true;
+    const words = values.join(' ').toLocaleUpperCase('fr').normalize('NFD').replace(/[\u0300-\u036f]/g, '').split(/[^A-Z0-9]+/).filter(Boolean);
+    return tokens.every((token) => words.some((word) => word.startsWith(token) || word.includes(token)));
+  };
   const pageProducts = products.filter((product) => {
-    const designation = String(product.name || '').toLocaleLowerCase('fr');
-    const searchMatch = designation.includes(
-      searchTerm.trim().toLocaleLowerCase('fr')
-    );
     const normalizedName = normalizeName(product.name);
+    const searchTokens = String(searchTerm || '').toLocaleUpperCase('fr').normalize('NFD').replace(/[\u0300-\u036f]/g, '').split(/[^A-Z0-9]+/).filter(Boolean);
+    const nameTokens = String(product.name || '').toLocaleUpperCase('fr').normalize('NFD').replace(/[\u0300-\u036f]/g, '').split(/[^A-Z0-9]+/).filter(Boolean);
+    const searchMatch = !searchTokens.length || searchTokens.every((token) =>
+      nameTokens.some((word) => word.startsWith(token) || word.includes(token))
+    );
+    const isArina = normalizedName.includes('ARINA') || (normalizedName.includes('EUROP') && normalizedName.includes('MATELAS'));
+    const isAfricha = normalizedName.includes('AFRICHA');
+    const isChora = normalizedName.includes('CHORA');
+    const isVoilage = normalizedName.includes('VOILAGE');
+    const isRideau = normalizedName.includes('RIDEAU') && !normalizedName.includes('CUISINE');
     const pageMatch =
-      activePage === 'arina'
-        ? normalizedName.includes('ARINA') ||
-          (normalizedName.includes('EUROP') &&
-            normalizedName.includes('MATELAS'))
-        : activePage === 'textiles'
-        ? ['CHORA', 'VOILAGE', 'RIDEAU'].some((keyword) =>
-            normalizedName.includes(normalizeName(keyword))
-          )
-        : true;
+      activePage === 'arina' ? isArina :
+      activePage === 'chora' ? isChora :
+      activePage === 'voilage' ? isVoilage :
+      activePage === 'rideau' ? isRideau : true;
     const canSeeZeroNegativeOnArina =
       activePage === 'arina' &&
       (isAdmin || Boolean(user?.profile?.can_view_zero_negative_products));
@@ -1379,6 +1453,20 @@ export default function App() {
 
     return sortDirection === 'asc' ? comparison : -comparison;
   });
+  const africhaSortedProducts = products.filter((product) => {
+    const normalized = normalizeName(product.name);
+    const tokens = String(searchTerm || '').toLocaleUpperCase('fr').normalize('NFD').replace(/[\u0300-\u036f]/g, '').split(/[^A-Z0-9]+/).filter(Boolean);
+    const words = String(product.name || '').toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').split(/[^A-Z0-9]+/).filter(Boolean);
+    const match = normalized.includes('AFRICHA') && (!tokens.length || tokens.every((token)=>words.some((word)=>word.startsWith(token)||word.includes(token))));
+    return match && (isAdmin || Number(product.current_quantity) > 0 || Boolean(user?.profile?.can_view_zero_negative_products));
+  }).sort((a,b)=>{
+    const av=a[sortKey], bv=b[sortKey];
+    const numeric=['current_quantity','wholesale_price','retail_price'].includes(sortKey);
+    const cmp=numeric ? Number(av||0)-Number(bv||0) : String(av??'').localeCompare(String(bv??''),'fr',{numeric:true,sensitivity:'base'});
+    return sortDirection==='asc'?cmp:-cmp;
+  });
+  const africhaTotalPages = Math.max(1, Math.ceil(africhaSortedProducts.length / pageSize));
+  const africhaPageProducts = africhaSortedProducts.slice((Math.min(currentPage,africhaTotalPages)-1)*pageSize, Math.min(currentPage,africhaTotalPages)*pageSize);
   const totalPages = Math.max(1, Math.ceil(sortedProducts.length / pageSize));
   const safeCurrentPage = Math.min(currentPage, totalPages);
   const paginatedProducts = sortedProducts.slice(
@@ -1433,9 +1521,15 @@ export default function App() {
     (request) => request.status === 'new'
   ).length;
 
-  const visibleNavItems = navItems.filter(
-    (item) => (!item.admin || isAdmin) && (!item.adminOnly || isAdmin)
-  );
+  const visibleNavItems = navItems
+    .filter((item) => (!item.admin || isAdmin || pagePermissions[item.id] === true) && (!item.adminOnly || isAdmin || pagePermissions[item.id] === true))
+    .filter((item) => !hiddenPages.includes(item.id))
+    .filter((item) => isAdmin || pagePermissions[item.id] !== false)
+    .sort((a, b) => {
+      const ai = pageOrder.indexOf(a.id); const bi = pageOrder.indexOf(b.id);
+      if (ai < 0 && bi < 0) return navItems.findIndex(x => x.id === a.id) - navItems.findIndex(x => x.id === b.id);
+      if (ai < 0) return 1; if (bi < 0) return -1; return ai - bi;
+    });
   const activePageTitle =
     navItems.find((item) => item.id === activePage)?.label || 'Linge Stock';
   const lastStockUpdate = stockHistory[0]?.created_at;
@@ -1574,7 +1668,7 @@ export default function App() {
       return (
         <tr>
           <td
-            colSpan={6}
+            colSpan={showCodeColumn ? 6 : 5}
             style={{ ...styles.td, textAlign: 'center', color: '#64748b' }}
           >
             Aucun produit trouvé.
@@ -1583,11 +1677,12 @@ export default function App() {
       );
     return paginatedProducts.map((product) => (
       <tr key={product.id || product.product_ref}>
+        {showCodeColumn && <td style={styles.td}><strong>{product.product_ref}</strong></td>}
         <td style={styles.td}>
-          <strong>{product.product_ref}</strong>
-        </td>
-        <td style={styles.td}>
-          <span>{product.name}</span>
+          <span style={{display:'inline-flex',alignItems:'center',gap:8}}>
+            {photoFor(product.id) ? <img src={photoFor(product.id)} alt="" onClick={()=>setPhotoPreview({url:photoFor(product.id),name:product.name})} style={{width:38,height:38,objectFit:'cover',borderRadius:6,cursor:'zoom-in'}} onContextMenu={(e)=>{if(isAdmin){e.preventDefault();setPhotoContext(product);}}} onTouchStart={()=>{if(isAdmin){const timer=setTimeout(()=>setPhotoContext(product),700);setPhotoPressTimer(timer);}}} onTouchEnd={()=>{if(photoPressTimer)clearTimeout(photoPressTimer);}}/> : isAdmin ? <label title="Ajouter une photo" style={{width:30,height:30,display:'inline-grid',placeItems:'center',border:'1px dashed #8294a8',borderRadius:6,cursor:'pointer',fontWeight:800}}>+<input type="file" accept="image/*" style={{display:'none'}} onChange={(e)=>{const f=e.target.files?.[0];if(f) uploadProductPhoto(f,product);e.target.value='';}} /></label> : null}
+            <span>{product.name}{activePage === 'arina' && normalizeName(product.name).includes('AFRICHA') ? <small style={{display:'block',color:'#64748b'}}>Africha Shop</small> : activePage === 'arina' ? <small style={{display:'block',color:'#64748b'}}>Europ Arina</small> : null}</span>
+          </span>
         </td>
         <td
           style={{
@@ -1628,7 +1723,7 @@ export default function App() {
               <div style={{ color: '#64748b', fontSize: 12 }}>
                 Réf. {product.product_ref}
               </div>
-              <strong>{product.name}</strong>
+              <strong style={{display:'flex',alignItems:'center',gap:8}}>{photoFor(product.id) ? <img src={photoFor(product.id)} alt="" onClick={()=>setPhotoPreview({url:photoFor(product.id),name:product.name})} onContextMenu={(e)=>{if(isAdmin){e.preventDefault();setPhotoContext(product);}}} style={{width:42,height:42,objectFit:'cover',borderRadius:6,cursor:'zoom-in'}}/> : isAdmin ? <label style={{cursor:'pointer',border:'1px dashed #8294a8',padding:6,borderRadius:5}}>+<input type="file" accept="image/*" style={{display:'none'}} onChange={(e)=>{const f=e.target.files?.[0];if(f)uploadProductPhoto(f,product);e.target.value='';}}/></label> : null}{product.name}</strong>
             </div>
             <div className="ls-card-metrics">
               <div>
@@ -1669,14 +1764,14 @@ export default function App() {
 
   return (
     <div
-      className={`ls-app ${theme === 'dark' ? 'ls-dark' : ''}`}
+      className={`ls-app ${theme === 'dark' || (theme === 'system' && typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'ls-dark' : ''}`}
       dir={language === 'ar' ? 'rtl' : 'ltr'}
     >
       <style>{`
         *{box-sizing:border-box} body{margin:0;background:#f3f6fa;font-family:Inter,Arial,sans-serif;color:#102b46}
         .ls-app{min-height:100vh;background:#f3f6fa;color:#102b46}.ls-login{max-width:440px;margin:7vh auto;padding:30px;background:#fff;border:1px solid #e2e8f0;border-radius:20px;box-shadow:0 15px 45px rgba(16,43,70,.09)}
         .ls-brand{display:flex;align-items:center;gap:12px}.ls-brand-mark{display:grid;place-items:center;background:#fff;color:#102b46;border-radius:12px;width:42px;height:42px;font-weight:900;font-size:19px}.ls-layout{display:grid;grid-template-columns:250px minmax(0,1fr);min-height:100vh}.ls-sidebar{background:#102b46;color:#fff;padding:22px 14px;display:flex;flex-direction:column;gap:20px}.ls-nav{display:flex;flex-direction:column;gap:5px}.ls-nav button{display:flex;gap:11px;align-items:center;width:100%;border:0;border-radius:10px;padding:12px;color:#d8e4f1;background:transparent;text-align:left;cursor:pointer;font-weight:600}.ls-nav button.active,.ls-nav button:hover{background:#214361;color:#fff}.ls-nav .ls-count{margin-left:auto;background:#e5484d;color:white;border-radius:20px;padding:2px 7px;font-size:11px}.ls-main{min-width:0;padding:26px clamp(14px,3vw,34px) 50px}.ls-topbar{display:flex;justify-content:space-between;align-items:center;gap:14px;margin-bottom:24px}.ls-panel{background:white;border:1px solid #e2e8f0;border-radius:14px;padding:18px;margin-bottom:18px;min-width:0}.ls-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin-bottom:18px}.ls-stat{padding:18px;background:white;border:1px solid #e2e8f0;border-radius:14px}.ls-stat small{display:block;color:#64748b;margin-bottom:8px}.ls-stat strong{font-size:25px}.ls-toolbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:12px 0 16px}.ls-search{flex:1;min-width:200px}.ls-table-wrap{width:100%;overflow-x:auto;border:1px solid #e2e8f0;border-radius:12px}.ls-table{width:100%;border-collapse:collapse;min-width:850px;background:white}.ls-table th button{border:0;background:transparent;color:inherit;font:inherit;cursor:pointer;padding:0}.ls-actions{display:flex;gap:7px;flex-wrap:wrap}.ls-actions button{font-size:12px;padding:8px 9px}.ls-pagination{display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap;margin-top:14px}.ls-product-cards{display:none}.ls-photo-placeholder{width:78px;height:78px;display:grid;place-items:center;border-radius:10px;background:#edf2f7;color:#9aaabd;font-weight:900}.ls-card-metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:16px 0}.ls-card-metrics>div{background:#f5f8fb;border-radius:9px;padding:10px;min-width:0}.ls-card-metrics small{display:block;color:#64748b;font-size:11px;margin-bottom:5px}.ls-card-metrics strong{font-size:13px;overflow-wrap:anywhere}.ls-alert{padding:12px 14px;border-radius:10px;background:#fff2e0;color:#9a4b00;border:1px solid #ffddb0;margin:12px 0}.ls-message{padding:12px 14px;background:#eaf2ff;border:1px solid #cbdcf5;border-radius:10px;margin-bottom:16px;overflow-wrap:anywhere}.ls-request{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;padding:14px 0;border-top:1px solid #edf1f5}.ls-muted{color:#64748b;font-size:13px}.ls-photo-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:14px}.ls-photo-grid img{width:100%;aspect-ratio:1/1;object-fit:cover;border-radius:10px;background:#f1f5f9}.ls-input-row{display:grid;grid-template-columns:1fr 1fr auto;gap:10px;align-items:end}.ls-footer-note{color:#8ba0b5;font-size:12px;line-height:1.5;margin-top:auto;padding:8px}
-        .ls-dark{background:#101820!important;color:#e7edf4!important}.ls-dark .ls-main,.ls-dark .ls-panel,.ls-dark .ls-stat,.ls-dark .ls-table,.ls-dark .ls-login{background:#182431!important;color:#e7edf4!important;border-color:#334456!important}.ls-dark .ls-table-wrap{border-color:#334456!important}.ls-dark .ls-table td,.ls-dark .ls-table th,.ls-dark article{border-color:#334456!important;color:#e7edf4}.ls-dark input,.ls-dark select,.ls-dark textarea{background:#111b25!important;color:#e7edf4!important;border-color:#405266!important}.ls-dark .ls-card-metrics>div,.ls-dark [style*="background: rgb(245, 248, 251)"],.ls-dark [style*="background: rgb(245, 248, 251)"]{background:#223242!important;color:#e7edf4!important}.ls-dark .ls-muted{color:#a9b8c8!important}.ls-dark .ls-message{background:#20344a!important;color:#e7edf4!important;border-color:#405266!important}
+        .ls-app .ls-muted{color:#526477}.ls-app h1,.ls-app h2,.ls-app h3,.ls-app strong{color:inherit}.ls-app section,.ls-app article{color:#102b46}.ls-app .ls-panel strong{color:inherit}.ls-app .ls-panel h2,.ls-app .ls-panel h3{color:#102b46}.ls-app .ls-panel .ls-muted{color:#475569}.ls-import-panel{background:#ffffff!important;color:#102b46!important}.ls-import-panel h2,.ls-import-panel strong,.ls-import-panel .ls-muted{color:#243b53!important}.ls-dark .ls-import-panel{background:#182431!important;color:#e7edf4!important}.ls-dark .ls-import-panel h2,.ls-dark .ls-import-panel strong,.ls-dark .ls-import-panel .ls-muted{color:#e7edf4!important}.ls-dark{background:#101820!important;color:#e7edf4!important}.ls-dark .ls-panel h2,.ls-dark .ls-panel h3{color:#e7edf4!important}.ls-dark .ls-panel,.ls-dark .ls-panel strong,.ls-dark .ls-panel label{color:#e7edf4!important}.ls-dark .ls-panel [style*='background: rgb(245, 248, 251)'],.ls-dark .ls-panel [style*='background: rgb(245, 248, 251)']{background:#223242!important;color:#e7edf4!important}.ls-dark .ls-app .ls-muted{color:#bdc9d6!important}.ls-dark .ls-main,.ls-dark .ls-panel,.ls-dark .ls-stat,.ls-dark .ls-table,.ls-dark .ls-login{background:#182431!important;color:#e7edf4!important;border-color:#334456!important}.ls-dark .ls-table-wrap{border-color:#334456!important}.ls-dark .ls-app,.ls-dark .ls-panel,.ls-dark .ls-stat,.ls-dark .ls-table,.ls-dark .ls-login{color:#e7edf4!important}.ls-dark .ls-panel [style*='background: rgb(245, 248, 251)'],.ls-dark .ls-panel [style*='background: rgb(255, 255, 255)'],.ls-dark .ls-panel [style*='background: white']{background:#223242!important;color:#e7edf4!important}.ls-dark .ls-panel .ls-muted{color:#bdc9d6!important}.ls-dark [style*='background: rgb(245, 248, 251)'],.ls-dark [style*='background: rgb(255, 255, 255)'],.ls-dark [style*='background: white']{background:#182431!important;color:#e7edf4!important}.ls-dark .ls-alert{background:#3b2b19!important;color:#ffd7a8!important}.ls-dark .ls-table td,.ls-dark .ls-table th,.ls-dark article{border-color:#334456!important;color:#e7edf4}.ls-dark input,.ls-dark select,.ls-dark textarea{background:#111b25!important;color:#e7edf4!important;border-color:#405266!important}.ls-dark .ls-card-metrics>div,.ls-dark [style*="background: rgb(245, 248, 251)"],.ls-dark [style*="background: rgb(245, 248, 251)"]{background:#223242!important;color:#e7edf4!important}.ls-dark .ls-muted{color:#a9b8c8!important}.ls-dark .ls-message{background:#20344a!important;color:#e7edf4!important;border-color:#405266!important}
         @media(max-width:1050px){.ls-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.ls-layout{grid-template-columns:215px minmax(0,1fr)}}
         @media(max-width:760px){.ls-layout{display:block}.ls-sidebar{position:sticky;top:0;z-index:10;padding:10px 12px;gap:10px}.ls-sidebar-head{display:flex;justify-content:space-between;align-items:center}.ls-nav{flex-direction:row;overflow-x:auto;gap:6px;padding-bottom:2px;scrollbar-width:thin}.ls-nav button{white-space:nowrap;width:auto;flex-shrink:0;padding:10px 12px;font-size:12px}.ls-nav button .ls-nav-text{display:inline}.ls-footer-note{display:none}.ls-main{padding:16px 12px 38px}.ls-topbar{align-items:flex-start;flex-direction:column;margin-bottom:16px}.ls-topbar-actions{width:100%;display:flex;gap:8px;flex-wrap:wrap}.ls-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.ls-stat{padding:13px}.ls-stat strong{font-size:21px}.ls-table-wrap:not(.ls-force-table){display:none}.ls-product-cards{display:grid;grid-template-columns:1fr;gap:12px}.ls-panel{padding:13px}.ls-input-row{grid-template-columns:1fr}.ls-request{grid-template-columns:1fr}.ls-actions button{flex:1}.ls-login{margin:5vh 14px;padding:22px}.ls-card-metrics{gap:6px}.ls-card-metrics>div{padding:8px}.ls-card-metrics strong{font-size:12px}}
       `}</style>
@@ -1849,7 +1944,7 @@ export default function App() {
               </div>
             )}
 
-            {activePage === 'dashboard' && isAdmin && (
+            {activePage === 'dashboard' && canViewPage('dashboard') && (
               <>
                 <div className="ls-grid">
                   <div className="ls-stat">
@@ -1876,7 +1971,7 @@ export default function App() {
                   </div>
                 </div>
                 {isAdmin && (
-                  <section className="ls-panel">
+                  <section className="ls-panel ls-import-panel">
                     <h2 style={{ marginTop: 0 }}>Dernier import historique</h2>
                     <div className="ls-muted">
                       Fichier :{' '}
@@ -2099,7 +2194,7 @@ export default function App() {
                     )}
                   </section>
                 )}
-                {negativeProducts.length > 0 && (
+                {negativeProducts.filter((product)=>matchesTableSearch(tableSearch, product.name, product.product_ref)).length > 0 && (
                   <section className="ls-panel">
                     <div className="ls-alert">
                       ⚠️ {negativeProducts.length} produit(s) ont une quantité
@@ -2118,7 +2213,7 @@ export default function App() {
                           </tr>
                         </thead>
                         <tbody>
-                          {negativeProducts.map((product) => (
+                          {negativeProducts.filter((product)=>matchesTableSearch(tableSearch, product.name, product.product_ref)).map((product) => (
                             <tr key={product.id}>
                               <td style={styles.td}>{product.product_ref}</td>
                               <td style={styles.td}>{product.name}</td>
@@ -2156,7 +2251,7 @@ export default function App() {
                     {[
                       { id: 'products', label: 'Tous les produits' },
                       { id: 'arina', label: 'Matelas Europ Arina' },
-                      { id: 'textiles', label: 'CHORA / VOILAGE / RIDEAU' },
+                      { id: 'chora', label: 'Chora' }, { id: 'voilage', label: 'Voilage' }, { id: 'rideau', label: 'Rideau' },
                       { id: 'photos', label: 'Photos des produits' },
                       { id: 'requests', label: 'Demandes clients' },
                       { id: 'notes', label: 'Notes clients' },
@@ -2174,7 +2269,7 @@ export default function App() {
               </>
             )}
 
-            {['products', 'arina', 'textiles'].includes(activePage) && (
+            {['products', 'arina', 'chora', 'voilage', 'rideau'].includes(activePage) && (
               <section className="ls-panel">
                 <div
                   style={{
@@ -2191,13 +2286,13 @@ export default function App() {
                         ? activePage === 'products'
                           ? 'المنتجات المتوفرة'
                           : activePage === 'arina'
-                          ? 'مراتب Europ Arina'
-                          : 'CHORA / VOILAGE / RIDEAU'
+                          ? 'Europ Arina + Africha Shop'
+                          : activePage === 'chora' ? 'Chora' : activePage === 'voilage' ? 'Voilage' : 'Rideau'
                         : activePage === 'products'
                         ? 'Produits en stock'
                         : activePage === 'arina'
-                        ? 'Matelas Europ Arina'
-                        : 'CHORA / VOILAGE / RIDEAU'}
+                        ? 'Europ Arina + Africha Shop'
+                        : activePage === 'chora' ? 'Chora' : activePage === 'voilage' ? 'Voilage' : 'Rideau'}
                     </h2>
                     <div className="ls-muted" style={{ marginTop: 5 }}>
                       {sortedProducts.length.toLocaleString('fr-FR')} produit(s)
@@ -2212,6 +2307,10 @@ export default function App() {
                   )}
                 </div>
                 <div className="ls-toolbar">
+                  <label className="ls-muted" style={{display:'flex',alignItems:'center',gap:6}}>
+                    <input type="checkbox" checked={showCodeColumn} onChange={(event)=>setShowCodeColumn(event.target.checked)} />
+                    {language === 'ar' ? 'إظهار المرجع' : 'Afficher référence'}
+                  </label>
                   <input
                     className="ls-search"
                     style={styles.field}
@@ -2288,7 +2387,7 @@ export default function App() {
                         setCurrentPage(1);
                       }}
                     >
-                      {[10, 20, 50, 100].map((size) => (
+                      {[10, 20, 100].map((size) => (
                         <option key={size} value={size}>
                           {size}
                         </option>
@@ -2300,14 +2399,14 @@ export default function App() {
                   <table className="ls-table">
                     <thead>
                       <tr>
-                        <th style={styles.th}>
+                        {showCodeColumn && <th style={styles.th}>
                           <button onClick={() => changeSort('product_ref')}>
                             {sortLabel(
                               'product_ref',
                               language === 'ar' ? 'المرجع' : 'Référence'
                             )}
                           </button>
-                        </th>
+                        </th>}
                         <th style={styles.th}>
                           <button onClick={() => changeSort('name')}>
                             {sortLabel(
@@ -2352,6 +2451,12 @@ export default function App() {
                     <tbody>{productTableRows()}</tbody>
                   </table>
                 </div>
+                {activePage === 'arina' && <section style={{marginTop:24}}>
+                  <h2 style={{marginTop:0}}>Africha Shop</h2>
+                  <div className="ls-muted" style={{marginBottom:10}}>{africhaSortedProducts.length} produit(s)</div>
+                  <div className="ls-table-wrap"><table className="ls-table"><thead><tr>{showCodeColumn && <th style={styles.th}><button onClick={()=>changeSort('product_ref')}>Référence</button></th>}<th style={styles.th}><button onClick={()=>changeSort('name')}>Désignation</button></th><th style={styles.th}><button onClick={()=>changeSort('current_quantity')}>Quantité</button></th><th style={styles.th}><button onClick={()=>changeSort('wholesale_price')}>Prix de gros</button></th><th style={styles.th}><button onClick={()=>changeSort('retail_price')}>Prix de détail</button></th><th style={styles.th}>Action</th></tr></thead><tbody>{africhaPageProducts.length ? africhaPageProducts.map((product)=><tr key={product.id}>{showCodeColumn && <td style={styles.td}>{product.product_ref}</td>}<td style={styles.td}><span style={{display:'inline-flex',alignItems:'center',gap:8}}>{photoFor(product.id)?<img src={photoFor(product.id)} alt="" onClick={()=>setPhotoPreview({url:photoFor(product.id),name:product.name})} style={{width:38,height:38,objectFit:'cover',borderRadius:6,cursor:'zoom-in'}}/>:isAdmin?<label style={{cursor:'pointer',border:'1px dashed #8294a8',padding:6,borderRadius:5}}>+<input type="file" accept="image/*" style={{display:'none'}} onChange={(e)=>{const f=e.target.files?.[0];if(f)uploadProductPhoto(f,product);e.target.value='';}}/></label>:null}{product.name}</span></td><td style={styles.td}>{isAdmin||showTraderQuantities?product.current_quantity:Number(product.current_quantity)<=0?'Rupture':'Disponible'}</td><td style={styles.td}>{product.wholesale_price??'—'} DA</td><td style={styles.td}>{product.retail_price??'—'} DA</td><td style={styles.td}>{productActions(product)}</td></tr>):<tr><td colSpan={showCodeColumn?6:5} style={styles.td}>Aucun produit Africha Shop trouvé.</td></tr>}</tbody></table></div>
+                  <div className="ls-pagination"><span className="ls-muted">Page {Math.min(currentPage,africhaTotalPages)} sur {africhaTotalPages}</span><div className="ls-toolbar" style={{margin:0}}><button style={styles.secondary} disabled={currentPage<=1} onClick={()=>setCurrentPage((n)=>Math.max(1,n-1))}>← Précédent</button><button style={styles.secondary} disabled={currentPage>=africhaTotalPages} onClick={()=>setCurrentPage((n)=>Math.min(africhaTotalPages,n+1))}>Suivant →</button></div></div>
+                </section>}
                 {productCards()}
                 <div className="ls-pagination">
                   <span className="ls-muted">
@@ -2386,6 +2491,7 @@ export default function App() {
                         ⚠️ Produits à quantité négative (
                         {negativeProducts.length})
                       </h3>
+                      <div className="ls-toolbar"><input className="ls-search" style={styles.field} value={tableSearch} onChange={(event)=>setTableSearch(event.target.value)} placeholder="Rechercher un produit négatif…" /></div>
                       <div className="ls-alert">
                         Les quantités négatives sont conservées telles
                         qu’importées. Vérifiez ces produits.
@@ -2394,7 +2500,7 @@ export default function App() {
                         <table className="ls-table">
                           <thead>
                             <tr>
-                              <th style={styles.th}>Référence</th>
+                              {showCodeColumn && <th style={styles.th}>Référence</th>}
                               <th style={styles.th}>Désignation</th>
                               <th style={styles.th}>Quantité</th>
                               <th style={styles.th}>Prix de gros</th>
@@ -2404,7 +2510,7 @@ export default function App() {
                           <tbody>
                             {negativeProducts.map((product) => (
                               <tr key={product.id}>
-                                <td style={styles.td}>{product.product_ref}</td>
+                                {showCodeColumn && <td style={styles.td}>{product.product_ref}</td>}
                                 <td style={styles.td}>{product.name}</td>
                                 <td
                                   style={{
@@ -2516,10 +2622,13 @@ export default function App() {
                         <img
                           src={photo.photo_url}
                           alt={product?.name || 'Photo produit'}
+                          onClick={() => setPhotoPreview({url:photo.photo_url,name:product?.name || 'Produit'})}
+                          onContextMenu={(event) => { if (isAdmin) { event.preventDefault(); setPhotoContext({ ...(product || {}), id: photo.product_id, product_id: photo.product_id }); } }} onTouchStart={()=>{if(isAdmin){const timer=setTimeout(()=>setPhotoContext({...(product||{}),id:photo.product_id,product_id:photo.product_id}),700);setPhotoPressTimer(timer);}}} onTouchEnd={()=>{if(photoPressTimer)clearTimeout(photoPressTimer);}}
+                          style={{cursor:'zoom-in'}}
                         />
                         <strong>{product?.name || 'Produit'}</strong>
                         <div className="ls-muted">
-                          Réf. {product?.product_ref || '—'}
+                          {showCodeColumn ? `Réf. ${product?.product_ref || '—'}` : ''}
                         </div>
                         <div
                           style={{
@@ -2540,6 +2649,7 @@ export default function App() {
                           Quantité :{' '}
                           <strong>{product?.current_quantity ?? '—'}</strong>
                         </div>
+                        {isAdmin && <div className="ls-toolbar"><label style={styles.secondary}>Changer la photo<input type="file" accept="image/*" style={{display:'none'}} onChange={(event)=>{const f=event.target.files?.[0];if(f && product) uploadProductPhoto(f,product);event.target.value='';}} /></label><button style={styles.secondary} onClick={()=>deleteProductPhoto(photo)}>Supprimer la photo</button></div>}
                       </article>
                     );
                   })}
@@ -2552,7 +2662,7 @@ export default function App() {
               </section>
             )}
 
-            {activePage === 'requests' && isAdmin && (
+            {activePage === 'requests' && canViewPage('requests') && (
               <section className="ls-panel">
                 <div
                   style={{
@@ -2920,7 +3030,7 @@ export default function App() {
               </section>
             )}
 
-            {activePage === 'history' && isAdmin && (
+            {activePage === 'history' && canViewPage('history') && (
               <section className="ls-panel">
                 <h2 style={{ marginTop: 0 }}>
                   Historique des modifications du stock
@@ -2975,7 +3085,7 @@ export default function App() {
               </section>
             )}
 
-            {activePage === 'analysis' && isAdmin && (
+            {activePage === 'analysis' && canViewPage('analysis') && (
               <section className="ls-panel">
                 <h2 style={{ marginTop: 0 }}>
                   Suggestions de réapprovisionnement urgent
@@ -3005,7 +3115,8 @@ export default function App() {
                     Désélectionner tout
                   </button>
                 </div>
-                {suggestedProducts.length === 0 ? (
+                <div className="ls-toolbar"><input className="ls-search" style={styles.field} value={tableSearch} onChange={(event)=>setTableSearch(event.target.value)} placeholder="Rechercher un produit dans les analyses…" /></div>
+                {suggestedProducts.filter((product)=>matchesTableSearch(tableSearch, product.name, product.product_ref)).length === 0 ? (
                   <p>
                     Aucune suggestion à afficher. Cliquez sur Actualiser les
                     suggestions.
@@ -3016,7 +3127,7 @@ export default function App() {
                       <thead>
                         <tr>
                           <th style={styles.th}>Sélection</th>
-                          <th style={styles.th}>Référence</th>
+                          {showCodeColumn && <th style={styles.th}>Référence</th>}
                           <th style={styles.th}>Désignation</th>
                           <th style={styles.th}>Dernière quantité CSV</th>
                           <th style={styles.th}>Baisse moyenne / jour</th>
@@ -3026,7 +3137,7 @@ export default function App() {
                         </tr>
                       </thead>
                       <tbody>
-                        {suggestedProducts.map((product) => (
+                        {suggestedProducts.filter((product)=>matchesTableSearch(tableSearch, product.name, product.product_ref)).map((product) => (
                           <tr key={product.id || product.product_ref}>
                             <td style={styles.td}>
                               <input
@@ -3045,9 +3156,7 @@ export default function App() {
                                 }
                               />
                             </td>
-                            <td style={styles.td}>
-                              {product.product_ref || '—'}
-                            </td>
+                            {showCodeColumn && <td style={styles.td}>{product.product_ref || '—'}</td>}
                             <td style={styles.td}>{product.name || '—'}</td>
                             <td style={styles.td}>
                               {product.current_quantity ?? '—'}
@@ -3089,6 +3198,7 @@ export default function App() {
                     du plus grand recul au plus petit.
                   </p>
                   <div className="ls-toolbar">
+                    <input className="ls-search" style={styles.field} value={tableSearch} onChange={(event)=>setTableSearch(event.target.value)} placeholder="Rechercher référence ou désignation…" />
                     <button
                       style={styles.secondary}
                       onClick={loadStockDecreaseAnalysis}
@@ -3118,7 +3228,7 @@ export default function App() {
                       <table className="ls-table">
                         <thead>
                           <tr>
-                            <th style={styles.th}>Référence</th>
+                            {showCodeColumn && <th style={styles.th}>Référence</th>}
                             <th style={styles.th}>Désignation</th>
                             <th style={styles.th}>Quantité précédente</th>
                             <th style={styles.th}>Quantité actuelle</th>
@@ -3129,16 +3239,12 @@ export default function App() {
                           </tr>
                         </thead>
                         <tbody>
-                          {stockDecreaseProducts.map((product) => (
+                          {stockDecreaseProducts.filter((product)=>matchesTableSearch(tableSearch, product.product_name, product.product_ref)).map((product) => (
                             <tr
                               key={`${product.product_id}-${product.previous_date}-${product.latest_snapshot_date}`}
                             >
-                              <td style={styles.td}>
-                                {product.product_ref || '—'}
-                              </td>
-                              <td style={styles.td}>
-                                {product.product_name || '—'}
-                              </td>
+                              {showCodeColumn && <td style={styles.td}>{product.product_ref || '—'}</td>}
+                              <td style={styles.td}>{product.product_name || '—'}</td>
                               <td style={styles.td}>
                                 {product.previous_quantity ?? '—'}
                               </td>
@@ -3173,7 +3279,7 @@ export default function App() {
               </section>
             )}
 
-            {activePage === 'hidden' && isAdmin && (
+            {activePage === 'hidden' && canViewPage('hidden') && (
               <section className="ls-panel">
                 <div
                   style={{
@@ -3197,23 +3303,24 @@ export default function App() {
                     Actualiser
                   </button>
                 </div>
-                {hiddenProducts.length === 0 ? (
+                <div className="ls-toolbar"><input className="ls-search" style={styles.field} value={tableSearch} onChange={(event)=>setTableSearch(event.target.value)} placeholder="Rechercher un produit masqué…" /></div>
+                {hiddenProducts.filter((product)=>matchesTableSearch(tableSearch, product.name, product.product_ref)).length === 0 ? (
                   <p>Aucun produit masqué.</p>
                 ) : (
                   <div className="ls-table-wrap">
                     <table className="ls-table">
                       <thead>
                         <tr>
-                          <th style={styles.th}>Référence</th>
+                          {showCodeColumn && <th style={styles.th}>Référence</th>}
                           <th style={styles.th}>Désignation</th>
                           <th style={styles.th}>Quantité</th>
                           <th style={styles.th}>Action</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {hiddenProducts.map((product) => (
+                        {hiddenProducts.filter((product)=>matchesTableSearch(tableSearch, product.name, product.product_ref)).map((product) => (
                           <tr key={product.id}>
-                            <td style={styles.td}>{product.product_ref}</td>
+                            {showCodeColumn && <td style={styles.td}>{product.product_ref}</td>}
                             <td style={styles.td}>{product.name}</td>
                             <td style={styles.td}>
                               {product.current_quantity}
@@ -3299,11 +3406,23 @@ export default function App() {
                   >
                     <option value="light">Clair</option>
                     <option value="dark">Sombre</option>
-                    <option value="system">
-                      Système (affiché clair pour le moment)
-                    </option>
+                    <option value="system">Système (selon l’appareil)</option>
                   </select>
                 </div>
+                <section className="ls-panel" style={{marginTop:16}}>
+                  <h3 style={{marginTop:0}}>Personnaliser mes pages</h3>
+                  <p className="ls-muted">Masquez les pages inutiles ou changez leur ordre. Le réglage est propre à votre compte.</p>
+                  {navItems.filter((item)=>(!item.adminOnly || isAdmin) && (!item.admin || isAdmin)).map((item,index)=>{
+                    const order = pageOrder.length ? [...pageOrder] : navItems.map(x=>x.id);
+                    const visible = !hiddenPages.includes(item.id);
+                    return <div key={item.id} style={{display:'flex',gap:10,alignItems:'center',padding:'8px 0',borderBottom:'1px solid #e2e8f0',flexWrap:'wrap'}}>
+                      <strong style={{flex:1}}>{item.label}</strong>
+                      <label style={{display:'flex',gap:5,alignItems:'center'}}><input type="checkbox" checked={visible} onChange={(e)=>savePagePreferences(order,e.target.checked?hiddenPages.filter(x=>x!==item.id):[...hiddenPages,item.id])}/>Afficher</label>
+                      <button style={styles.secondary} disabled={index===0} onClick={()=>{const i=order.indexOf(item.id);if(i>0){[order[i-1],order[i]]=[order[i],order[i-1]];savePagePreferences(order,hiddenPages);}}}>↑</button>
+                      <button style={styles.secondary} disabled={index===navItems.length-1} onClick={()=>{const i=order.indexOf(item.id);if(i>=0&&i<order.length-1){[order[i+1],order[i]]=[order[i],order[i+1]];savePagePreferences(order,hiddenPages);}}}>↓</button>
+                    </div>;
+                  })}
+                </section>
                 <section
                   style={{
                     padding: 16,
@@ -3524,6 +3643,7 @@ export default function App() {
                               <tr>
                                 <th style={styles.th}>Compte</th>
                                 <th style={styles.th}>Rôle</th>
+                                <th style={styles.th}>Accès aux sections</th>
                                 <th style={styles.th}>
                                   Tableau des stocks négatifs
                                 </th>
@@ -3553,6 +3673,11 @@ export default function App() {
                                       </div>
                                     </td>
                                     <td style={styles.td}>{account.role}</td>
+                                    <td style={styles.td}>
+                                      <details><summary>Sections</summary>
+                                        {navItems.filter((item)=>(!item.adminOnly || isAdmin) && (!item.admin || isAdmin)).map((item)=><label key={item.id} style={{display:'flex',gap:6,alignItems:'center',margin:'6px 0'}}><input type="checkbox" checked={account.page_permissions?.[item.id] !== false} onChange={(e)=>savePagePermission(account.id,item.id,e.target.checked)}/>{item.label}</label>)}
+                                      </details>
+                                    </td>
                                     <td style={styles.td}>
                                       <label
                                         style={{
@@ -3634,6 +3759,8 @@ export default function App() {
                 </button>
               </section>
             )}
+            {photoPreview && <div onClick={()=>setPhotoPreview(null)} style={{position:'fixed',inset:0,zIndex:1000,background:'rgba(0,0,0,.84)',display:'grid',placeItems:'center',padding:20,cursor:'zoom-out'}}><button onClick={()=>setPhotoPreview(null)} style={{position:'absolute',top:16,right:16,fontSize:24,padding:'8px 14px'}}>×</button><div onClick={(e)=>e.stopPropagation()} style={{maxWidth:'95vw',maxHeight:'90vh',textAlign:'center',color:'#fff'}}><img src={photoPreview.url} alt={photoPreview.name} style={{maxWidth:'90vw',maxHeight:'78vh',objectFit:'contain',borderRadius:10}}/><div style={{marginTop:10,fontWeight:700}}>{photoPreview.name}</div></div></div>}
+            {photoContext && isAdmin && <div style={{position:'fixed',inset:0,zIndex:1001,background:'rgba(0,0,0,.35)',display:'grid',placeItems:'center'}} onClick={()=>setPhotoContext(null)}><div onClick={(e)=>e.stopPropagation()} style={{background:'#fff',padding:20,borderRadius:12,display:'grid',gap:10,minWidth:230,color:'#102b46'}}><strong>Gérer la photo</strong><button style={styles.secondary} onClick={()=>{setPhotoProductId(photoContext.id);setPhotoContext(null);navigateTo('photos');}}>Changer la photo</button><button style={styles.secondary} onClick={()=>deleteProductPhoto(photoContext)}>Supprimer la photo</button><button style={styles.secondary} onClick={()=>setPhotoContext(null)}>Annuler</button></div></div>}
             <div
               className="ls-muted"
               style={{ textAlign: 'center', marginTop: 24 }}
