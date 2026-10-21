@@ -11,6 +11,12 @@ export default function App() {
   const [suggestedProducts, setSuggestedProducts] = useState([]);
   const [stockDecreaseProducts, setStockDecreaseProducts] = useState([]);
   const [stockDecreaseLoading, setStockDecreaseLoading] = useState(false);
+  const [decreaseSearch, setDecreaseSearch] = useState('');
+  const [decreasePage, setDecreasePage] = useState(1);
+  const [decreasePageSize, setDecreasePageSize] = useState(20);
+  const [decreaseShowCode, setDecreaseShowCode] = useState(true);
+  const [decreaseSortKey, setDecreaseSortKey] = useState('quantity_decreased');
+  const [decreaseSortDirection, setDecreaseSortDirection] = useState('desc');
   const [selectedSuggestions, setSelectedSuggestions] = useState([]);
   const [stockHistory, setStockHistory] = useState([]);
   const [replenishmentRequests, setReplenishmentRequests] = useState([]);
@@ -28,9 +34,19 @@ export default function App() {
   const [hiddenPages, setHiddenPages] = useState([]);
   const [pagePermissions, setPagePermissions] = useState({});
   const [photoPreview, setPhotoPreview] = useState(null);
-  const [photoContext, setPhotoContext] = useState(null);
-  const [photoPressTimer, setPhotoPressTimer] = useState(null);
   const [tableSearch, setTableSearch] = useState('');
+  const [hiddenSearch, setHiddenSearch] = useState('');
+  const [hiddenPage, setHiddenPage] = useState(1);
+  const [hiddenPageSize, setHiddenPageSize] = useState(20);
+  const [hiddenShowCode, setHiddenShowCode] = useState(true);
+  const [hiddenSortKey, setHiddenSortKey] = useState('name');
+  const [hiddenSortDirection, setHiddenSortDirection] = useState('asc');
+  const [analysisSearch, setAnalysisSearch] = useState('');
+  const [analysisPage, setAnalysisPage] = useState(1);
+  const [analysisPageSize, setAnalysisPageSize] = useState(20);
+  const [analysisSortKey, setAnalysisSortKey] = useState('days_remaining');
+  const [analysisSortDirection, setAnalysisSortDirection] = useState('asc');
+  const [analysisShowCode, setAnalysisShowCode] = useState(true);
   const [activePage, setActivePage] = useState('dashboard');
   const [searchTerm, setSearchTerm] = useState('');
   const [productPhotos, setProductPhotos] = useState([]);
@@ -982,6 +998,23 @@ export default function App() {
     }
   }
 
+  async function updateAccountRole(profileId, role) {
+    if (!['trader', 'viewer', 'sous-admin'].includes(role)) return;
+    const previous = accountPermissions.find((item) => item.id === profileId)?.role;
+    setAccountPermissions((current) => current.map((item) => item.id === profileId ? { ...item, role } : item));
+    setPermissionSavingId(profileId + ':role');
+    try {
+      const { error } = await supabase.from('profiles').update({ role }).eq('id', profileId);
+      if (error) throw error;
+      setPermissionsMessage('Rôle du compte mis à jour : ' + role);
+    } catch (error) {
+      setAccountPermissions((current) => current.map((item) => item.id === profileId ? { ...item, role: previous } : item));
+      setPermissionsMessage('Erreur changement de rôle : ' + error.message);
+    } finally {
+      setPermissionSavingId('');
+    }
+  }
+
   async function updateAccountPermission(profileId, field, value) {
     const allowedFields = [
       'can_view_negative_stock',
@@ -1227,7 +1260,6 @@ export default function App() {
       }
       const { error } = await supabase.from('product_photos').delete().eq('product_id', productId);
       if (error) throw error;
-      setPhotoContext(null);
       setMessage('Photo supprimée. Le produit est conservé.');
       await loadProductPhotos();
     } catch (error) { setMessage('Erreur suppression photo : ' + error.message); }
@@ -1677,7 +1709,7 @@ export default function App() {
         {showCodeColumn && <td style={styles.td}><strong>{product.product_ref}</strong></td>}
         <td style={styles.td}>
           <span style={{display:'inline-flex',alignItems:'center',gap:8}}>
-            {photoFor(product.id) ? <img src={photoFor(product.id)} alt="" onClick={()=>setPhotoPreview({url:photoFor(product.id),name:product.name})} style={{width:38,height:38,objectFit:'cover',borderRadius:6,cursor:'zoom-in'}} onContextMenu={(e)=>{if(isAdmin){e.preventDefault();setPhotoContext(product);}}} onTouchStart={()=>{if(isAdmin){const timer=setTimeout(()=>setPhotoContext(product),700);setPhotoPressTimer(timer);}}} onTouchEnd={()=>{if(photoPressTimer)clearTimeout(photoPressTimer);}}/> : isAdmin && activePage !== 'products' ? <label title="Ajouter une photo" style={{width:30,height:30,display:'inline-grid',placeItems:'center',border:'1px dashed #8294a8',borderRadius:6,cursor:'pointer',fontWeight:800}}>+<input type="file" accept="image/*" style={{display:'none'}} onChange={(e)=>{const f=e.target.files?.[0];if(f) uploadProductPhoto(f,product);e.target.value='';}} /></label> : null}
+            {photoFor(product.id) ? <img src={photoFor(product.id)} alt="" onClick={()=>setPhotoPreview({url:photoFor(product.id),name:product.name})} style={{width:38,height:38,objectFit:'cover',borderRadius:6,cursor:'zoom-in'}}/> : null}
             <span>{product.name}{activePage === 'arina' && normalizeName(product.name).includes('AFRICHA') ? <small style={{display:'block',color:'#64748b'}}>Africha Shop</small> : activePage === 'arina' ? <small style={{display:'block',color:'#64748b'}}>Europ Arina</small> : null}</span>
           </span>
         </td>
@@ -1720,7 +1752,7 @@ export default function App() {
               <div style={{ color: '#64748b', fontSize: 12 }}>
                 Réf. {product.product_ref}
               </div>
-              <strong style={{display:'flex',alignItems:'center',gap:8}}>{photoFor(product.id) ? <img src={photoFor(product.id)} alt="" onClick={()=>setPhotoPreview({url:photoFor(product.id),name:product.name})} onContextMenu={(e)=>{if(isAdmin){e.preventDefault();setPhotoContext(product);}}} style={{width:42,height:42,objectFit:'cover',borderRadius:6,cursor:'zoom-in'}}/> : isAdmin && activePage !== 'products' ? <label style={{cursor:'pointer',border:'1px dashed #8294a8',padding:6,borderRadius:5}}>+<input type="file" accept="image/*" style={{display:'none'}} onChange={(e)=>{const f=e.target.files?.[0];if(f)uploadProductPhoto(f,product);e.target.value='';}}/></label> : null}{product.name}</strong>
+              <strong style={{display:'flex',alignItems:'center',gap:8}}>{photoFor(product.id) ? <img src={photoFor(product.id)} alt="" onClick={()=>setPhotoPreview({url:photoFor(product.id),name:product.name})} style={{width:42,height:42,objectFit:'cover',borderRadius:6,cursor:'zoom-in'}}/> : null}{product.name}</strong>
             </div>
             <div className="ls-card-metrics">
               <div>
@@ -1768,7 +1800,7 @@ export default function App() {
         *{box-sizing:border-box} body{margin:0;background:#f3f6fa;font-family:Inter,Arial,sans-serif;color:#102b46}
         .ls-app{min-height:100vh;background:#f3f6fa;color:#102b46}.ls-login{max-width:440px;margin:7vh auto;padding:30px;background:#fff;border:1px solid #e2e8f0;border-radius:20px;box-shadow:0 15px 45px rgba(16,43,70,.09)}
         .ls-brand{display:flex;align-items:center;gap:12px}.ls-brand-mark{display:grid;place-items:center;background:#fff;color:#102b46;border-radius:12px;width:42px;height:42px;font-weight:900;font-size:19px}.ls-layout{display:grid;grid-template-columns:250px minmax(0,1fr);min-height:100vh}.ls-sidebar{background:#102b46;color:#fff;padding:22px 14px;display:flex;flex-direction:column;gap:20px}.ls-nav{display:flex;flex-direction:column;gap:5px}.ls-nav button{display:flex;gap:11px;align-items:center;width:100%;border:0;border-radius:10px;padding:12px;color:#d8e4f1;background:transparent;text-align:left;cursor:pointer;font-weight:600}.ls-nav button.active,.ls-nav button:hover{background:#214361;color:#fff}.ls-nav .ls-count{margin-left:auto;background:#e5484d;color:white;border-radius:20px;padding:2px 7px;font-size:11px}.ls-main{min-width:0;padding:26px clamp(14px,3vw,34px) 50px}.ls-topbar{display:flex;justify-content:space-between;align-items:center;gap:14px;margin-bottom:24px}.ls-panel{background:white;border:1px solid #e2e8f0;border-radius:14px;padding:18px;margin-bottom:18px;min-width:0}.ls-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin-bottom:18px}.ls-stat{padding:18px;background:white;border:1px solid #e2e8f0;border-radius:14px}.ls-stat small{display:block;color:#64748b;margin-bottom:8px}.ls-stat strong{font-size:25px}.ls-toolbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:12px 0 16px}.ls-search{flex:1;min-width:200px}.ls-table-wrap{width:100%;overflow-x:auto;border:1px solid #e2e8f0;border-radius:12px}.ls-table{width:100%;border-collapse:collapse;min-width:850px;background:white}.ls-table th button{border:0;background:transparent;color:inherit;font:inherit;cursor:pointer;padding:0}.ls-actions{display:flex;gap:7px;flex-wrap:wrap}.ls-actions button{font-size:12px;padding:8px 9px}.ls-pagination{display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap;margin-top:14px}.ls-product-cards{display:none}.ls-photo-placeholder{width:78px;height:78px;display:grid;place-items:center;border-radius:10px;background:#edf2f7;color:#9aaabd;font-weight:900}.ls-card-metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:16px 0}.ls-card-metrics>div{background:#f5f8fb;border-radius:9px;padding:10px;min-width:0}.ls-card-metrics small{display:block;color:#64748b;font-size:11px;margin-bottom:5px}.ls-card-metrics strong{font-size:13px;overflow-wrap:anywhere}.ls-alert{padding:12px 14px;border-radius:10px;background:#fff2e0;color:#9a4b00;border:1px solid #ffddb0;margin:12px 0}.ls-message{padding:12px 14px;background:#eaf2ff;border:1px solid #cbdcf5;border-radius:10px;margin-bottom:16px;overflow-wrap:anywhere}.ls-request{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;padding:14px 0;border-top:1px solid #edf1f5}.ls-muted{color:#64748b;font-size:13px}.ls-photo-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:14px}.ls-photo-grid img{width:100%;aspect-ratio:1/1;object-fit:cover;border-radius:10px;background:#f1f5f9}.ls-input-row{display:grid;grid-template-columns:1fr 1fr auto;gap:10px;align-items:end}.ls-footer-note{color:#8ba0b5;font-size:12px;line-height:1.5;margin-top:auto;padding:8px}
-        .ls-app .ls-muted{color:#526477}.ls-app h1,.ls-app h2,.ls-app h3,.ls-app strong{color:inherit}.ls-app section,.ls-app article{color:#102b46}.ls-app .ls-panel strong{color:inherit}.ls-app .ls-panel h2,.ls-app .ls-panel h3{color:#102b46}.ls-app .ls-panel .ls-muted{color:#475569}.ls-import-panel{background:#ffffff!important;color:#102b46!important}.ls-import-panel h2,.ls-import-panel strong,.ls-import-panel .ls-muted{color:#243b53!important}.ls-dark .ls-import-panel{background:#182431!important;color:#e7edf4!important}.ls-dark .ls-import-panel h2,.ls-dark .ls-import-panel strong,.ls-dark .ls-import-panel .ls-muted{color:#e7edf4!important}.ls-dark{background:#101820!important;color:#e7edf4!important}.ls-dark .ls-panel h2,.ls-dark .ls-panel h3{color:#e7edf4!important}.ls-dark .ls-panel,.ls-dark .ls-panel strong,.ls-dark .ls-panel label{color:#e7edf4!important}.ls-dark .ls-panel [style*='background: rgb(245, 248, 251)'],.ls-dark .ls-panel [style*='background: rgb(245, 248, 251)']{background:#223242!important;color:#e7edf4!important}.ls-dark .ls-app .ls-muted{color:#bdc9d6!important}.ls-dark .ls-main,.ls-dark .ls-panel,.ls-dark .ls-stat,.ls-dark .ls-table,.ls-dark .ls-login{background:#182431!important;color:#e7edf4!important;border-color:#334456!important}.ls-dark .ls-table-wrap{border-color:#334456!important}.ls-dark .ls-app,.ls-dark .ls-panel,.ls-dark .ls-stat,.ls-dark .ls-table,.ls-dark .ls-login{color:#e7edf4!important}.ls-dark .ls-panel [style*='background: rgb(245, 248, 251)'],.ls-dark .ls-panel [style*='background: rgb(255, 255, 255)'],.ls-dark .ls-panel [style*='background: white']{background:#223242!important;color:#e7edf4!important}.ls-dark .ls-panel .ls-muted{color:#bdc9d6!important}.ls-dark [style*='background: rgb(245, 248, 251)'],.ls-dark [style*='background: rgb(255, 255, 255)'],.ls-dark [style*='background: white']{background:#182431!important;color:#e7edf4!important}.ls-dark .ls-alert{background:#3b2b19!important;color:#ffd7a8!important}.ls-dark .ls-table td,.ls-dark .ls-table th,.ls-dark article{border-color:#334456!important;color:#e7edf4}.ls-dark .ls-table td[style*='#102b46']{color:#e7edf4!important}.ls-dark .ls-card-metrics strong[style*='#102b46']{color:#e7edf4!important}.ls-dark input,.ls-dark select,.ls-dark textarea{background:#111b25!important;color:#e7edf4!important;border-color:#405266!important}.ls-dark .ls-card-metrics>div,.ls-dark [style*="background: rgb(245, 248, 251)"],.ls-dark [style*="background: rgb(245, 248, 251)"]{background:#223242!important;color:#e7edf4!important}.ls-dark .ls-muted{color:#a9b8c8!important}.ls-dark .ls-message{background:#20344a!important;color:#e7edf4!important;border-color:#405266!important}
+        .ls-app .ls-muted{color:#526477}.ls-app h1,.ls-app h2,.ls-app h3,.ls-app strong{color:inherit}.ls-app section,.ls-app article{color:#102b46}.ls-app .ls-panel strong{color:inherit}.ls-app .ls-panel h2,.ls-app .ls-panel h3{color:#102b46}.ls-app .ls-panel .ls-muted{color:#475569}.ls-import-panel{background:#ffffff!important;color:#102b46!important}.ls-import-panel h2,.ls-import-panel strong,.ls-import-panel .ls-muted{color:#243b53!important}.ls-dark .ls-import-panel{background:#182431!important;color:#e7edf4!important}.ls-dark .ls-import-panel h2,.ls-dark .ls-import-panel strong,.ls-dark .ls-import-panel .ls-muted{color:#e7edf4!important}.ls-dark{background:#101820!important;color:#e7edf4!important}.ls-dark .ls-panel h2,.ls-dark .ls-panel h3{color:#e7edf4!important}.ls-dark .ls-panel,.ls-dark .ls-panel strong,.ls-dark .ls-panel label{color:#e7edf4!important}.ls-dark .ls-panel [style*='background: rgb(245, 248, 251)'],.ls-dark .ls-panel [style*='background: rgb(245, 248, 251)']{background:#223242!important;color:#e7edf4!important}.ls-dark .ls-app .ls-muted{color:#bdc9d6!important}.ls-dark .ls-main,.ls-dark .ls-panel,.ls-dark .ls-stat,.ls-dark .ls-table,.ls-dark .ls-login{background:#182431!important;color:#e7edf4!important;border-color:#334456!important}.ls-dark .ls-table-wrap{border-color:#334456!important}.ls-dark .ls-app,.ls-dark .ls-panel,.ls-dark .ls-stat,.ls-dark .ls-table,.ls-dark .ls-login{color:#e7edf4!important}.ls-dark .ls-panel [style*='background: rgb(245, 248, 251)'],.ls-dark .ls-panel [style*='background: rgb(255, 255, 255)'],.ls-dark .ls-panel [style*='background: white']{background:#223242!important;color:#e7edf4!important}.ls-dark .ls-panel .ls-muted{color:#bdc9d6!important}.ls-dark [style*='background: rgb(245, 248, 251)'],.ls-dark [style*='background: rgb(255, 255, 255)'],.ls-dark [style*='background: white']{background:#182431!important;color:#e7edf4!important}.ls-dark .ls-alert{background:#3b2b19!important;color:#ffd7a8!important}.ls-dark .ls-table td,.ls-dark .ls-table th,.ls-dark article{border-color:#334456!important;color:#e7edf4}.ls-dark .ls-table td[style*='#102b46']{color:#e7edf4!important}.ls-dark .ls-table td[style*='color: rgb(16, 43, 70)'],.ls-dark .ls-table td[style*='color: #102b46']{color:#e7edf4!important}.ls-dark .ls-table td[style*='color: rgb(180, 35, 24)'],.ls-dark .ls-table td[style*='color: #b42318']{color:#ff9b9b!important}.ls-dark .ls-card-metrics strong[style*='#102b46']{color:#e7edf4!important}.ls-dark input,.ls-dark select,.ls-dark textarea{background:#111b25!important;color:#e7edf4!important;border-color:#405266!important}.ls-dark .ls-card-metrics>div,.ls-dark [style*="background: rgb(245, 248, 251)"],.ls-dark [style*="background: rgb(245, 248, 251)"]{background:#223242!important;color:#e7edf4!important}.ls-dark .ls-muted{color:#a9b8c8!important}.ls-dark .ls-message{background:#20344a!important;color:#e7edf4!important;border-color:#405266!important}
         @media(max-width:1050px){.ls-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.ls-layout{grid-template-columns:215px minmax(0,1fr)}}
         @media(max-width:760px){.ls-layout{display:block}.ls-sidebar{position:sticky;top:0;z-index:10;padding:10px 12px;gap:10px}.ls-sidebar-head{display:flex;justify-content:space-between;align-items:center}.ls-nav{flex-direction:row;overflow-x:auto;gap:6px;padding-bottom:2px;scrollbar-width:thin}.ls-nav button{white-space:nowrap;width:auto;flex-shrink:0;padding:10px 12px;font-size:12px}.ls-nav button .ls-nav-text{display:inline}.ls-footer-note{display:none}.ls-main{padding:16px 12px 38px}.ls-topbar{align-items:flex-start;flex-direction:column;margin-bottom:16px}.ls-topbar-actions{width:100%;display:flex;gap:8px;flex-wrap:wrap}.ls-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.ls-stat{padding:13px}.ls-stat strong{font-size:21px}.ls-table-wrap:not(.ls-force-table){display:none}.ls-product-cards{display:grid;grid-template-columns:1fr;gap:12px}.ls-panel{padding:13px}.ls-input-row{grid-template-columns:1fr}.ls-request{grid-template-columns:1fr}.ls-actions button{flex:1}.ls-login{margin:5vh 14px;padding:22px}.ls-card-metrics{gap:6px}.ls-card-metrics>div{padding:8px}.ls-card-metrics strong{font-size:12px}}
       `}</style>
@@ -2462,7 +2494,7 @@ export default function App() {
                 {activePage === 'arina' && <section style={{marginTop:24}}>
                   <h2 style={{marginTop:0}}>Africha Shop</h2>
                   <div className="ls-muted" style={{marginBottom:10}}>{africhaSortedProducts.length} produit(s)</div>
-                  <div className="ls-table-wrap"><table className="ls-table"><thead><tr>{showCodeColumn && <th style={styles.th}><button onClick={()=>changeSort('product_ref')}>Référence</button></th>}<th style={styles.th}><button onClick={()=>changeSort('name')}>Désignation</button></th><th style={styles.th}><button onClick={()=>changeSort('current_quantity')}>Quantité</button></th><th style={styles.th}><button onClick={()=>changeSort('wholesale_price')}>Prix de gros</button></th><th style={styles.th}><button onClick={()=>changeSort('retail_price')}>Prix de détail</button></th><th style={styles.th}>Action</th></tr></thead><tbody>{africhaPageProducts.length ? africhaPageProducts.map((product)=><tr key={product.id}>{showCodeColumn && <td style={styles.td}>{product.product_ref}</td>}<td style={styles.td}><span style={{display:'inline-flex',alignItems:'center',gap:8}}>{photoFor(product.id)?<img src={photoFor(product.id)} alt="" onClick={()=>setPhotoPreview({url:photoFor(product.id),name:product.name})} style={{width:38,height:38,objectFit:'cover',borderRadius:6,cursor:'zoom-in'}}/>:isAdmin?<label style={{cursor:'pointer',border:'1px dashed #8294a8',padding:6,borderRadius:5}}>+<input type="file" accept="image/*" style={{display:'none'}} onChange={(e)=>{const f=e.target.files?.[0];if(f)uploadProductPhoto(f,product);e.target.value='';}}/></label>:null}{product.name}</span></td><td style={styles.td}>{isAdmin||showTraderQuantities?product.current_quantity:Number(product.current_quantity)<=0?'Rupture':'Disponible'}</td><td style={styles.td}>{product.wholesale_price??'—'} DA</td><td style={styles.td}>{product.retail_price??'—'} DA</td><td style={styles.td}>{productActions(product)}</td></tr>):<tr><td colSpan={showCodeColumn?6:5} style={styles.td}>Aucun produit Africha Shop trouvé.</td></tr>}</tbody></table></div>
+                  <div className="ls-table-wrap"><table className="ls-table"><thead><tr>{showCodeColumn && <th style={styles.th}><button onClick={()=>changeSort('product_ref')}>Référence</button></th>}<th style={styles.th}><button onClick={()=>changeSort('name')}>Désignation</button></th><th style={styles.th}><button onClick={()=>changeSort('current_quantity')}>Quantité</button></th><th style={styles.th}><button onClick={()=>changeSort('wholesale_price')}>Prix de gros</button></th><th style={styles.th}><button onClick={()=>changeSort('retail_price')}>Prix de détail</button></th><th style={styles.th}>Action</th></tr></thead><tbody>{africhaPageProducts.length ? africhaPageProducts.map((product)=><tr key={product.id}>{showCodeColumn && <td style={styles.td}>{product.product_ref}</td>}<td style={styles.td}><span style={{display:'inline-flex',alignItems:'center',gap:8}}>{photoFor(product.id)?<img src={photoFor(product.id)} alt="" onClick={()=>setPhotoPreview({url:photoFor(product.id),name:product.name})} style={{width:38,height:38,objectFit:'cover',borderRadius:6,cursor:'zoom-in'}}/>:null}{product.name}</span></td><td style={styles.td}>{isAdmin||showTraderQuantities?product.current_quantity:Number(product.current_quantity)<=0?'Rupture':'Disponible'}</td><td style={styles.td}>{product.wholesale_price??'—'} DA</td><td style={styles.td}>{product.retail_price??'—'} DA</td><td style={styles.td}>{productActions(product)}</td></tr>):<tr><td colSpan={showCodeColumn?6:5} style={styles.td}>Aucun produit Africha Shop trouvé.</td></tr>}</tbody></table></div>
                   <div className="ls-pagination"><span className="ls-muted">Page {Math.min(currentPage,africhaTotalPages)} sur {africhaTotalPages}</span><div className="ls-toolbar" style={{margin:0}}><button style={styles.secondary} disabled={currentPage<=1} onClick={()=>setCurrentPage((n)=>Math.max(1,n-1))}>← Précédent</button><button style={styles.secondary} disabled={currentPage>=africhaTotalPages} onClick={()=>setCurrentPage((n)=>Math.min(africhaTotalPages,n+1))}>Suivant →</button></div></div>
                 </section>}
                 {productCards()}
@@ -2631,7 +2663,7 @@ export default function App() {
                           src={photo.photo_url}
                           alt={product?.name || 'Photo produit'}
                           onClick={() => setPhotoPreview({url:photo.photo_url,name:product?.name || 'Produit'})}
-                          onContextMenu={(event) => { if (isAdmin) { event.preventDefault(); setPhotoContext({ ...(product || {}), id: photo.product_id, product_id: photo.product_id }); } }} onTouchStart={()=>{if(isAdmin){const timer=setTimeout(()=>setPhotoContext({...(product||{}),id:photo.product_id,product_id:photo.product_id}),700);setPhotoPressTimer(timer);}}} onTouchEnd={()=>{if(photoPressTimer)clearTimeout(photoPressTimer);}}
+                         
                           style={{cursor:'zoom-in'}}
                         />
                         <strong>{product?.name || 'Produit'}</strong>
@@ -3123,8 +3155,15 @@ export default function App() {
                     Désélectionner tout
                   </button>
                 </div>
-                <div className="ls-toolbar"><input className="ls-search" style={styles.field} value={tableSearch} onChange={(event)=>setTableSearch(event.target.value)} placeholder="Rechercher un produit dans les analyses…" /></div>
-                {suggestedProducts.filter((product)=>matchesTableSearch(tableSearch, product.name, product.product_ref)).length === 0 ? (
+                <div className="ls-toolbar" style={{flexWrap:'wrap'}}>
+                  <input className="ls-search" style={styles.field} value={analysisSearch} onChange={(event)=>{setAnalysisSearch(event.target.value);setAnalysisPage(1);}} placeholder="Rechercher dans les suggestions…" />
+                  <label className="ls-muted"><input type="checkbox" checked={analysisShowCode} onChange={(event)=>setAnalysisShowCode(event.target.checked)} /> Afficher référence</label>
+                  <label className="ls-muted">Lignes par page <select style={styles.field} value={analysisPageSize} onChange={(event)=>{setAnalysisPageSize(Number(event.target.value));setAnalysisPage(1);}}>{[10,20,100].map(n=><option key={n} value={n}>{n}</option>)}</select></label>
+                  <label className="ls-muted">Trier par <select style={styles.field} value={analysisSortKey} onChange={(event)=>{setAnalysisSortKey(event.target.value);setAnalysisPage(1);}}><option value="name">Désignation</option><option value="product_ref">Référence</option><option value="current_quantity">Dernière quantité CSV</option><option value="average_daily_decrease">Baisse moyenne / jour</option><option value="days_remaining">Jours restants estimés</option><option value="suggested_order_quantity">Quantité à commander</option><option value="last_snapshot_date">Date du dernier relevé</option></select></label>
+                  <button style={styles.secondary} onClick={()=>{setAnalysisSortDirection(d=>d==='asc'?'desc':'asc');setAnalysisPage(1);}}>{analysisSortDirection==='asc'?'Croissant ▲':'Décroissant ▼'}</button>
+                </div>
+                {(() => { const filtered = suggestedProducts.filter(p=>matchesTableSearch(analysisSearch,p.name,p.product_ref)); const sorted = [...filtered].sort((a,b)=>{const av=a[analysisSortKey],bv=b[analysisSortKey]; const numeric=['current_quantity','average_daily_decrease','days_remaining','suggested_order_quantity'].includes(analysisSortKey); let c=numeric?(av==null?Number.POSITIVE_INFINITY:Number(av))-(bv==null?Number.POSITIVE_INFINITY:Number(bv)):String(av??'').localeCompare(String(bv??''),'fr',{numeric:true,sensitivity:'base'}); return analysisSortDirection==='asc'?c:-c;}); const pages=Math.max(1,Math.ceil(sorted.length/analysisPageSize)); const safe=Math.min(analysisPage,pages); const rows=sorted.slice((safe-1)*analysisPageSize,safe*analysisPageSize); return <>
+                {filtered.length === 0 ? (
                   <p>
                     Aucune suggestion à afficher. Cliquez sur Actualiser les
                     suggestions.
@@ -3135,7 +3174,7 @@ export default function App() {
                       <thead>
                         <tr>
                           <th style={styles.th}>Sélection</th>
-                          {showCodeColumn && <th style={styles.th}>Référence</th>}
+                          {analysisShowCode && <th style={styles.th}>Référence</th>}
                           <th style={styles.th}>Désignation</th>
                           <th style={styles.th}>Dernière quantité CSV</th>
                           <th style={styles.th}>Baisse moyenne / jour</th>
@@ -3145,7 +3184,7 @@ export default function App() {
                         </tr>
                       </thead>
                       <tbody>
-                        {suggestedProducts.filter((product)=>matchesTableSearch(tableSearch, product.name, product.product_ref)).map((product) => (
+                        {rows.map((product) => (
                           <tr key={product.id || product.product_ref}>
                             <td style={styles.td}>
                               <input
@@ -3164,7 +3203,7 @@ export default function App() {
                                 }
                               />
                             </td>
-                            {showCodeColumn && <td style={styles.td}>{product.product_ref || '—'}</td>}
+                            {analysisShowCode && <td style={styles.td}>{product.product_ref || '—'}</td>}
                             <td style={styles.td}>{product.name || '—'}</td>
                             <td style={styles.td}>
                               {product.current_quantity ?? '—'}
@@ -3189,6 +3228,8 @@ export default function App() {
                     </table>
                   </div>
                 )}
+                <div className="ls-pagination"><span className="ls-muted">Page {Math.min(analysisPage, Math.max(1, Math.ceil(suggestedProducts.filter(p=>matchesTableSearch(analysisSearch,p.name,p.product_ref)).length/analysisPageSize)))} sur {Math.max(1, Math.ceil(suggestedProducts.filter(p=>matchesTableSearch(analysisSearch,p.name,p.product_ref)).length/analysisPageSize))}</span><div className="ls-toolbar" style={{margin:0}}><button style={styles.secondary} disabled={analysisPage<=1} onClick={()=>setAnalysisPage(p=>Math.max(1,p-1))}>← Précédent</button><button style={styles.secondary} disabled={analysisPage>=Math.max(1,Math.ceil(suggestedProducts.filter(p=>matchesTableSearch(analysisSearch,p.name,p.product_ref)).length/analysisPageSize))} onClick={()=>setAnalysisPage(p=>Math.min(Math.max(1,Math.ceil(suggestedProducts.filter(p=>matchesTableSearch(analysisSearch,p.name,p.product_ref)).length/analysisPageSize)),p+1))}>Suivant →</button></div></div>
+                </>; })()}
 
                 <div
                   style={{
@@ -3205,8 +3246,12 @@ export default function App() {
                     Seuls les produits dont la quantité a baissé sont affichés,
                     du plus grand recul au plus petit.
                   </p>
-                  <div className="ls-toolbar">
-                    <input className="ls-search" style={styles.field} value={tableSearch} onChange={(event)=>setTableSearch(event.target.value)} placeholder="Rechercher référence ou désignation…" />
+                  <div className="ls-toolbar" style={{flexWrap:'wrap'}}>
+                    <input className="ls-search" style={styles.field} value={decreaseSearch} onChange={(event)=>{setDecreaseSearch(event.target.value);setDecreasePage(1);}} placeholder="Rechercher référence ou désignation…" />
+                    <label className="ls-muted"><input type="checkbox" checked={decreaseShowCode} onChange={(event)=>setDecreaseShowCode(event.target.checked)} /> Afficher référence</label>
+                    <label className="ls-muted">Lignes par page <select style={styles.field} value={decreasePageSize} onChange={(event)=>{setDecreasePageSize(Number(event.target.value));setDecreasePage(1);}}>{[10,20,100].map(n=><option key={n} value={n}>{n}</option>)}</select></label>
+                    <label className="ls-muted">Trier par <select style={styles.field} value={decreaseSortKey} onChange={(event)=>{setDecreaseSortKey(event.target.value);setDecreasePage(1);}}><option value="product_name">Désignation</option><option value="product_ref">Référence</option><option value="previous_quantity">Quantité précédente</option><option value="current_quantity">Quantité actuelle</option><option value="quantity_decreased">Baisse de quantité</option><option value="previous_date">Date précédente</option><option value="latest_snapshot_date">Dernière date</option><option value="days_between">Jours entre les fichiers</option></select></label>
+                    <button style={styles.secondary} onClick={()=>setDecreaseSortDirection(d=>d==='asc'?'desc':'asc')}>{decreaseSortDirection==='asc'?'Croissant ▲':'Décroissant ▼'}</button>
                     <button
                       style={styles.secondary}
                       onClick={loadStockDecreaseAnalysis}
@@ -3232,11 +3277,13 @@ export default function App() {
                       CSV, ou cliquez sur « Actualiser les baisses de stock ».
                     </p>
                   ) : (
+                    <>
+                    {(() => { const filtered=stockDecreaseProducts.filter(product=>matchesTableSearch(decreaseSearch,product.product_name,product.product_ref)); const sorted=[...filtered].sort((a,b)=>{const av=a[decreaseSortKey],bv=b[decreaseSortKey];const numeric=['previous_quantity','current_quantity','quantity_decreased','days_between'].includes(decreaseSortKey);const c=numeric?(Number(av)||0)-(Number(bv)||0):String(av??'').localeCompare(String(bv??''),'fr',{numeric:true,sensitivity:'base'});return decreaseSortDirection==='asc'?c:-c;});const pages=Math.max(1,Math.ceil(sorted.length/decreasePageSize));const safePage=Math.min(decreasePage,pages);const rows=sorted.slice((safePage-1)*decreasePageSize,safePage*decreasePageSize);return <>
                     <div className="ls-table-wrap">
                       <table className="ls-table">
                         <thead>
                           <tr>
-                            {showCodeColumn && <th style={styles.th}>Référence</th>}
+                            {decreaseShowCode && <th style={styles.th}>Référence</th>}
                             <th style={styles.th}>Désignation</th>
                             <th style={styles.th}>Quantité précédente</th>
                             <th style={styles.th}>Quantité actuelle</th>
@@ -3247,11 +3294,11 @@ export default function App() {
                           </tr>
                         </thead>
                         <tbody>
-                          {stockDecreaseProducts.filter((product)=>matchesTableSearch(tableSearch, product.product_name, product.product_ref)).map((product) => (
+                          {rows.map((product) => (
                             <tr
                               key={`${product.product_id}-${product.previous_date}-${product.latest_snapshot_date}`}
                             >
-                              {showCodeColumn && <td style={styles.td}>{product.product_ref || '—'}</td>}
+                              {decreaseShowCode && <td style={styles.td}>{product.product_ref || '—'}</td>}
                               <td style={styles.td}>{product.product_name || '—'}</td>
                               <td style={styles.td}>
                                 {product.previous_quantity ?? '—'}
@@ -3282,6 +3329,9 @@ export default function App() {
                         </tbody>
                       </table>
                     </div>
+                    <div className="ls-pagination"><span className="ls-muted">Page {safePage} sur {pages} · {filtered.length} produit(s)</span><div className="ls-toolbar" style={{margin:0}}><button style={styles.secondary} disabled={safePage<=1} onClick={()=>setDecreasePage(p=>Math.max(1,p-1))}>← Précédent</button><button style={styles.secondary} disabled={safePage>=pages} onClick={()=>setDecreasePage(p=>Math.min(pages,p+1))}>Suivant →</button></div></div>
+                    </>; })()}
+                    </>
                   )}
                 </div>
               </section>
@@ -3311,24 +3361,31 @@ export default function App() {
                     Actualiser
                   </button>
                 </div>
-                <div className="ls-toolbar"><input className="ls-search" style={styles.field} value={tableSearch} onChange={(event)=>setTableSearch(event.target.value)} placeholder="Rechercher un produit masqué…" /></div>
-                {hiddenProducts.filter((product)=>matchesTableSearch(tableSearch, product.name, product.product_ref)).length === 0 ? (
+                <div className="ls-toolbar" style={{flexWrap:'wrap'}}>
+                  <input className="ls-search" style={styles.field} value={hiddenSearch} onChange={(event)=>{setHiddenSearch(event.target.value);setHiddenPage(1);}} placeholder="Rechercher un produit masqué…" />
+                  <label className="ls-muted"><input type="checkbox" checked={hiddenShowCode} onChange={(event)=>setHiddenShowCode(event.target.checked)} /> Afficher référence</label>
+                  <label className="ls-muted">Lignes par page <select style={styles.field} value={hiddenPageSize} onChange={(event)=>{setHiddenPageSize(Number(event.target.value));setHiddenPage(1);}}>{[10,20,100].map(n=><option key={n} value={n}>{n}</option>)}</select></label>
+                  <label className="ls-muted">Trier par <select style={styles.field} value={hiddenSortKey} onChange={(event)=>{setHiddenSortKey(event.target.value);setHiddenPage(1);}}><option value="name">Désignation</option><option value="product_ref">Référence</option><option value="current_quantity">Quantité</option></select></label>
+                  <button style={styles.secondary} onClick={()=>{setHiddenSortDirection(d=>d==='asc'?'desc':'asc');setHiddenPage(1);}}>{hiddenSortDirection==='asc'?'Croissant ▲':'Décroissant ▼'}</button>
+                </div>
+                {(() => {const filtered=hiddenProducts.filter(product=>matchesTableSearch(hiddenSearch,product.name,product.product_ref));const sorted=[...filtered].sort((a,b)=>{const av=a[hiddenSortKey],bv=b[hiddenSortKey];const c=hiddenSortKey==='current_quantity'?(Number(av)||0)-(Number(bv)||0):String(av??'').localeCompare(String(bv??''),'fr',{numeric:true,sensitivity:'base'});return hiddenSortDirection==='asc'?c:-c;});const pages=Math.max(1,Math.ceil(sorted.length/hiddenPageSize));const safe=Math.min(hiddenPage,pages);const rows=sorted.slice((safe-1)*hiddenPageSize,safe*hiddenPageSize);return <>
+                {filtered.length === 0 ? (
                   <p>Aucun produit masqué.</p>
                 ) : (
                   <div className="ls-table-wrap">
                     <table className="ls-table">
                       <thead>
                         <tr>
-                          {showCodeColumn && <th style={styles.th}>Référence</th>}
+                          {hiddenShowCode && <th style={styles.th}>Référence</th>}
                           <th style={styles.th}>Désignation</th>
                           <th style={styles.th}>Quantité</th>
                           <th style={styles.th}>Action</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {hiddenProducts.filter((product)=>matchesTableSearch(tableSearch, product.name, product.product_ref)).map((product) => (
+                        {rows.map((product) => (
                           <tr key={product.id}>
-                            {showCodeColumn && <td style={styles.td}>{product.product_ref}</td>}
+                            {hiddenShowCode && <td style={styles.td}>{product.product_ref}</td>}
                             <td style={styles.td}>{product.name}</td>
                             <td style={styles.td}>
                               {product.current_quantity}
@@ -3347,6 +3404,8 @@ export default function App() {
                     </table>
                   </div>
                 )}
+                <div className="ls-pagination"><span className="ls-muted">Page {safe} sur {pages} · {filtered.length} produit(s)</span><div className="ls-toolbar" style={{margin:0}}><button style={styles.secondary} disabled={safe<=1} onClick={()=>setHiddenPage(p=>Math.max(1,p-1))}>← Précédent</button><button style={styles.secondary} disabled={safe>=pages} onClick={()=>setHiddenPage(p=>Math.min(pages,p+1))}>Suivant →</button></div></div>
+                </>;})()}
               </section>
             )}
 
@@ -3646,12 +3705,6 @@ export default function App() {
                                 <th style={styles.th}>Compte</th>
                                 <th style={styles.th}>Rôle</th>
                                 <th style={styles.th}>Accès aux sections</th>
-                                <th style={styles.th}>
-                                  Tableau des stocks négatifs
-                                </th>
-                                <th style={styles.th}>
-                                  Europ Arina : afficher quantité 0 ou négative
-                                </th>
                               </tr>
                             </thead>
                             <tbody>
@@ -3674,69 +3727,19 @@ export default function App() {
                                           : 'Compte inactif'}
                                       </div>
                                     </td>
-                                    <td style={styles.td}>{account.role}</td>
                                     <td style={styles.td}>
-                                      <details><summary>Sections</summary>
+                                      <select style={styles.field} value={account.role || 'trader'} disabled={permissionSavingId === account.id + ':role'} onChange={(event)=>updateAccountRole(account.id,event.target.value)}>
+                                        <option value="trader">Trader</option>
+                                        <option value="viewer">Viewer</option>
+                                        <option value="sous-admin">Sous-admin</option>
+                                      </select>
+                                    </td>
+                                    <td style={styles.td}>
+                                      <details><summary>Sections et autorisations</summary>
                                         {navItems.filter((item)=>(!item.adminOnly || isAdmin) && (!item.admin || isAdmin)).map((item)=><label key={item.id} style={{display:'flex',gap:6,alignItems:'center',margin:'6px 0'}}><input type="checkbox" checked={account.page_permissions?.[item.id] !== false} onChange={(e)=>savePagePermission(account.id,item.id,e.target.checked)}/>{item.label}</label>)}
+                                        <label style={{display:'flex',gap:6,alignItems:'center',margin:'8px 0'}}><input type="checkbox" checked={Boolean(account.can_view_negative_stock)} disabled={permissionSavingId === account.id + ':can_view_negative_stock'} onChange={(event)=>updateAccountPermission(account.id,'can_view_negative_stock',event.target.checked)}/>Tableau des stocks négatifs</label>
+                                        <label style={{display:'flex',gap:6,alignItems:'center',margin:'8px 0'}}><input type="checkbox" checked={Boolean(account.can_view_zero_negative_products)} disabled={permissionSavingId === account.id + ':can_view_zero_negative_products'} onChange={(event)=>updateAccountPermission(account.id,'can_view_zero_negative_products',event.target.checked)}/>Europ Arina : afficher quantité 0 ou négative</label>
                                       </details>
-                                    </td>
-                                    <td style={styles.td}>
-                                      <label
-                                        style={{
-                                          display: 'flex',
-                                          gap: 8,
-                                          alignItems: 'center',
-                                        }}
-                                      >
-                                        <input
-                                          type="checkbox"
-                                          checked={Boolean(
-                                            account.can_view_negative_stock
-                                          )}
-                                          disabled={
-                                            permissionSavingId ===
-                                            account.id +
-                                              ':can_view_negative_stock'
-                                          }
-                                          onChange={(event) =>
-                                            updateAccountPermission(
-                                              account.id,
-                                              'can_view_negative_stock',
-                                              event.target.checked
-                                            )
-                                          }
-                                        />
-                                        Autoriser
-                                      </label>
-                                    </td>
-                                    <td style={styles.td}>
-                                      <label
-                                        style={{
-                                          display: 'flex',
-                                          gap: 8,
-                                          alignItems: 'center',
-                                        }}
-                                      >
-                                        <input
-                                          type="checkbox"
-                                          checked={Boolean(
-                                            account.can_view_zero_negative_products
-                                          )}
-                                          disabled={
-                                            permissionSavingId ===
-                                            account.id +
-                                              ':can_view_zero_negative_products'
-                                          }
-                                          onChange={(event) =>
-                                            updateAccountPermission(
-                                              account.id,
-                                              'can_view_zero_negative_products',
-                                              event.target.checked
-                                            )
-                                          }
-                                        />
-                                        Autoriser
-                                      </label>
                                     </td>
                                   </tr>
                                 ))}
@@ -3763,7 +3766,6 @@ export default function App() {
               </section>
             )}
             {photoPreview && <div onClick={()=>setPhotoPreview(null)} style={{position:'fixed',inset:0,zIndex:1000,background:'rgba(0,0,0,.84)',display:'grid',placeItems:'center',padding:20,cursor:'zoom-out'}}><button onClick={()=>setPhotoPreview(null)} style={{position:'absolute',top:16,right:16,fontSize:24,padding:'8px 14px'}}>×</button><div onClick={(e)=>e.stopPropagation()} style={{maxWidth:'95vw',maxHeight:'90vh',textAlign:'center',color:'#fff'}}><img src={photoPreview.url} alt={photoPreview.name} style={{maxWidth:'90vw',maxHeight:'78vh',objectFit:'contain',borderRadius:10}}/><div style={{marginTop:10,fontWeight:700}}>{photoPreview.name}</div></div></div>}
-            {photoContext && isAdmin && <div style={{position:'fixed',inset:0,zIndex:1001,background:'rgba(0,0,0,.35)',display:'grid',placeItems:'center'}} onClick={()=>setPhotoContext(null)}><div onClick={(e)=>e.stopPropagation()} style={{background:'#fff',padding:20,borderRadius:12,display:'grid',gap:10,minWidth:230,color:'#102b46'}}><strong>Gérer la photo</strong><button style={styles.secondary} onClick={()=>{setPhotoProductId(photoContext.id);setPhotoContext(null);navigateTo('photos');}}>Changer la photo</button><button style={styles.secondary} onClick={()=>deleteProductPhoto(photoContext)}>Supprimer la photo</button><button style={styles.secondary} onClick={()=>setPhotoContext(null)}>Annuler</button></div></div>}
             <div
               className="ls-muted"
               style={{ textAlign: 'center', marginTop: 24 }}
