@@ -9,6 +9,8 @@ export default function App() {
   const [products, setProducts] = useState([]);
   const [hiddenProducts, setHiddenProducts] = useState([]);
   const [suggestedProducts, setSuggestedProducts] = useState([]);
+  const [stockDecreaseProducts, setStockDecreaseProducts] = useState([]);
+  const [stockDecreaseLoading, setStockDecreaseLoading] = useState(false);
   const [selectedSuggestions, setSelectedSuggestions] = useState([]);
   const [stockHistory, setStockHistory] = useState([]);
   const [replenishmentRequests, setReplenishmentRequests] = useState([]);
@@ -182,6 +184,25 @@ export default function App() {
     setSelectedSuggestions([]);
     setSelectedSuggestions([]);
   }
+  async function loadStockDecreaseAnalysis() {
+    setStockDecreaseLoading(true);
+
+    try {
+      const { data, error } = await supabase.rpc(
+        'get_stock_decrease_analysis'
+      );
+
+      if (error) throw error;
+
+      setStockDecreaseProducts(data || []);
+    } catch (error) {
+      console.error('[Stock decrease analysis]', error);
+      setMessage('Erreur analyse des baisses : ' + error.message);
+    } finally {
+      setStockDecreaseLoading(false);
+    }
+  }
+
   async function unhideProduct(product) {
     const { error } = await supabase
       .from('products')
@@ -1229,7 +1250,10 @@ export default function App() {
     setCurrentPage(1);
     setSearchTerm('');
     if (page === 'hidden') loadHiddenProducts();
-    if (page === 'analysis') loadSuggestedProducts();
+    if (page === 'analysis') {
+      loadSuggestedProducts();
+      loadStockDecreaseAnalysis();
+    }
     if (page === 'history' && user?.profile?.role === 'admin')
       loadStockHistory();
     if (page === 'requests') loadReplenishmentRequests();
@@ -3048,6 +3072,104 @@ export default function App() {
                     </table>
                   </div>
                 )}
+
+                <div
+                  style={{
+                    marginTop: 28,
+                    paddingTop: 22,
+                    borderTop: '2px solid #e2e8f0',
+                  }}
+                >
+                  <h2 style={{ marginTop: 0 }}>
+                    Produits dont le stock a diminué
+                  </h2>
+                  <p className="ls-muted">
+                    Comparaison des deux derniers fichiers CSV enregistrés.
+                    Seuls les produits dont la quantité a baissé sont affichés,
+                    du plus grand recul au plus petit.
+                  </p>
+                  <div className="ls-toolbar">
+                    <button
+                      style={styles.secondary}
+                      onClick={loadStockDecreaseAnalysis}
+                      disabled={stockDecreaseLoading}
+                    >
+                      {stockDecreaseLoading
+                        ? 'Actualisation…'
+                        : 'Actualiser les baisses de stock'}
+                    </button>
+                    <span className="ls-muted">
+                      {stockDecreaseProducts.length} produit(s) en baisse
+                      {stockDecreaseProducts.length > 0
+                        ? ` — période : ${stockDecreaseProducts[0].previous_date} → ${stockDecreaseProducts[0].latest_snapshot_date} (${stockDecreaseProducts[0].days_between} jour(s))`
+                        : ''}
+                    </span>
+                  </div>
+
+                  {stockDecreaseLoading ? (
+                    <p>Chargement de l’analyse des baisses…</p>
+                  ) : stockDecreaseProducts.length === 0 ? (
+                    <p>
+                      Aucune baisse trouvée entre les deux derniers fichiers
+                      CSV, ou cliquez sur « Actualiser les baisses de stock ».
+                    </p>
+                  ) : (
+                    <div className="ls-table-wrap">
+                      <table className="ls-table">
+                        <thead>
+                          <tr>
+                            <th style={styles.th}>Référence</th>
+                            <th style={styles.th}>Désignation</th>
+                            <th style={styles.th}>Quantité précédente</th>
+                            <th style={styles.th}>Quantité actuelle</th>
+                            <th style={styles.th}>Baisse de quantité</th>
+                            <th style={styles.th}>Date précédente</th>
+                            <th style={styles.th}>Dernière date</th>
+                            <th style={styles.th}>Jours entre les fichiers</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {stockDecreaseProducts.map((product) => (
+                            <tr
+                              key={`${product.product_id}-${product.previous_date}-${product.latest_snapshot_date}`}
+                            >
+                              <td style={styles.td}>
+                                {product.product_ref || '—'}
+                              </td>
+                              <td style={styles.td}>
+                                {product.product_name || '—'}
+                              </td>
+                              <td style={styles.td}>
+                                {product.previous_quantity ?? '—'}
+                              </td>
+                              <td style={styles.td}>
+                                {product.current_quantity ?? '—'}
+                              </td>
+                              <td
+                                style={{
+                                  ...styles.td,
+                                  color: '#b42318',
+                                  fontWeight: 800,
+                                }}
+                              >
+                                −{product.quantity_decreased}
+                              </td>
+                              <td style={styles.td}>
+                                {product.previous_date || '—'}
+                              </td>
+                              <td style={styles.td}>
+                                {product.latest_snapshot_date || '—'}
+                              </td>
+                              <td style={styles.td}>
+                                {product.days_between ?? '—'}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
               </section>
             )}
 
