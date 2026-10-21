@@ -158,17 +158,28 @@ export default function App() {
 
     setHiddenProducts(data || []);
   }
+
   async function loadSuggestedProducts() {
-    const { data, error } = await supabase.rpc(
-      'get_slow_moving_product_suggestions'
-    );
+    const { data, error } = await supabase.rpc('get_reorder_suggestions');
 
     if (error) {
+      console.error('[Reorder suggestions]', error);
       window.alert('Erreur suggestions : ' + error.message);
       return;
     }
 
+    console.log(
+      '[Suggestions reçues]',
+      (data || []).map((p) => ({
+        ref: p.product_ref,
+        nom: p.name,
+        quantite: p.current_quantity,
+        jours: p.days_remaining,
+      }))
+    );
+
     setSuggestedProducts(data || []);
+    setSelectedSuggestions([]);
     setSelectedSuggestions([]);
   }
   async function unhideProduct(product) {
@@ -2943,11 +2954,12 @@ export default function App() {
             {activePage === 'analysis' && isAdmin && (
               <section className="ls-panel">
                 <h2 style={{ marginTop: 0 }}>
-                  Analyse des produits à faible mouvement
+                  Suggestions de réapprovisionnement urgent
                 </h2>
                 <p className="ls-muted">
-                  Suggestions calculées à partir des instantanés historiques
-                  disponibles.
+                  Estimation basée sur le dernier CSV et l’historique du stock.
+                  Les produits dont le stock estimé dure moins de 7 jours sont
+                  affichés en priorité.
                 </p>
                 <div className="ls-toolbar">
                   <button
@@ -2982,7 +2994,11 @@ export default function App() {
                           <th style={styles.th}>Sélection</th>
                           <th style={styles.th}>Référence</th>
                           <th style={styles.th}>Désignation</th>
-                          <th style={styles.th}>Quantité actuelle</th>
+                          <th style={styles.th}>Dernière quantité CSV</th>
+                          <th style={styles.th}>Baisse moyenne / jour</th>
+                          <th style={styles.th}>Jours restants estimés</th>
+                          <th style={styles.th}>Quantité à commander</th>
+                          <th style={styles.th}>Date du dernier relevé</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -3005,12 +3021,26 @@ export default function App() {
                                 }
                               />
                             </td>
-                            <td style={styles.td}>{product.product_ref}</td>
-                            <td style={styles.td}>{product.name}</td>
                             <td style={styles.td}>
-                              {product.current_quantity ??
-                                product.quantity ??
-                                '—'}
+                              {product.product_ref || '—'}
+                            </td>
+                            <td style={styles.td}>{product.name || '—'}</td>
+                            <td style={styles.td}>
+                              {product.current_quantity ?? '—'}
+                            </td>
+                            <td style={styles.td}>
+                              {product.average_daily_decrease ?? '—'}
+                            </td>
+                            <td style={styles.td}>
+                              {product.days_remaining == null
+                                ? 'Non estimé'
+                                : `${product.days_remaining} jours`}
+                            </td>
+                            <td style={styles.td}>
+                              {product.suggested_order_quantity ?? '—'}
+                            </td>
+                            <td style={styles.td}>
+                              {product.last_snapshot_date || '—'}
                             </td>
                           </tr>
                         ))}
