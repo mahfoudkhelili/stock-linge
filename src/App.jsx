@@ -40,6 +40,7 @@ export default function App() {
   const [touchStart, setTouchStart] = useState(null);
   const [touchEnd, setTouchEnd] = useState(null);
   const [showTraderQuantities, setShowTraderQuantities] = useState(true);
+  const [showArinaZeroStock, setShowArinaZeroStock] = useState(false);
   const [lastImportBatch, setLastImportBatch] = useState(null);
   const [productNotes, setProductNotes] = useState([]);
   const [noteProductId, setNoteProductId] = useState('');
@@ -1352,9 +1353,7 @@ export default function App() {
       label: language === 'ar' ? 'مراتب Europ Arina' : 'Matelas Europ Arina',
       icon: '▣',
     },
-    { id: 'chora', label: 'Chora', icon: '▤' },
-    { id: 'voilage', label: 'Voilage', icon: '▤' },
-    { id: 'rideau', label: 'Rideau', icon: '▤' },
+    { id: 'textiles', label: 'Chora / Voilage / Rideau', icon: '▤' },
     {
       id: 'photos',
       label: language === 'ar' ? 'صور المنتجات' : 'Photos des produits',
@@ -1412,22 +1411,20 @@ export default function App() {
     const searchMatch = !searchTokens.length || searchTokens.every((token) =>
       nameTokens.some((word) => word.startsWith(token) || word.includes(token))
     );
-    const isArina = normalizedName.includes('ARINA') || (normalizedName.includes('EUROP') && normalizedName.includes('MATELAS'));
-    const isAfricha = normalizedName.includes('AFRICHA');
+    const isArina = normalizedName.includes('MATELAS') || normalizedName.includes('ARINA');
     const isChora = normalizedName.includes('CHORA');
     const isVoilage = normalizedName.includes('VOILAGE');
     const isRideau = normalizedName.includes('RIDEAU') && !normalizedName.includes('CUISINE');
     const pageMatch =
       activePage === 'arina' ? isArina :
-      activePage === 'chora' ? isChora :
-      activePage === 'voilage' ? isVoilage :
-      activePage === 'rideau' ? isRideau : true;
+      activePage === 'textiles' ? (isChora || isVoilage || isRideau) : true;
     const canSeeZeroNegativeOnArina =
       activePage === 'arina' &&
+      showArinaZeroStock &&
       (isAdmin || Boolean(user?.profile?.can_view_zero_negative_products));
     const stockAllowed =
-      isAdmin ||
       Number(product.current_quantity) > 0 ||
+      (isAdmin && activePage !== 'arina') ||
       canSeeZeroNegativeOnArina;
     return searchMatch && pageMatch && stockAllowed;
   });
@@ -1458,7 +1455,7 @@ export default function App() {
     const tokens = String(searchTerm || '').toLocaleUpperCase('fr').normalize('NFD').replace(/[\u0300-\u036f]/g, '').split(/[^A-Z0-9]+/).filter(Boolean);
     const words = String(product.name || '').toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').split(/[^A-Z0-9]+/).filter(Boolean);
     const match = normalized.includes('AFRICHA') && (!tokens.length || tokens.every((token)=>words.some((word)=>word.startsWith(token)||word.includes(token))));
-    return match && (isAdmin || Number(product.current_quantity) > 0 || Boolean(user?.profile?.can_view_zero_negative_products));
+    return match && (Number(product.current_quantity) > 0 || (showArinaZeroStock && (isAdmin || Boolean(user?.profile?.can_view_zero_negative_products))));
   }).sort((a,b)=>{
     const av=a[sortKey], bv=b[sortKey];
     const numeric=['current_quantity','wholesale_price','retail_price'].includes(sortKey);
@@ -1680,7 +1677,7 @@ export default function App() {
         {showCodeColumn && <td style={styles.td}><strong>{product.product_ref}</strong></td>}
         <td style={styles.td}>
           <span style={{display:'inline-flex',alignItems:'center',gap:8}}>
-            {photoFor(product.id) ? <img src={photoFor(product.id)} alt="" onClick={()=>setPhotoPreview({url:photoFor(product.id),name:product.name})} style={{width:38,height:38,objectFit:'cover',borderRadius:6,cursor:'zoom-in'}} onContextMenu={(e)=>{if(isAdmin){e.preventDefault();setPhotoContext(product);}}} onTouchStart={()=>{if(isAdmin){const timer=setTimeout(()=>setPhotoContext(product),700);setPhotoPressTimer(timer);}}} onTouchEnd={()=>{if(photoPressTimer)clearTimeout(photoPressTimer);}}/> : isAdmin ? <label title="Ajouter une photo" style={{width:30,height:30,display:'inline-grid',placeItems:'center',border:'1px dashed #8294a8',borderRadius:6,cursor:'pointer',fontWeight:800}}>+<input type="file" accept="image/*" style={{display:'none'}} onChange={(e)=>{const f=e.target.files?.[0];if(f) uploadProductPhoto(f,product);e.target.value='';}} /></label> : null}
+            {photoFor(product.id) ? <img src={photoFor(product.id)} alt="" onClick={()=>setPhotoPreview({url:photoFor(product.id),name:product.name})} style={{width:38,height:38,objectFit:'cover',borderRadius:6,cursor:'zoom-in'}} onContextMenu={(e)=>{if(isAdmin){e.preventDefault();setPhotoContext(product);}}} onTouchStart={()=>{if(isAdmin){const timer=setTimeout(()=>setPhotoContext(product),700);setPhotoPressTimer(timer);}}} onTouchEnd={()=>{if(photoPressTimer)clearTimeout(photoPressTimer);}}/> : isAdmin && activePage !== 'products' ? <label title="Ajouter une photo" style={{width:30,height:30,display:'inline-grid',placeItems:'center',border:'1px dashed #8294a8',borderRadius:6,cursor:'pointer',fontWeight:800}}>+<input type="file" accept="image/*" style={{display:'none'}} onChange={(e)=>{const f=e.target.files?.[0];if(f) uploadProductPhoto(f,product);e.target.value='';}} /></label> : null}
             <span>{product.name}{activePage === 'arina' && normalizeName(product.name).includes('AFRICHA') ? <small style={{display:'block',color:'#64748b'}}>Africha Shop</small> : activePage === 'arina' ? <small style={{display:'block',color:'#64748b'}}>Europ Arina</small> : null}</span>
           </span>
         </td>
@@ -1723,7 +1720,7 @@ export default function App() {
               <div style={{ color: '#64748b', fontSize: 12 }}>
                 Réf. {product.product_ref}
               </div>
-              <strong style={{display:'flex',alignItems:'center',gap:8}}>{photoFor(product.id) ? <img src={photoFor(product.id)} alt="" onClick={()=>setPhotoPreview({url:photoFor(product.id),name:product.name})} onContextMenu={(e)=>{if(isAdmin){e.preventDefault();setPhotoContext(product);}}} style={{width:42,height:42,objectFit:'cover',borderRadius:6,cursor:'zoom-in'}}/> : isAdmin ? <label style={{cursor:'pointer',border:'1px dashed #8294a8',padding:6,borderRadius:5}}>+<input type="file" accept="image/*" style={{display:'none'}} onChange={(e)=>{const f=e.target.files?.[0];if(f)uploadProductPhoto(f,product);e.target.value='';}}/></label> : null}{product.name}</strong>
+              <strong style={{display:'flex',alignItems:'center',gap:8}}>{photoFor(product.id) ? <img src={photoFor(product.id)} alt="" onClick={()=>setPhotoPreview({url:photoFor(product.id),name:product.name})} onContextMenu={(e)=>{if(isAdmin){e.preventDefault();setPhotoContext(product);}}} style={{width:42,height:42,objectFit:'cover',borderRadius:6,cursor:'zoom-in'}}/> : isAdmin && activePage !== 'products' ? <label style={{cursor:'pointer',border:'1px dashed #8294a8',padding:6,borderRadius:5}}>+<input type="file" accept="image/*" style={{display:'none'}} onChange={(e)=>{const f=e.target.files?.[0];if(f)uploadProductPhoto(f,product);e.target.value='';}}/></label> : null}{product.name}</strong>
             </div>
             <div className="ls-card-metrics">
               <div>
@@ -1771,7 +1768,7 @@ export default function App() {
         *{box-sizing:border-box} body{margin:0;background:#f3f6fa;font-family:Inter,Arial,sans-serif;color:#102b46}
         .ls-app{min-height:100vh;background:#f3f6fa;color:#102b46}.ls-login{max-width:440px;margin:7vh auto;padding:30px;background:#fff;border:1px solid #e2e8f0;border-radius:20px;box-shadow:0 15px 45px rgba(16,43,70,.09)}
         .ls-brand{display:flex;align-items:center;gap:12px}.ls-brand-mark{display:grid;place-items:center;background:#fff;color:#102b46;border-radius:12px;width:42px;height:42px;font-weight:900;font-size:19px}.ls-layout{display:grid;grid-template-columns:250px minmax(0,1fr);min-height:100vh}.ls-sidebar{background:#102b46;color:#fff;padding:22px 14px;display:flex;flex-direction:column;gap:20px}.ls-nav{display:flex;flex-direction:column;gap:5px}.ls-nav button{display:flex;gap:11px;align-items:center;width:100%;border:0;border-radius:10px;padding:12px;color:#d8e4f1;background:transparent;text-align:left;cursor:pointer;font-weight:600}.ls-nav button.active,.ls-nav button:hover{background:#214361;color:#fff}.ls-nav .ls-count{margin-left:auto;background:#e5484d;color:white;border-radius:20px;padding:2px 7px;font-size:11px}.ls-main{min-width:0;padding:26px clamp(14px,3vw,34px) 50px}.ls-topbar{display:flex;justify-content:space-between;align-items:center;gap:14px;margin-bottom:24px}.ls-panel{background:white;border:1px solid #e2e8f0;border-radius:14px;padding:18px;margin-bottom:18px;min-width:0}.ls-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin-bottom:18px}.ls-stat{padding:18px;background:white;border:1px solid #e2e8f0;border-radius:14px}.ls-stat small{display:block;color:#64748b;margin-bottom:8px}.ls-stat strong{font-size:25px}.ls-toolbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:12px 0 16px}.ls-search{flex:1;min-width:200px}.ls-table-wrap{width:100%;overflow-x:auto;border:1px solid #e2e8f0;border-radius:12px}.ls-table{width:100%;border-collapse:collapse;min-width:850px;background:white}.ls-table th button{border:0;background:transparent;color:inherit;font:inherit;cursor:pointer;padding:0}.ls-actions{display:flex;gap:7px;flex-wrap:wrap}.ls-actions button{font-size:12px;padding:8px 9px}.ls-pagination{display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap;margin-top:14px}.ls-product-cards{display:none}.ls-photo-placeholder{width:78px;height:78px;display:grid;place-items:center;border-radius:10px;background:#edf2f7;color:#9aaabd;font-weight:900}.ls-card-metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:16px 0}.ls-card-metrics>div{background:#f5f8fb;border-radius:9px;padding:10px;min-width:0}.ls-card-metrics small{display:block;color:#64748b;font-size:11px;margin-bottom:5px}.ls-card-metrics strong{font-size:13px;overflow-wrap:anywhere}.ls-alert{padding:12px 14px;border-radius:10px;background:#fff2e0;color:#9a4b00;border:1px solid #ffddb0;margin:12px 0}.ls-message{padding:12px 14px;background:#eaf2ff;border:1px solid #cbdcf5;border-radius:10px;margin-bottom:16px;overflow-wrap:anywhere}.ls-request{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;padding:14px 0;border-top:1px solid #edf1f5}.ls-muted{color:#64748b;font-size:13px}.ls-photo-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:14px}.ls-photo-grid img{width:100%;aspect-ratio:1/1;object-fit:cover;border-radius:10px;background:#f1f5f9}.ls-input-row{display:grid;grid-template-columns:1fr 1fr auto;gap:10px;align-items:end}.ls-footer-note{color:#8ba0b5;font-size:12px;line-height:1.5;margin-top:auto;padding:8px}
-        .ls-app .ls-muted{color:#526477}.ls-app h1,.ls-app h2,.ls-app h3,.ls-app strong{color:inherit}.ls-app section,.ls-app article{color:#102b46}.ls-app .ls-panel strong{color:inherit}.ls-app .ls-panel h2,.ls-app .ls-panel h3{color:#102b46}.ls-app .ls-panel .ls-muted{color:#475569}.ls-import-panel{background:#ffffff!important;color:#102b46!important}.ls-import-panel h2,.ls-import-panel strong,.ls-import-panel .ls-muted{color:#243b53!important}.ls-dark .ls-import-panel{background:#182431!important;color:#e7edf4!important}.ls-dark .ls-import-panel h2,.ls-dark .ls-import-panel strong,.ls-dark .ls-import-panel .ls-muted{color:#e7edf4!important}.ls-dark{background:#101820!important;color:#e7edf4!important}.ls-dark .ls-panel h2,.ls-dark .ls-panel h3{color:#e7edf4!important}.ls-dark .ls-panel,.ls-dark .ls-panel strong,.ls-dark .ls-panel label{color:#e7edf4!important}.ls-dark .ls-panel [style*='background: rgb(245, 248, 251)'],.ls-dark .ls-panel [style*='background: rgb(245, 248, 251)']{background:#223242!important;color:#e7edf4!important}.ls-dark .ls-app .ls-muted{color:#bdc9d6!important}.ls-dark .ls-main,.ls-dark .ls-panel,.ls-dark .ls-stat,.ls-dark .ls-table,.ls-dark .ls-login{background:#182431!important;color:#e7edf4!important;border-color:#334456!important}.ls-dark .ls-table-wrap{border-color:#334456!important}.ls-dark .ls-app,.ls-dark .ls-panel,.ls-dark .ls-stat,.ls-dark .ls-table,.ls-dark .ls-login{color:#e7edf4!important}.ls-dark .ls-panel [style*='background: rgb(245, 248, 251)'],.ls-dark .ls-panel [style*='background: rgb(255, 255, 255)'],.ls-dark .ls-panel [style*='background: white']{background:#223242!important;color:#e7edf4!important}.ls-dark .ls-panel .ls-muted{color:#bdc9d6!important}.ls-dark [style*='background: rgb(245, 248, 251)'],.ls-dark [style*='background: rgb(255, 255, 255)'],.ls-dark [style*='background: white']{background:#182431!important;color:#e7edf4!important}.ls-dark .ls-alert{background:#3b2b19!important;color:#ffd7a8!important}.ls-dark .ls-table td,.ls-dark .ls-table th,.ls-dark article{border-color:#334456!important;color:#e7edf4}.ls-dark input,.ls-dark select,.ls-dark textarea{background:#111b25!important;color:#e7edf4!important;border-color:#405266!important}.ls-dark .ls-card-metrics>div,.ls-dark [style*="background: rgb(245, 248, 251)"],.ls-dark [style*="background: rgb(245, 248, 251)"]{background:#223242!important;color:#e7edf4!important}.ls-dark .ls-muted{color:#a9b8c8!important}.ls-dark .ls-message{background:#20344a!important;color:#e7edf4!important;border-color:#405266!important}
+        .ls-app .ls-muted{color:#526477}.ls-app h1,.ls-app h2,.ls-app h3,.ls-app strong{color:inherit}.ls-app section,.ls-app article{color:#102b46}.ls-app .ls-panel strong{color:inherit}.ls-app .ls-panel h2,.ls-app .ls-panel h3{color:#102b46}.ls-app .ls-panel .ls-muted{color:#475569}.ls-import-panel{background:#ffffff!important;color:#102b46!important}.ls-import-panel h2,.ls-import-panel strong,.ls-import-panel .ls-muted{color:#243b53!important}.ls-dark .ls-import-panel{background:#182431!important;color:#e7edf4!important}.ls-dark .ls-import-panel h2,.ls-dark .ls-import-panel strong,.ls-dark .ls-import-panel .ls-muted{color:#e7edf4!important}.ls-dark{background:#101820!important;color:#e7edf4!important}.ls-dark .ls-panel h2,.ls-dark .ls-panel h3{color:#e7edf4!important}.ls-dark .ls-panel,.ls-dark .ls-panel strong,.ls-dark .ls-panel label{color:#e7edf4!important}.ls-dark .ls-panel [style*='background: rgb(245, 248, 251)'],.ls-dark .ls-panel [style*='background: rgb(245, 248, 251)']{background:#223242!important;color:#e7edf4!important}.ls-dark .ls-app .ls-muted{color:#bdc9d6!important}.ls-dark .ls-main,.ls-dark .ls-panel,.ls-dark .ls-stat,.ls-dark .ls-table,.ls-dark .ls-login{background:#182431!important;color:#e7edf4!important;border-color:#334456!important}.ls-dark .ls-table-wrap{border-color:#334456!important}.ls-dark .ls-app,.ls-dark .ls-panel,.ls-dark .ls-stat,.ls-dark .ls-table,.ls-dark .ls-login{color:#e7edf4!important}.ls-dark .ls-panel [style*='background: rgb(245, 248, 251)'],.ls-dark .ls-panel [style*='background: rgb(255, 255, 255)'],.ls-dark .ls-panel [style*='background: white']{background:#223242!important;color:#e7edf4!important}.ls-dark .ls-panel .ls-muted{color:#bdc9d6!important}.ls-dark [style*='background: rgb(245, 248, 251)'],.ls-dark [style*='background: rgb(255, 255, 255)'],.ls-dark [style*='background: white']{background:#182431!important;color:#e7edf4!important}.ls-dark .ls-alert{background:#3b2b19!important;color:#ffd7a8!important}.ls-dark .ls-table td,.ls-dark .ls-table th,.ls-dark article{border-color:#334456!important;color:#e7edf4}.ls-dark .ls-table td[style*='#102b46']{color:#e7edf4!important}.ls-dark .ls-card-metrics strong[style*='#102b46']{color:#e7edf4!important}.ls-dark input,.ls-dark select,.ls-dark textarea{background:#111b25!important;color:#e7edf4!important;border-color:#405266!important}.ls-dark .ls-card-metrics>div,.ls-dark [style*="background: rgb(245, 248, 251)"],.ls-dark [style*="background: rgb(245, 248, 251)"]{background:#223242!important;color:#e7edf4!important}.ls-dark .ls-muted{color:#a9b8c8!important}.ls-dark .ls-message{background:#20344a!important;color:#e7edf4!important;border-color:#405266!important}
         @media(max-width:1050px){.ls-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.ls-layout{grid-template-columns:215px minmax(0,1fr)}}
         @media(max-width:760px){.ls-layout{display:block}.ls-sidebar{position:sticky;top:0;z-index:10;padding:10px 12px;gap:10px}.ls-sidebar-head{display:flex;justify-content:space-between;align-items:center}.ls-nav{flex-direction:row;overflow-x:auto;gap:6px;padding-bottom:2px;scrollbar-width:thin}.ls-nav button{white-space:nowrap;width:auto;flex-shrink:0;padding:10px 12px;font-size:12px}.ls-nav button .ls-nav-text{display:inline}.ls-footer-note{display:none}.ls-main{padding:16px 12px 38px}.ls-topbar{align-items:flex-start;flex-direction:column;margin-bottom:16px}.ls-topbar-actions{width:100%;display:flex;gap:8px;flex-wrap:wrap}.ls-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.ls-stat{padding:13px}.ls-stat strong{font-size:21px}.ls-table-wrap:not(.ls-force-table){display:none}.ls-product-cards{display:grid;grid-template-columns:1fr;gap:12px}.ls-panel{padding:13px}.ls-input-row{grid-template-columns:1fr}.ls-request{grid-template-columns:1fr}.ls-actions button{flex:1}.ls-login{margin:5vh 14px;padding:22px}.ls-card-metrics{gap:6px}.ls-card-metrics>div{padding:8px}.ls-card-metrics strong{font-size:12px}}
       `}</style>
@@ -2251,7 +2248,7 @@ export default function App() {
                     {[
                       { id: 'products', label: 'Tous les produits' },
                       { id: 'arina', label: 'Matelas Europ Arina' },
-                      { id: 'chora', label: 'Chora' }, { id: 'voilage', label: 'Voilage' }, { id: 'rideau', label: 'Rideau' },
+                      { id: 'textiles', label: 'Chora / Voilage / Rideau' },
                       { id: 'photos', label: 'Photos des produits' },
                       { id: 'requests', label: 'Demandes clients' },
                       { id: 'notes', label: 'Notes clients' },
@@ -2269,7 +2266,7 @@ export default function App() {
               </>
             )}
 
-            {['products', 'arina', 'chora', 'voilage', 'rideau'].includes(activePage) && (
+            {['products', 'arina', 'textiles'].includes(activePage) && (
               <section className="ls-panel">
                 <div
                   style={{
@@ -2287,12 +2284,12 @@ export default function App() {
                           ? 'المنتجات المتوفرة'
                           : activePage === 'arina'
                           ? 'Europ Arina + Africha Shop'
-                          : activePage === 'chora' ? 'Chora' : activePage === 'voilage' ? 'Voilage' : 'Rideau'
+                          : 'Chora / Voilage / Rideau'
                         : activePage === 'products'
                         ? 'Produits en stock'
                         : activePage === 'arina'
                         ? 'Europ Arina + Africha Shop'
-                        : activePage === 'chora' ? 'Chora' : activePage === 'voilage' ? 'Voilage' : 'Rideau'}
+                        : 'Chora / Voilage / Rideau'}
                     </h2>
                     <div className="ls-muted" style={{ marginTop: 5 }}>
                       {sortedProducts.length.toLocaleString('fr-FR')} produit(s)
@@ -2307,6 +2304,17 @@ export default function App() {
                   )}
                 </div>
                 <div className="ls-toolbar">
+                  {activePage === 'arina' && (
+                    <label className="ls-muted" style={{display:'flex',alignItems:'center',gap:6,fontWeight:700}}>
+                      <input
+                        type="checkbox"
+                        checked={showArinaZeroStock && (isAdmin || Boolean(user?.profile?.can_view_zero_negative_products))}
+                        disabled={!isAdmin && !user?.profile?.can_view_zero_negative_products}
+                        onChange={(event) => { setShowArinaZeroStock(event.target.checked); setCurrentPage(1); }}
+                      />
+                      Afficher les Matelas à quantité 0 ou négative
+                    </label>
+                  )}
                   <label className="ls-muted" style={{display:'flex',alignItems:'center',gap:6}}>
                     <input type="checkbox" checked={showCodeColumn} onChange={(event)=>setShowCodeColumn(event.target.checked)} />
                     {language === 'ar' ? 'إظهار المرجع' : 'Afficher référence'}
@@ -3543,11 +3551,10 @@ export default function App() {
                 </section>
                 {isAdmin && (
                   <>
-                    <h3>Paramètres des comptes traders</h3>
-                    <p className="ls-muted">
-                      Ce réglage est enregistré dans Supabase et s’applique aux
-                      traders sur leurs appareils.
-                    </p>
+                    <section className="ls-panel" style={{marginTop:18}}>
+                    <h3 style={{marginTop:0}}>Gestion centralisée des permissions des comptes</h3>
+                    <p className="ls-muted">Les réglages généraux et les autorisations individuelles sont regroupés ici et enregistrés dans Supabase.</p>
+                    <h4>Réglage général des quantités</h4>
                     <div
                       style={{
                         display: 'flex',
@@ -3589,13 +3596,8 @@ export default function App() {
                       </label>
                     </div>
                     <section style={{ marginTop: 22 }}>
-                      <h3>Permissions individuelles des comptes</h3>
-                      <p className="ls-muted">
-                        Activez séparément l’accès au tableau des stocks
-                        négatifs et l’affichage des produits à quantité zéro ou
-                        négative dans Europ Arina. Les changements sont
-                        enregistrés dans Supabase.
-                      </p>
+                      <h4>Autorisations par compte</h4>
+                      <p className="ls-muted">Choisissez les sections accessibles à chaque compte, l’accès au tableau des stocks négatifs et l’affichage des produits à quantité zéro ou négative dans Matelas Europ Arina.</p>
                       <div className="ls-toolbar">
                         <button
                           style={styles.secondary}
@@ -3742,6 +3744,7 @@ export default function App() {
                           </table>
                         </div>
                       )}
+                    </section>
                     </section>
                   </>
                 )}
