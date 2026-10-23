@@ -114,7 +114,7 @@ export default function App() {
       const { data, error } = await supabase
         .from('products')
         .select(
-          'id, product_ref, name, current_quantity, wholesale_price, retail_price, min_stock_level, is_hidden'
+          'id, product_ref, name, current_quantity, wholesale_price, retail_price, min_stock_level, is_hidden, is_active'
         )
         .eq('is_active', true)
         .eq('is_hidden', false)
@@ -134,6 +134,28 @@ export default function App() {
 
       start += pageSize;
     }
+
+    // Include inactive Europ Arina items with zero stock so the dedicated
+    // Arina toggle can show them without activating them across the app.
+    const { data: inactiveArinaProducts, error: inactiveArinaError } = await supabase
+      .from('products')
+      .select(
+        'id, product_ref, name, current_quantity, wholesale_price, retail_price, min_stock_level, is_hidden, is_active'
+      )
+      .eq('is_active', false)
+      .eq('is_hidden', false)
+      .eq('current_quantity', 0)
+      .ilike('name', '%EUROP%ARINA%');
+
+    if (inactiveArinaError) {
+      setMessage('Erreur produits Europ Arina : ' + inactiveArinaError.message);
+      return;
+    }
+
+    const existingIds = new Set(allProducts.map((product) => product.id));
+    allProducts = allProducts.concat(
+      (inactiveArinaProducts || []).filter((product) => !existingIds.has(product.id))
+    );
 
     setProducts(allProducts);
     setCurrentPage(1);
@@ -1667,11 +1689,18 @@ export default function App() {
       activePage === 'arina' &&
       showArinaZeroStock &&
       (isAdmin || Boolean(user?.profile?.can_view_zero_negative_products));
+    const inactiveArinaAllowed =
+      activePage === 'arina' &&
+      showArinaZeroStock &&
+      (isAdmin || Boolean(user?.profile?.can_view_zero_negative_products)) &&
+      product.is_active === false &&
+      Number(product.current_quantity) === 0;
     const stockAllowed =
       Number(product.current_quantity) > 0 ||
       (isAdmin && activePage !== 'arina') ||
       canSeeZeroNegativeOnArina;
-    return searchMatch && pageMatch && stockAllowed;
+    const activeAllowed = product.is_active !== false || inactiveArinaAllowed;
+    return searchMatch && pageMatch && activeAllowed && stockAllowed;
   });
 
   const sortedProducts = [...pageProducts].sort((a, b) => {
