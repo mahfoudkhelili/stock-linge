@@ -2,6 +2,25 @@ import { useState } from 'react';
 import Papa from 'papaparse';
 import { supabase } from './supabase';
 
+function normalizeProductSearch(value) {
+  return String(value || '')
+    .normalize('NFD')
+    .replace(/[\\u0300-\\u036f]/g, '')
+    .toLocaleLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
+}
+
+function productMatchesSearch(product, query) {
+  const normalizedQuery = normalizeProductSearch(query);
+  if (!normalizedQuery) return true;
+  const searchableText = normalizeProductSearch(String(product?.name || '') + ' ' + String(product?.product_ref || ''));
+  const words = searchableText.split(/\\s+/).filter(Boolean);
+  const tokens = normalizedQuery.split(/\\s+/).filter(Boolean);
+  // Every typed token may match the beginning of any word, in any order.
+  return tokens.every((token) => words.some((word) => word.startsWith(token)));
+}
+
 export default function App() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -1480,13 +1499,20 @@ export default function App() {
         doc = new jsPDF({ orientation: width > height ? 'landscape' : 'portrait', unit: 'mm', format: [width, height] });
         labelItems.forEach((product, index) => {
           if (index > 0) doc.addPage([width, height], width > height ? 'landscape' : 'portrait');
-          const margin = 2;
+          const margin = 1.5;
+          // Shop name at the top: regular weight, smaller than the product name.
+          doc.setFont('helvetica', 'normal');
+          doc.setFontSize(Math.max(5, Math.min(6.5, width / 7.5)));
+          doc.text('Africha SHOP', width / 2, Math.max(3.5, height * 0.15), { align: 'center' });
+          // Product name in the middle: slightly larger and bold, centered.
           doc.setFont('helvetica', 'bold');
-          doc.setFontSize(Math.max(6, Math.min(10, width / 5)));
+          doc.setFontSize(Math.max(6.5, Math.min(9, width / 5.5)));
           const nameLines = doc.splitTextToSize(String(product.name || ''), width - margin * 2).slice(0, 2);
-          doc.text(nameLines, margin, Math.max(5, height * 0.30));
-          doc.setFontSize(Math.max(8, Math.min(15, width / 3.8)));
-          doc.text(Number(product.retail_price || 0).toFixed(2) + ' DA', width / 2, height * 0.78, { align: 'center' });
+          const nameY = height * 0.49 - (nameLines.length > 1 ? 2 : 0);
+          doc.text(nameLines, width / 2, nameY, { align: 'center', lineHeightFactor: 1.05 });
+          // Retail price at the bottom: larger/bolder and with no decimal places.
+          doc.setFontSize(Math.max(9, Math.min(14, width / 3.8)));
+          doc.text(Math.round(Number(product.retail_price || 0)).toLocaleString('fr-FR') + ' DA', width / 2, height * 0.86, { align: 'center' });
         });
       }
 
@@ -3606,12 +3632,12 @@ export default function App() {
                 <div style={{marginTop:14}}>
                   <input style={styles.field} value={salesSearch} onChange={(e)=>setSalesSearch(e.target.value)} placeholder="Rechercher par désignation ou référence…" />
                   {salesSearch.trim() && <div style={{marginTop:8,maxHeight:240,overflowY:'auto',border:'1px solid #dbe3ec',borderRadius:8}}>
-                    {products.filter(p=>(String(p.name||'')+' '+String(p.product_ref||'')).toLocaleLowerCase().includes(salesSearch.trim().toLocaleLowerCase())).slice(0,20).map(p=><div key={p.id} style={{display:'flex',alignItems:'center',gap:8,padding:8,borderBottom:'1px solid #edf1f5'}}>
+                    {products.filter(p=>productMatchesSearch(p, salesSearch)).slice(0,20).map(p=><div key={p.id} style={{display:'flex',alignItems:'center',gap:8,padding:8,borderBottom:'1px solid #edf1f5'}}>
                       {photoFor(p.id) ? <img src={photoFor(p.id)} alt="" style={{width:42,height:42,objectFit:'cover',borderRadius:6,flexShrink:0}} /> : <div style={{width:42,height:42,background:'#f1f4f8',borderRadius:6,flexShrink:0}} />}
                       <div style={{flex:1,minWidth:0}}><div style={{fontWeight:700}}>{p.name}</div><div className="ls-muted">{p.product_ref || ''} · Gros : {Number(p.wholesale_price||0).toFixed(2)} DA</div></div>
                       <button style={styles.button} onClick={()=>addSalesLine(p.id)}>Ajouter</button>
                     </div>)}
-                    {!products.some(p=>(String(p.name||'')+' '+String(p.product_ref||'')).toLocaleLowerCase().includes(salesSearch.trim().toLocaleLowerCase())) && <p style={{padding:10}} className="ls-muted">Aucun produit trouvé.</p>}
+                    {!products.some(p=>productMatchesSearch(p, salesSearch)) && <p style={{padding:10}} className="ls-muted">Aucun produit trouvé.</p>}
                   </div>}
                 </div>
                 {salesLines.length > 0 ? <div className="ls-table-wrap ls-force-table" style={{marginTop:16}}><table className="ls-table"><thead><tr><th style={styles.th}>Désignation</th><th style={styles.th}>Quantité</th><th style={styles.th}>Prix de gros</th><th style={styles.th}>Total</th><th style={styles.th}>Action</th></tr></thead><tbody>{salesLines.map(line=><tr key={line.id}><td style={styles.td}><div style={{display:'flex',alignItems:'center',gap:8}}>{photoFor(line.id) ? <img src={photoFor(line.id)} alt="" style={{width:38,height:38,objectFit:'cover',borderRadius:6,flexShrink:0}} /> : null}<span>{line.name}</span></div></td><td style={styles.td}><input type="number" min="0.01" step="any" style={{...styles.field,width:100}} value={line.quantity} onChange={(e)=>setSalesLines(cur=>cur.map(x=>x.id===line.id?{...x,quantity:Math.max(0,Number(e.target.value)||0)}:x))}/></td><td style={styles.td}>{Number(line.wholesale_price||0).toFixed(2)} DA</td><td style={styles.td}>{(Number(line.quantity||0)*Number(line.wholesale_price||0)).toFixed(2)} DA</td><td style={styles.td}><button style={styles.secondary} onClick={()=>setSalesLines(cur=>cur.filter(x=>x.id!==line.id))}>Retirer</button></td></tr>)}</tbody></table></div> : <p className="ls-muted">Aucun produit ajouté.</p>}
@@ -3637,14 +3663,14 @@ export default function App() {
                     <table className="ls-table">
                       <thead><tr><th style={styles.th}>Désignation</th><th style={styles.th}>Prix détail</th><th style={styles.th}>Action</th></tr></thead>
                       <tbody>
-                        {products.filter(p=>String(p.name||'').toLocaleLowerCase().includes(labelSearch.trim().toLocaleLowerCase()) || String(p.product_ref||'').toLocaleLowerCase().includes(labelSearch.trim().toLocaleLowerCase())).slice(0,30).map(p=>(
+                        {products.filter(p=>productMatchesSearch(p, labelSearch)).slice(0,30).map(p=>(
                           <tr key={p.id}>
                             <td style={styles.td}><strong>{p.name}</strong><div className="ls-muted">{p.product_ref}</div></td>
                             <td style={styles.td}>{Number(p.retail_price||0).toFixed(2)} DA</td>
                             <td style={styles.td}><button type="button" style={styles.button} onClick={()=>addLabelLine(p)}>Ajouter</button></td>
                           </tr>
                         ))}
-                        {products.filter(p=>String(p.name||'').toLocaleLowerCase().includes(labelSearch.trim().toLocaleLowerCase()) || String(p.product_ref||'').toLocaleLowerCase().includes(labelSearch.trim().toLocaleLowerCase())).length===0 && <tr><td style={styles.td} colSpan={3}>Aucun produit trouvé.</td></tr>}
+                        {products.filter(p=>productMatchesSearch(p, labelSearch)).length===0 && <tr><td style={styles.td} colSpan={3}>Aucun produit trouvé.</td></tr>}
                       </tbody>
                     </table>
                   </div>
