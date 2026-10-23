@@ -78,7 +78,7 @@ export default function App() {
   const [salesSearch, setSalesSearch] = useState('');
   const [salesLines, setSalesLines] = useState([]);
   const [labelSearch, setLabelSearch] = useState('');
-  const [labelQuantities, setLabelQuantities] = useState({});
+  const [labelLines, setLabelLines] = useState([]);
   const [printSettings, setPrintSettings] = useState({ invoice_width_cm: 10, invoice_height_cm: 15, label_width_cm: 5, label_height_cm: 3 });
   const [printSettingsMessage, setPrintSettingsMessage] = useState('');
   const [pdfBusy, setPdfBusy] = useState(false);
@@ -1409,14 +1409,35 @@ export default function App() {
     setDocumentsLoading(false);
   }
 
+  function addLabelLine(product) {
+    if (!product) return;
+    setLabelLines((current) => {
+      const existing = current.find((line) => String(line.id) === String(product.id));
+      if (existing) {
+        return current.map((line) => String(line.id) === String(product.id)
+          ? { ...line, quantity: Math.min(500, Number(line.quantity || 0) + 1) }
+          : line);
+      }
+      return [...current, { ...product, quantity: 1 }];
+    });
+    setLabelSearch('');
+  }
+
+  function updateLabelLineQuantity(productId, value) {
+    const quantity = value === '' ? '' : Math.max(1, Math.min(500, Math.floor(Number(value) || 1)));
+    setLabelLines((current) => current.map((line) =>
+      String(line.id) === String(productId) ? { ...line, quantity } : line
+    ));
+  }
+
   async function makePdf(kind, action = 'download') {
     if (pdfBusy) return;
     if (kind === 'invoice' && (!salesCustomer.trim() || salesLines.length === 0)) {
       window.alert('Saisissez le nom du client et ajoutez au moins un produit.');
       return;
     }
-    const labelProducts = kind === 'labels' ? products.filter((product) => Number(labelQuantities[product.id]) > 0) : [];
-    const labelItems = kind === 'labels' ? labelProducts.flatMap((product) => Array.from({ length: Math.min(500, Math.floor(Number(labelQuantities[product.id]))) }, () => product)) : [];
+    const labelProducts = kind === 'labels' ? labelLines.filter((line) => Number(line.quantity) > 0) : [];
+    const labelItems = kind === 'labels' ? labelProducts.flatMap((line) => Array.from({ length: Math.floor(Number(line.quantity)) }, () => line)) : [];
     if (kind === 'labels' && labelItems.length === 0) { window.alert('Choisissez au moins un produit et une quantité.'); return; }
     if (kind === 'labels' && labelItems.length > 500) { window.alert('Limite de sécurité : 500 étiquettes par document.'); return; }
     setPdfBusy(true);
@@ -1474,7 +1495,7 @@ export default function App() {
       const documentTitle = kind === 'invoice' ? ('Bon - ' + salesCustomer.trim()) : (labelDocumentTitle.trim() || 'Étiquettes prix');
       const savedItems = kind === 'invoice'
         ? salesLines.map((line) => ({ product_id: line.id, product_ref: line.product_ref || '', name: line.name || '', quantity: Number(line.quantity), unit_price: Number(line.wholesale_price || 0), line_total: Number(line.quantity) * Number(line.wholesale_price || 0) }))
-        : labelProducts.map((product) => ({ product_id: product.id, product_ref: product.product_ref || '', name: product.name || '', retail_price: Number(product.retail_price || 0), quantity: Math.floor(Number(labelQuantities[product.id])) }));
+        : labelProducts.map((product) => ({ product_id: product.id, product_ref: product.product_ref || '', name: product.name || '', retail_price: Number(product.retail_price || 0), quantity: Math.floor(Number(product.quantity)) }));
       const total = kind === 'invoice' ? salesTotal : labelItems.length;
       const { error: saveError } = await supabase.from('app_pdf_documents').insert({
         doc_type: kind,
@@ -3606,14 +3627,50 @@ export default function App() {
             {activePage === 'labels' && canViewPage('labels') && (
               <section className="ls-panel">
                 <h2>Étiquettes prix</h2>
-                <p className="ls-muted">Créez un document d’étiquettes comme un bon : les sélections sont conservées dans l’historique privé. Une étiquette par pièce. Dimensions : {printSettings.label_width_cm} × {printSettings.label_height_cm} cm. Le stock reste inchangé.</p>
+                <p className="ls-muted">Ajoutez uniquement les produits voulus, choisissez le nombre d’étiquettes, puis enregistrez et téléchargez ou partagez le PDF. Une étiquette par pièce. Dimensions : {printSettings.label_width_cm} × {printSettings.label_height_cm} cm. Le nom et le prix de détail apparaissent sur l’étiquette. Le stock reste inchangé.</p>
                 <label style={{display:'block',fontWeight:700,marginBottom:6}}>Nom du document (facultatif)</label>
                 <input style={styles.field} value={labelDocumentTitle} onChange={(e)=>setLabelDocumentTitle(e.target.value)} placeholder="Ex. Étiquettes nouvelle collection" />
-                <input style={{...styles.field,marginTop:12}} value={labelSearch} onChange={(e)=>setLabelSearch(e.target.value)} placeholder="Rechercher par désignation ou référence…" />
-                <div className="ls-table-wrap ls-force-table" style={{marginTop:12}}><table className="ls-table"><thead><tr><th style={styles.th}>Désignation</th><th style={styles.th}>Prix détail</th><th style={styles.th}>Nombre d’étiquettes</th></tr></thead><tbody>{products.filter(p=>String(p.name||'').toLocaleLowerCase().includes(labelSearch.toLocaleLowerCase()) || String(p.product_ref||'').toLocaleLowerCase().includes(labelSearch.toLocaleLowerCase())).slice(0,300).map(p=><tr key={p.id}><td style={styles.td}>{p.name}<div className="ls-muted">{p.product_ref}</div></td><td style={styles.td}>{Number(p.retail_price||0).toFixed(2)} DA</td><td style={styles.td}><input type="number" min="0" max="500" step="1" style={{...styles.field,width:130}} value={labelQuantities[p.id] ?? ''} onChange={(e)=>setLabelQuantities(cur=>({...cur,[p.id]:Math.max(0,Math.min(500,Math.floor(Number(e.target.value)||0)))}))} placeholder="0" /></td></tr>)}</tbody></table></div>
-                <p className="ls-muted">Limite de sécurité : 500 étiquettes par document.</p>
-                <button style={styles.button} disabled={pdfBusy} onClick={()=>makePdf('labels','download')}>{pdfBusy?'Enregistrement…':'Enregistrer et télécharger PDF'}</button>
-                <button style={{...styles.secondary,marginLeft:8}} disabled={pdfBusy} onClick={()=>makePdf('labels','share')}>{pdfBusy?'Préparation…':'Enregistrer et partager PDF'}</button>
+                <h3 style={{marginTop:22}}>1. Ajouter des produits</h3>
+                <input style={{...styles.field,marginTop:4}} value={labelSearch} onChange={(e)=>setLabelSearch(e.target.value)} placeholder="Rechercher par désignation ou référence…" />
+                {labelSearch.trim() && (
+                  <div className="ls-table-wrap" style={{marginTop:10}}>
+                    <table className="ls-table">
+                      <thead><tr><th style={styles.th}>Désignation</th><th style={styles.th}>Prix détail</th><th style={styles.th}>Action</th></tr></thead>
+                      <tbody>
+                        {products.filter(p=>String(p.name||'').toLocaleLowerCase().includes(labelSearch.trim().toLocaleLowerCase()) || String(p.product_ref||'').toLocaleLowerCase().includes(labelSearch.trim().toLocaleLowerCase())).slice(0,30).map(p=>(
+                          <tr key={p.id}>
+                            <td style={styles.td}><strong>{p.name}</strong><div className="ls-muted">{p.product_ref}</div></td>
+                            <td style={styles.td}>{Number(p.retail_price||0).toFixed(2)} DA</td>
+                            <td style={styles.td}><button type="button" style={styles.button} onClick={()=>addLabelLine(p)}>Ajouter</button></td>
+                          </tr>
+                        ))}
+                        {products.filter(p=>String(p.name||'').toLocaleLowerCase().includes(labelSearch.trim().toLocaleLowerCase()) || String(p.product_ref||'').toLocaleLowerCase().includes(labelSearch.trim().toLocaleLowerCase())).length===0 && <tr><td style={styles.td} colSpan={3}>Aucun produit trouvé.</td></tr>}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+                <h3 style={{marginTop:24}}>2. Produits choisis ({labelLines.length})</h3>
+                {labelLines.length===0 ? <p className="ls-muted">Aucun produit ajouté. Recherchez un produit ci-dessus puis cliquez sur Ajouter.</p> : (
+                  <div className="ls-table-wrap">
+                    <table className="ls-table">
+                      <thead><tr><th style={styles.th}>Désignation</th><th style={styles.th}>Prix détail</th><th style={styles.th}>Nombre d’étiquettes</th><th style={styles.th}>Action</th></tr></thead>
+                      <tbody>{labelLines.map(line=>(
+                        <tr key={line.id}>
+                          <td style={styles.td}><strong>{line.name}</strong><div className="ls-muted">{line.product_ref}</div></td>
+                          <td style={styles.td}>{Number(line.retail_price||0).toFixed(2)} DA</td>
+                          <td style={styles.td}><input aria-label={'Nombre d’étiquettes pour '+line.name} type="number" min="1" max="500" step="1" style={{...styles.field,width:120}} value={line.quantity} onChange={(e)=>updateLabelLineQuantity(line.id,e.target.value)} /></td>
+                          <td style={styles.td}><button type="button" style={styles.secondary} onClick={()=>setLabelLines(current=>current.filter(item=>String(item.id)!==String(line.id)))}>Retirer</button></td>
+                        </tr>
+                      ))}</tbody>
+                    </table>
+                  </div>
+                )}
+                <p className="ls-muted">Limite de sécurité : 500 étiquettes au total par document.</p>
+                <div className="ls-toolbar">
+                  <button style={styles.button} disabled={pdfBusy || labelLines.length===0 || labelLines.reduce((sum,line)=>sum+Math.max(0,Number(line.quantity)||0),0)>500} onClick={()=>makePdf('labels','download')}>{pdfBusy?'Enregistrement…':'Enregistrer et télécharger PDF'}</button>
+                  <button style={styles.secondary} disabled={pdfBusy || labelLines.length===0 || labelLines.reduce((sum,line)=>sum+Math.max(0,Number(line.quantity)||0),0)>500} onClick={()=>makePdf('labels','share')}>{pdfBusy?'Préparation…':'Enregistrer et partager PDF'}</button>
+                  <button type="button" style={styles.secondary} disabled={pdfBusy || (labelLines.length===0 && !labelDocumentTitle && !labelSearch)} onClick={()=>{setLabelLines([]);setLabelSearch('');setLabelDocumentTitle('');}}>Nouveau document</button>
+                </div>
                 <h3 style={{marginTop:28}}>Mes documents d’étiquettes / Historique</h3>
                 {documentsLoading ? <p className="ls-muted">Chargement de l’historique…</p> : savedPdfDocuments.filter(d=>d.doc_type==='labels').length===0 ? <p className="ls-muted">Aucun document enregistré.</p> : <div className="ls-table-wrap"><table className="ls-table"><thead><tr><th style={styles.th}>Date</th><th style={styles.th}>Document</th><th style={styles.th}>Nombre d’étiquettes</th><th style={styles.th}>Consulter</th></tr></thead><tbody>{savedPdfDocuments.filter(d=>d.doc_type==='labels').map(d=><tr key={d.id}><td style={styles.td}>{d.document_date}</td><td style={styles.td}>{d.title || 'Étiquettes prix'}</td><td style={styles.td}>{Number(d.total||0)}</td><td style={styles.td}><details><summary style={{cursor:'pointer',fontWeight:700}}>Voir les étiquettes</summary><div style={{minWidth:220,paddingTop:8}}>{(Array.isArray(d.items)?d.items:[]).map((item,index)=><div key={item.product_id || index} style={{padding:'6px 0',borderBottom:'1px solid #e5eaf0'}}><strong>{item.name}</strong><div className="ls-muted">{item.quantity} étiquette(s) · {Number(item.retail_price||0).toFixed(2)} DA</div></div>)}</div></details></td></tr>)}</tbody></table></div>}
               </section>
