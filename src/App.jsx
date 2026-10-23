@@ -73,6 +73,15 @@ export default function App() {
   const [permissionsLoading, setPermissionsLoading] = useState(false);
   const [permissionsMessage, setPermissionsMessage] = useState('');
   const [permissionSavingId, setPermissionSavingId] = useState('');
+  const [salesCustomer, setSalesCustomer] = useState('');
+  const [salesProductId, setSalesProductId] = useState('');
+  const [salesSearch, setSalesSearch] = useState('');
+  const [salesLines, setSalesLines] = useState([]);
+  const [labelSearch, setLabelSearch] = useState('');
+  const [labelQuantities, setLabelQuantities] = useState({});
+  const [printSettings, setPrintSettings] = useState({ invoice_width_cm: 10, invoice_height_cm: 15, label_width_cm: 5, label_height_cm: 3 });
+  const [printSettingsMessage, setPrintSettingsMessage] = useState('');
+  const [pdfBusy, setPdfBusy] = useState(false);
 
   async function loadProducts() {
     let allProducts = [];
@@ -1342,6 +1351,116 @@ export default function App() {
     setPermissionsMessage('Permission de section enregistrée.');
   }
 
+
+  async function loadPrintSettings() {
+    const { data, error } = await supabase.from('app_print_settings').select('invoice_width_cm, invoice_height_cm, label_width_cm, label_height_cm').eq('id', 1).maybeSingle();
+    if (error) {
+      setPrintSettingsMessage('Réglages PDF non chargés : exécutez d’abord le SQL fourni. Les valeurs par défaut restent utilisables.');
+      return;
+    }
+    if (data) setPrintSettings({ invoice_width_cm: Number(data.invoice_width_cm) || 10, invoice_height_cm: Number(data.invoice_height_cm) || 15, label_width_cm: Number(data.label_width_cm) || 5, label_height_cm: Number(data.label_height_cm) || 3 });
+    setPrintSettingsMessage('');
+  }
+
+  async function savePrintSettings() {
+    if (!isAdmin) return;
+    const values = Object.fromEntries(Object.entries(printSettings).map(([key, value]) => [key, Number(value)]));
+    if (Object.values(values).some((value) => !Number.isFinite(value) || value <= 0 || value > 100)) {
+      setPrintSettingsMessage('Les dimensions doivent être comprises entre 0,1 et 100 cm.');
+      return;
+    }
+    const { error } = await supabase.from('app_print_settings').upsert({ id: 1, ...values, updated_by: user.id, updated_at: new Date().toISOString() });
+    if (error) {
+      setPrintSettingsMessage('Erreur sauvegarde : ' + error.message + '. Vérifiez que le SQL des réglages a été exécuté.');
+      return;
+    }
+    setPrintSettingsMessage('Dimensions enregistrées pour tous les comptes autorisés.');
+  }
+
+  function addSalesLine() {
+    const product = products.find((item) => String(item.id) === String(salesProductId));
+    if (!product) { window.alert('Choisissez un produit.'); return; }
+    setSalesLines((current) => {
+      const existing = current.find((line) => line.id === product.id);
+      return existing ? current.map((line) => line.id === product.id ? { ...line, quantity: Number(line.quantity) + 1 } : line) : [...current, { ...product, quantity: 1 }];
+    });
+    setSalesProductId('');
+    setSalesSearch('');
+  }
+
+  const salesTotal = salesLines.reduce((sum, line) => sum + Number(line.quantity || 0) * Number(line.wholesale_price || 0), 0);
+
+  async function makePdf(kind) {
+    if (pdfBusy) return;
+    if (kind === 'invoice' && (!salesCustomer.trim() || salesLines.length === 0)) {
+      window.alert('Saisissez le nom du client et ajoutez au moins un produit.');
+      return;
+    }
+    const labelItems = kind === 'labels' ? products.filter((product) => Number(labelQuantities[product.id]) > 0).flatMap((product) => Array.from({ length: Math.min(500, Math.floor(Number(labelQuantities[product.id]))) }, () => product)) : [];
+    if (kind === 'labels' && labelItems.length === 0) { window.alert('Choisissez au moins un produit et une quantité.'); return; }
+    setPdfBusy(true);
+    try {
+      const { jsPDF } = await import('jspdf');
+      let doc;
+      if (kind === 'invoice') {
+        const width = Number(printSettings.invoice_width_cm) * 10;
+        const height = Number(printSettings.invoice_height_cm) * 10;
+        doc = new jsPDF({ orientation: width > height ? 'landscape' : 'portrait', unit: 'mm', format: [width, height] });
+        const margin = Math.max(3, Math.min(8, width * 0.05));
+        let y = margin + 3;
+        const lineHeight = Math.max(4, Math.min(7, height / 18));
+        doc.setFont('helvetica', 'bold'); doc.setFontSize(Math.max(8, Math.min(15, width / 8)));
+        doc.text('BON DE VENTE', margin, y); y += lineHeight * 1.2;
+        doc.setFont('helvetica', 'normal'); doc.setFontSize(Math.max(6, Math.min(10, width / 12)));
+        doc.text('Date : ' + new Date().toLocaleDateString('fr-FR'), margin, y); y += lineHeight;
+        doc.text('Client : ' + salesCustomer.trim().slice(0, 90), margin, y); y += lineHeight * 1.3;
+        doc.setFont('helvetica', 'bold');
+        doc.text('Produit', margin, y); doc.text('Qté', width * 0.59, y); doc.text('PU gros', width * 0.70, y); doc.text('Total', width - margin, y, { align: 'right' }); y += lineHeight;
+        doc.line(margin, y - lineHeight * 0.55, width - margin, y - lineHeight * 0.55);
+        doc.setFont('helvetica', 'normal');
+        for (const line of salesLines) {
+          if (y > height - margin - lineHeight * 2) break;
+          const name = doc.splitTextToSize(String(line.name || ''), width * 0.40)[0] || '';
+          doc.text(name, margin, y);
+          doc.text(String(line.quantity), width * 0.59, y);
+          doc.text(Number(line.wholesale_price || 0).toFixed(2), width * 0.70, y);
+          doc.text((Number(line.quantity) * Number(line.wholesale_price || 0)).toFixed(2), width - margin, y, { align: 'right' });
+          y += lineHeight;
+        }
+        y += lineHeight * 0.4; doc.line(margin, y - lineHeight * 0.55, width - margin, y - lineHeight * 0.55);
+        doc.setFont('helvetica', 'bold'); doc.text('TOTAL : ' + salesTotal.toFixed(2) + ' DA', width - margin, Math.min(height - margin, y + lineHeight), { align: 'right' });
+      } else {
+        const width = Number(printSettings.label_width_cm) * 10;
+        const height = Number(printSettings.label_height_cm) * 10;
+        doc = new jsPDF({ orientation: width > height ? 'landscape' : 'portrait', unit: 'mm', format: [width, height] });
+        labelItems.forEach((product, index) => {
+          if (index > 0) doc.addPage([width, height], width > height ? 'landscape' : 'portrait');
+          const margin = 2;
+          doc.setFont('helvetica', 'bold');
+          doc.setFontSize(Math.max(6, Math.min(10, width / 5)));
+          const nameLines = doc.splitTextToSize(String(product.name || ''), width - margin * 2).slice(0, 2);
+          doc.text(nameLines, margin, Math.max(5, height * 0.30));
+          doc.setFontSize(Math.max(8, Math.min(15, width / 3.8)));
+          doc.text(Number(product.retail_price || 0).toFixed(2) + ' DA', width / 2, height * 0.78, { align: 'center' });
+        });
+      }
+      const filename = kind === 'invoice' ? 'bon-de-vente.pdf' : 'etiquettes-prix.pdf';
+      const blob = doc.output('blob');
+      const file = new File([blob], filename, { type: 'application/pdf' });
+      if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({ files: [file], title: kind === 'invoice' ? 'Bon de vente' : 'Étiquettes prix' });
+      } else {
+        doc.save(filename);
+        if (kind === 'invoice') {
+          const text = encodeURIComponent('Bon de vente - Client : ' + salesCustomer.trim() + ' - Total : ' + salesTotal.toFixed(2) + ' DA');
+          if (window.confirm('Le PDF a été téléchargé. Voulez-vous aussi ouvrir WhatsApp pour partager un message récapitulatif ?')) window.open('https://wa.me/?text=' + text, '_blank', 'noopener,noreferrer');
+        }
+      }
+    } catch (error) {
+      window.alert('Erreur création PDF : ' + (error?.message || error));
+    } finally { setPdfBusy(false); }
+  }
+
   function navigateTo(page) {
     setActivePage(page);
     setCurrentPage(1);
@@ -1358,6 +1477,7 @@ export default function App() {
     if (page === 'settings' && user?.profile?.role === 'admin') {
       loadSuggestions();
       loadAccountPermissions();
+      loadPrintSettings();
     }
     if (page === 'photos') loadProductPhotos();
   }
@@ -1386,6 +1506,8 @@ export default function App() {
       icon: '▣',
     },
     { id: 'textiles', label: 'Chora / Voilage / Rideau', icon: '▤' },
+    { id: 'sales', label: 'Bon de vente', icon: '▧' },
+    { id: 'labels', label: 'Étiquettes prix', icon: '▤' },
     {
       id: 'photos',
       label: language === 'ar' ? 'صور المنتجات' : 'Photos des produits',
@@ -1423,7 +1545,7 @@ export default function App() {
   ];
 
   const isAdmin = user?.profile?.role === 'admin';
-  const canViewPage = (pageId) => isAdmin || pagePermissions[pageId] === true || (!navItems?.find?.((item) => item.id === pageId)?.admin && !navItems?.find?.((item) => item.id === pageId)?.adminOnly && pagePermissions[pageId] !== false);
+  const canViewPage = (pageId) => isAdmin || (['sales', 'labels'].includes(pageId) ? pagePermissions[pageId] === true : pagePermissions[pageId] === true || (!navItems?.find?.((item) => item.id === pageId)?.admin && !navItems?.find?.((item) => item.id === pageId)?.adminOnly && pagePermissions[pageId] !== false));
   const normalizeName = (value) =>
     String(value || '')
       .toLocaleUpperCase('fr')
@@ -1554,6 +1676,7 @@ export default function App() {
     .filter((item) => (!item.admin || isAdmin || pagePermissions[item.id] === true) && (!item.adminOnly || isAdmin || pagePermissions[item.id] === true))
     .filter((item) => !hiddenPages.includes(item.id))
     .filter((item) => isAdmin || pagePermissions[item.id] !== false)
+    .filter((item) => isAdmin || !['sales', 'labels'].includes(item.id) || pagePermissions[item.id] === true)
     .sort((a, b) => {
       const ai = pageOrder.indexOf(a.id); const bi = pageOrder.indexOf(b.id);
       if (ai < 0 && bi < 0) return navItems.findIndex(x => x.id === a.id) - navItems.findIndex(x => x.id === b.id);
@@ -3409,6 +3532,41 @@ export default function App() {
               </section>
             )}
 
+
+            {activePage === 'sales' && canViewPage('sales') && (
+              <section className="ls-panel">
+                <h2>Bon de vente</h2>
+                <p className="ls-muted">Document PDF indépendant du stock : aucune quantité de stock ne sera modifiée.</p>
+                <label style={{display:'block',fontWeight:700,marginBottom:6}}>Nom du client</label>
+                <input style={styles.field} value={salesCustomer} onChange={(e)=>setSalesCustomer(e.target.value)} placeholder="Nom du client" />
+                <div style={{display:'grid',gridTemplateColumns:'minmax(0,1fr) auto',gap:8,marginTop:14}}>
+                  <div>
+                    <input style={styles.field} value={salesSearch} onChange={(e)=>{setSalesSearch(e.target.value);setSalesProductId('');}} placeholder="Rechercher un produit par désignation ou référence…" />
+                    <select style={{...styles.field,marginTop:8}} value={salesProductId} onChange={(e)=>setSalesProductId(e.target.value)}>
+                      <option value="">Choisir un produit…</option>
+                      {products.filter(p=>(String(p.name||'')+' '+String(p.product_ref||'')).toLowerCase().includes(salesSearch.toLowerCase())).slice(0,200).map(p=><option key={p.id} value={p.id}>{p.name} — Gros : {p.wholesale_price ?? 0} DA</option>)}
+                    </select>
+                  </div>
+                  <button style={styles.button} onClick={addSalesLine}>Ajouter</button>
+                </div>
+                {salesLines.length > 0 ? <div className="ls-table-wrap ls-force-table" style={{marginTop:16}}><table className="ls-table"><thead><tr><th style={styles.th}>Désignation</th><th style={styles.th}>Quantité</th><th style={styles.th}>Prix de gros</th><th style={styles.th}>Total</th><th style={styles.th}>Action</th></tr></thead><tbody>{salesLines.map(line=><tr key={line.id}><td style={styles.td}>{line.name}</td><td style={styles.td}><input type="number" min="0.01" step="any" style={{...styles.field,width:100}} value={line.quantity} onChange={(e)=>setSalesLines(cur=>cur.map(x=>x.id===line.id?{...x,quantity:Math.max(0,Number(e.target.value)||0)}:x))}/></td><td style={styles.td}>{Number(line.wholesale_price||0).toFixed(2)} DA</td><td style={styles.td}>{(Number(line.quantity||0)*Number(line.wholesale_price||0)).toFixed(2)} DA</td><td style={styles.td}><button style={styles.secondary} onClick={()=>setSalesLines(cur=>cur.filter(x=>x.id!==line.id))}>Retirer</button></td></tr>)}</tbody></table></div> : <p className="ls-muted">Aucun produit ajouté.</p>}
+                <h3 style={{textAlign:'right'}}>Total : {salesTotal.toFixed(2)} DA</h3>
+                <button style={styles.button} disabled={pdfBusy || salesLines.length===0} onClick={()=>makePdf('invoice')}>{pdfBusy?'Préparation…':'Créer le PDF et partager'}</button>
+                <button style={{...styles.secondary,marginLeft:8}} onClick={()=>{setSalesCustomer('');setSalesLines([]);}}>Nouveau bon</button>
+              </section>
+            )}
+
+            {activePage === 'labels' && canViewPage('labels') && (
+              <section className="ls-panel">
+                <h2>Étiquettes prix</h2>
+                <p className="ls-muted">Une étiquette par pièce saisie. Dimensions actuelles : {printSettings.label_width_cm} × {printSettings.label_height_cm} cm. Le PDF ne modifie pas le stock.</p>
+                <input style={styles.field} value={labelSearch} onChange={(e)=>setLabelSearch(e.target.value)} placeholder="Rechercher un produit…" />
+                <div className="ls-table-wrap ls-force-table" style={{marginTop:12}}><table className="ls-table"><thead><tr><th style={styles.th}>Désignation</th><th style={styles.th}>Prix détail</th><th style={styles.th}>Nombre d’étiquettes</th></tr></thead><tbody>{products.filter(p=>String(p.name||'').toLowerCase().includes(labelSearch.toLowerCase()) || String(p.product_ref||'').toLowerCase().includes(labelSearch.toLowerCase())).slice(0,300).map(p=><tr key={p.id}><td style={styles.td}>{p.name}<div className="ls-muted">{p.product_ref}</div></td><td style={styles.td}>{Number(p.retail_price||0).toFixed(2)} DA</td><td style={styles.td}><input type="number" min="0" max="500" step="1" style={{...styles.field,width:130}} value={labelQuantities[p.id] ?? ''} onChange={(e)=>setLabelQuantities(cur=>({...cur,[p.id]:Math.max(0,Math.min(500,Math.floor(Number(e.target.value)||0)))}))} placeholder="0" /></td></tr>)}</tbody></table></div>
+                <p className="ls-muted">Limite de sécurité : 500 étiquettes par génération.</p>
+                <button style={styles.button} disabled={pdfBusy} onClick={()=>makePdf('labels')}>{pdfBusy?'Préparation…':'Créer le PDF et partager'}</button>
+              </section>
+            )}
+
             {activePage === 'settings' && (
               <section className="ls-panel">
                 <h2 style={{ marginTop: 0 }}>
@@ -3476,6 +3634,21 @@ export default function App() {
                     <option value="system">Système (selon l’appareil)</option>
                   </select>
                 </div>
+
+                {isAdmin && (
+                  <section className="ls-panel" style={{marginBottom:18}}>
+                    <h3 style={{marginTop:0}}>Dimensions des documents PDF (cm)</h3>
+                    <p className="ls-muted">Seul l’administrateur peut modifier les dimensions. Les étiquettes sont réglées par défaut à 5 × 3 cm.</p>
+                    <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(180px,1fr))',gap:12}}>
+                      <label>Bon de vente — largeur (cm)<input type="number" min="0.1" max="100" step="0.1" style={styles.field} value={printSettings.invoice_width_cm} onChange={(e)=>setPrintSettings(s=>({...s,invoice_width_cm:e.target.value}))}/></label>
+                      <label>Bon de vente — hauteur (cm)<input type="number" min="0.1" max="100" step="0.1" style={styles.field} value={printSettings.invoice_height_cm} onChange={(e)=>setPrintSettings(s=>({...s,invoice_height_cm:e.target.value}))}/></label>
+                      <label>Étiquette — longueur / largeur (cm)<input type="number" min="0.1" max="100" step="0.1" style={styles.field} value={printSettings.label_width_cm} onChange={(e)=>setPrintSettings(s=>({...s,label_width_cm:e.target.value}))}/></label>
+                      <label>Étiquette — hauteur (cm)<input type="number" min="0.1" max="100" step="0.1" style={styles.field} value={printSettings.label_height_cm} onChange={(e)=>setPrintSettings(s=>({...s,label_height_cm:e.target.value}))}/></label>
+                    </div>
+                    <div className="ls-toolbar" style={{marginTop:12}}><button style={styles.button} onClick={savePrintSettings}>Enregistrer les dimensions</button><button style={styles.secondary} onClick={loadPrintSettings}>Recharger</button></div>
+                    {printSettingsMessage && <p className="ls-message">{printSettingsMessage}</p>}
+                  </section>
+                )}
                 <section className="ls-panel" style={{marginTop:16}}>
                   <h3 style={{marginTop:0}}>Personnaliser mes pages</h3>
                   <p className="ls-muted">Masquez les pages inutiles ou changez leur ordre. Le réglage est propre à votre compte.</p>
@@ -3736,7 +3909,7 @@ export default function App() {
                                     </td>
                                     <td style={styles.td}>
                                       <details><summary>Sections et autorisations</summary>
-                                        {navItems.filter((item)=>(!item.adminOnly || isAdmin) && (!item.admin || isAdmin)).map((item)=><label key={item.id} style={{display:'flex',gap:6,alignItems:'center',margin:'6px 0'}}><input type="checkbox" checked={account.page_permissions?.[item.id] !== false} onChange={(e)=>savePagePermission(account.id,item.id,e.target.checked)}/>{item.label}</label>)}
+                                        {navItems.filter((item)=>(!item.adminOnly || isAdmin) && (!item.admin || isAdmin)).map((item)=><label key={item.id} style={{display:'flex',gap:6,alignItems:'center',margin:'6px 0'}}><input type="checkbox" checked={['sales','labels'].includes(item.id) ? account.page_permissions?.[item.id] === true : account.page_permissions?.[item.id] !== false} onChange={(e)=>savePagePermission(account.id,item.id,e.target.checked)}/>{item.label}</label>)}
                                         <label style={{display:'flex',gap:6,alignItems:'center',margin:'8px 0'}}><input type="checkbox" checked={Boolean(account.can_view_negative_stock)} disabled={permissionSavingId === account.id + ':can_view_negative_stock'} onChange={(event)=>updateAccountPermission(account.id,'can_view_negative_stock',event.target.checked)}/>Tableau des stocks négatifs</label>
                                         <label style={{display:'flex',gap:6,alignItems:'center',margin:'8px 0'}}><input type="checkbox" checked={Boolean(account.can_view_zero_negative_products)} disabled={permissionSavingId === account.id + ':can_view_zero_negative_products'} onChange={(event)=>updateAccountPermission(account.id,'can_view_zero_negative_products',event.target.checked)}/>Europ Arina : afficher quantité 0 ou négative</label>
                                       </details>

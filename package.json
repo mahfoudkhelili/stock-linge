@@ -13,7 +13,8 @@
     "@supabase/supabase-js": "^2.117.3",
     "papaparse": "^5.7.0",
     "react": "^19.3.0",
-    "react-dom": "^19.3.0"
+    "react-dom": "^19.3.0",
+    "jspdf": "^3.0.3"
   },
   "devDependencies": {
     "@types/react": "^19.3.0",
