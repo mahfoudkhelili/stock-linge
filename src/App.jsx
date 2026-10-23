@@ -1507,8 +1507,8 @@ export default function App() {
           // Product name in the middle: slightly larger and bold, centered.
           doc.setFont('helvetica', 'bold');
           doc.setFontSize(Math.max(6.5, Math.min(9, width / 5.5)));
-          const nameLines = doc.splitTextToSize(String(product.name || ''), width - margin * 2).slice(0, 2);
-          const nameY = height * 0.49 - (nameLines.length > 1 ? 2 : 0);
+          const nameLines = doc.splitTextToSize(String(product.name || ''), width - margin * 2).slice(0, 3);
+          const nameY = height * 0.47 - (nameLines.length > 1 ? (nameLines.length - 1) * 2 : 0);
           doc.text(nameLines, width / 2, nameY, { align: 'center', lineHeightFactor: 1.05 });
           // Retail price at the bottom: larger/bolder and with no decimal places.
           doc.setFontSize(Math.max(9, Math.min(14, width / 3.8)));
