@@ -1656,7 +1656,7 @@ export default function App() {
     const searchMatch = !searchTokens.length || searchTokens.every((token) =>
       nameTokens.some((word) => word.startsWith(token) || word.includes(token))
     );
-    const isArina = normalizedName.includes('EUROPARINA');
+    const isArina = normalizedName.includes('EUROPARINA') || (normalizedName.includes('EUROP') && normalizedName.includes('ARINA'));
     const isChora = normalizedName.includes('CHORA');
     const isVoilage = normalizedName.includes('VOILAGE');
     const isRideau = normalizedName.includes('RIDEAU') && !normalizedName.includes('CUISINE');
@@ -1699,7 +1699,8 @@ export default function App() {
     const normalized = normalizeName(product.name);
     const tokens = String(searchTerm || '').toLocaleUpperCase('fr').normalize('NFD').replace(/[\u0300-\u036f]/g, '').split(/[^A-Z0-9]+/).filter(Boolean);
     const words = String(product.name || '').toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').split(/[^A-Z0-9]+/).filter(Boolean);
-    const match = normalized.includes('AFRICHASHOP') && (!tokens.length || tokens.every((token)=>words.some((word)=>word.startsWith(token)||word.includes(token))));
+    const isAfrichaShop = normalized.includes('AFRICHASHOP') || (normalized.includes('AFRICHA') && normalized.includes('SHOP'));
+    const match = isAfrichaShop && (!tokens.length || tokens.every((token)=>words.some((word)=>word.startsWith(token)||word.includes(token)));
     return match && (Number(product.current_quantity) > 0 || (showArinaZeroStock && (isAdmin || Boolean(user?.profile?.can_view_zero_negative_products))));
   }).sort((a,b)=>{
     const av=a[sortKey], bv=b[sortKey];
