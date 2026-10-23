@@ -82,6 +82,9 @@ export default function App() {
   const [printSettings, setPrintSettings] = useState({ invoice_width_cm: 10, invoice_height_cm: 15, label_width_cm: 5, label_height_cm: 3 });
   const [printSettingsMessage, setPrintSettingsMessage] = useState('');
   const [pdfBusy, setPdfBusy] = useState(false);
+  const [savedPdfDocuments, setSavedPdfDocuments] = useState([]);
+  const [documentsLoading, setDocumentsLoading] = useState(false);
+  const [labelDocumentTitle, setLabelDocumentTitle] = useState('');
 
   async function loadProducts() {
     let allProducts = [];
@@ -1377,12 +1380,12 @@ export default function App() {
     setPrintSettingsMessage('Dimensions enregistrées pour tous les comptes autorisés.');
   }
 
-  function addSalesLine() {
-    const product = products.find((item) => String(item.id) === String(salesProductId));
-    if (!product) { window.alert('Choisissez un produit.'); return; }
+  function addSalesLine(productId = salesProductId) {
+    const product = products.find((item) => String(item.id) === String(productId));
+    if (!product) { window.alert('Choisissez un produit dans les résultats de recherche.'); return; }
     setSalesLines((current) => {
-      const existing = current.find((line) => line.id === product.id);
-      return existing ? current.map((line) => line.id === product.id ? { ...line, quantity: Number(line.quantity) + 1 } : line) : [...current, { ...product, quantity: 1 }];
+      const existing = current.find((line) => String(line.id) === String(product.id));
+      return existing ? current.map((line) => String(line.id) === String(product.id) ? { ...line, quantity: Number(line.quantity) + 1 } : line) : [...current, { ...product, quantity: 1 }];
     });
     setSalesProductId('');
     setSalesSearch('');
@@ -1390,14 +1393,32 @@ export default function App() {
 
   const salesTotal = salesLines.reduce((sum, line) => sum + Number(line.quantity || 0) * Number(line.wholesale_price || 0), 0);
 
-  async function makePdf(kind) {
+  async function loadSavedPdfDocuments() {
+    setDocumentsLoading(true);
+    const { data, error } = await supabase
+      .from('app_pdf_documents')
+      .select('id, doc_type, title, customer_name, document_date, items, total, created_by, created_at')
+      .order('created_at', { ascending: false })
+      .limit(100);
+    if (error) {
+      setMessage('Erreur historique PDF : ' + error.message + '. Vérifiez que la migration des documents PDF a été exécutée.');
+      setDocumentsLoading(false);
+      return;
+    }
+    setSavedPdfDocuments(data || []);
+    setDocumentsLoading(false);
+  }
+
+  async function makePdf(kind, action = 'download') {
     if (pdfBusy) return;
     if (kind === 'invoice' && (!salesCustomer.trim() || salesLines.length === 0)) {
       window.alert('Saisissez le nom du client et ajoutez au moins un produit.');
       return;
     }
-    const labelItems = kind === 'labels' ? products.filter((product) => Number(labelQuantities[product.id]) > 0).flatMap((product) => Array.from({ length: Math.min(500, Math.floor(Number(labelQuantities[product.id]))) }, () => product)) : [];
+    const labelProducts = kind === 'labels' ? products.filter((product) => Number(labelQuantities[product.id]) > 0) : [];
+    const labelItems = kind === 'labels' ? labelProducts.flatMap((product) => Array.from({ length: Math.min(500, Math.floor(Number(labelQuantities[product.id]))) }, () => product)) : [];
     if (kind === 'labels' && labelItems.length === 0) { window.alert('Choisissez au moins un produit et une quantité.'); return; }
+    if (kind === 'labels' && labelItems.length > 500) { window.alert('Limite de sécurité : 500 étiquettes par document.'); return; }
     setPdfBusy(true);
     try {
       const { jsPDF } = await import('jspdf');
@@ -1419,7 +1440,10 @@ export default function App() {
         doc.line(margin, y - lineHeight * 0.55, width - margin, y - lineHeight * 0.55);
         doc.setFont('helvetica', 'normal');
         for (const line of salesLines) {
-          if (y > height - margin - lineHeight * 2) break;
+          if (y > height - margin - lineHeight * 2) {
+            doc.addPage([width, height], width > height ? 'landscape' : 'portrait');
+            y = margin + lineHeight;
+          }
           const name = doc.splitTextToSize(String(line.name || ''), width * 0.40)[0] || '';
           doc.text(name, margin, y);
           doc.text(String(line.quantity), width * 0.59, y);
@@ -1444,20 +1468,38 @@ export default function App() {
           doc.text(Number(product.retail_price || 0).toFixed(2) + ' DA', width / 2, height * 0.78, { align: 'center' });
         });
       }
-      const filename = kind === 'invoice' ? 'bon-de-vente.pdf' : 'etiquettes-prix.pdf';
+
+      const now = new Date();
+      const documentDate = now.toISOString().slice(0, 10);
+      const documentTitle = kind === 'invoice' ? ('Bon - ' + salesCustomer.trim()) : (labelDocumentTitle.trim() || 'Étiquettes prix');
+      const savedItems = kind === 'invoice'
+        ? salesLines.map((line) => ({ product_id: line.id, product_ref: line.product_ref || '', name: line.name || '', quantity: Number(line.quantity), unit_price: Number(line.wholesale_price || 0), line_total: Number(line.quantity) * Number(line.wholesale_price || 0) }))
+        : labelProducts.map((product) => ({ product_id: product.id, product_ref: product.product_ref || '', name: product.name || '', retail_price: Number(product.retail_price || 0), quantity: Math.floor(Number(labelQuantities[product.id])) }));
+      const total = kind === 'invoice' ? salesTotal : labelItems.length;
+      const { error: saveError } = await supabase.from('app_pdf_documents').insert({
+        doc_type: kind,
+        title: documentTitle.slice(0, 160),
+        customer_name: kind === 'invoice' ? salesCustomer.trim().slice(0, 160) : null,
+        document_date: documentDate,
+        items: savedItems,
+        total: Number(total),
+        created_by: user.id,
+      });
+      if (saveError) throw new Error('Le PDF n’a pas été enregistré dans l’historique : ' + saveError.message);
+      await loadSavedPdfDocuments();
+
+      const filename = (kind === 'invoice' ? 'bon-de-vente' : 'etiquettes-prix') + '-' + documentDate + '.pdf';
       const blob = doc.output('blob');
       const file = new File([blob], filename, { type: 'application/pdf' });
-      if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+      if (action === 'share' && navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
         await navigator.share({ files: [file], title: kind === 'invoice' ? 'Bon de vente' : 'Étiquettes prix' });
       } else {
         doc.save(filename);
-        if (kind === 'invoice') {
-          const text = encodeURIComponent('Bon de vente - Client : ' + salesCustomer.trim() + ' - Total : ' + salesTotal.toFixed(2) + ' DA');
-          if (window.confirm('Le PDF a été téléchargé. Voulez-vous aussi ouvrir WhatsApp pour partager un message récapitulatif ?')) window.open('https://wa.me/?text=' + text, '_blank', 'noopener,noreferrer');
-        }
+        if (action === 'share') window.alert('Le partage direct n’est pas disponible sur cet appareil : le PDF a été téléchargé pour que vous puissiez le partager.');
       }
+      setMessage('Document enregistré dans l’historique et PDF préparé.');
     } catch (error) {
-      window.alert('Erreur création PDF : ' + (error?.message || error));
+      window.alert('Erreur création/enregistrement PDF : ' + (error?.message || error));
     } finally { setPdfBusy(false); }
   }
 
@@ -1479,7 +1521,8 @@ export default function App() {
       loadAccountPermissions();
       loadPrintSettings();
     }
-    if (page === 'photos') loadProductPhotos();
+    if (page === 'photos' || page === 'sales') loadProductPhotos();
+    if (page === 'sales' || page === 'labels') loadSavedPdfDocuments();
   }
 
   const navItems = [
@@ -3536,34 +3579,43 @@ export default function App() {
             {activePage === 'sales' && canViewPage('sales') && (
               <section className="ls-panel">
                 <h2>Bon de vente</h2>
-                <p className="ls-muted">Document PDF indépendant du stock : aucune quantité de stock ne sera modifiée.</p>
+                <p className="ls-muted">Document PDF indépendant du stock : aucune quantité de stock ne sera modifiée. Chaque bon est conservé dans l’historique privé.</p>
                 <label style={{display:'block',fontWeight:700,marginBottom:6}}>Nom du client</label>
                 <input style={styles.field} value={salesCustomer} onChange={(e)=>setSalesCustomer(e.target.value)} placeholder="Nom du client" />
-                <div style={{display:'grid',gridTemplateColumns:'minmax(0,1fr) auto',gap:8,marginTop:14}}>
-                  <div>
-                    <input style={styles.field} value={salesSearch} onChange={(e)=>{setSalesSearch(e.target.value);setSalesProductId('');}} placeholder="Rechercher un produit par désignation ou référence…" />
-                    <select style={{...styles.field,marginTop:8}} value={salesProductId} onChange={(e)=>setSalesProductId(e.target.value)}>
-                      <option value="">Choisir un produit…</option>
-                      {products.filter(p=>(String(p.name||'')+' '+String(p.product_ref||'')).toLowerCase().includes(salesSearch.toLowerCase())).slice(0,200).map(p=><option key={p.id} value={p.id}>{p.name} — Gros : {p.wholesale_price ?? 0} DA</option>)}
-                    </select>
-                  </div>
-                  <button style={styles.button} onClick={addSalesLine}>Ajouter</button>
+                <div style={{marginTop:14}}>
+                  <input style={styles.field} value={salesSearch} onChange={(e)=>setSalesSearch(e.target.value)} placeholder="Rechercher par désignation ou référence…" />
+                  {salesSearch.trim() && <div style={{marginTop:8,maxHeight:240,overflowY:'auto',border:'1px solid #dbe3ec',borderRadius:8}}>
+                    {products.filter(p=>(String(p.name||'')+' '+String(p.product_ref||'')).toLocaleLowerCase().includes(salesSearch.trim().toLocaleLowerCase())).slice(0,20).map(p=><div key={p.id} style={{display:'flex',alignItems:'center',gap:8,padding:8,borderBottom:'1px solid #edf1f5'}}>
+                      {photoFor(p.id) ? <img src={photoFor(p.id)} alt="" style={{width:42,height:42,objectFit:'cover',borderRadius:6,flexShrink:0}} /> : <div style={{width:42,height:42,background:'#f1f4f8',borderRadius:6,flexShrink:0}} />}
+                      <div style={{flex:1,minWidth:0}}><div style={{fontWeight:700}}>{p.name}</div><div className="ls-muted">{p.product_ref || ''} · Gros : {Number(p.wholesale_price||0).toFixed(2)} DA</div></div>
+                      <button style={styles.button} onClick={()=>addSalesLine(p.id)}>Ajouter</button>
+                    </div>)}
+                    {!products.some(p=>(String(p.name||'')+' '+String(p.product_ref||'')).toLocaleLowerCase().includes(salesSearch.trim().toLocaleLowerCase())) && <p style={{padding:10}} className="ls-muted">Aucun produit trouvé.</p>}
+                  </div>}
                 </div>
-                {salesLines.length > 0 ? <div className="ls-table-wrap ls-force-table" style={{marginTop:16}}><table className="ls-table"><thead><tr><th style={styles.th}>Désignation</th><th style={styles.th}>Quantité</th><th style={styles.th}>Prix de gros</th><th style={styles.th}>Total</th><th style={styles.th}>Action</th></tr></thead><tbody>{salesLines.map(line=><tr key={line.id}><td style={styles.td}>{line.name}</td><td style={styles.td}><input type="number" min="0.01" step="any" style={{...styles.field,width:100}} value={line.quantity} onChange={(e)=>setSalesLines(cur=>cur.map(x=>x.id===line.id?{...x,quantity:Math.max(0,Number(e.target.value)||0)}:x))}/></td><td style={styles.td}>{Number(line.wholesale_price||0).toFixed(2)} DA</td><td style={styles.td}>{(Number(line.quantity||0)*Number(line.wholesale_price||0)).toFixed(2)} DA</td><td style={styles.td}><button style={styles.secondary} onClick={()=>setSalesLines(cur=>cur.filter(x=>x.id!==line.id))}>Retirer</button></td></tr>)}</tbody></table></div> : <p className="ls-muted">Aucun produit ajouté.</p>}
+                {salesLines.length > 0 ? <div className="ls-table-wrap ls-force-table" style={{marginTop:16}}><table className="ls-table"><thead><tr><th style={styles.th}>Désignation</th><th style={styles.th}>Quantité</th><th style={styles.th}>Prix de gros</th><th style={styles.th}>Total</th><th style={styles.th}>Action</th></tr></thead><tbody>{salesLines.map(line=><tr key={line.id}><td style={styles.td}><div style={{display:'flex',alignItems:'center',gap:8}}>{photoFor(line.id) ? <img src={photoFor(line.id)} alt="" style={{width:38,height:38,objectFit:'cover',borderRadius:6,flexShrink:0}} /> : null}<span>{line.name}</span></div></td><td style={styles.td}><input type="number" min="0.01" step="any" style={{...styles.field,width:100}} value={line.quantity} onChange={(e)=>setSalesLines(cur=>cur.map(x=>x.id===line.id?{...x,quantity:Math.max(0,Number(e.target.value)||0)}:x))}/></td><td style={styles.td}>{Number(line.wholesale_price||0).toFixed(2)} DA</td><td style={styles.td}>{(Number(line.quantity||0)*Number(line.wholesale_price||0)).toFixed(2)} DA</td><td style={styles.td}><button style={styles.secondary} onClick={()=>setSalesLines(cur=>cur.filter(x=>x.id!==line.id))}>Retirer</button></td></tr>)}</tbody></table></div> : <p className="ls-muted">Aucun produit ajouté.</p>}
                 <h3 style={{textAlign:'right'}}>Total : {salesTotal.toFixed(2)} DA</h3>
-                <button style={styles.button} disabled={pdfBusy || salesLines.length===0} onClick={()=>makePdf('invoice')}>{pdfBusy?'Préparation…':'Créer le PDF et partager'}</button>
-                <button style={{...styles.secondary,marginLeft:8}} onClick={()=>{setSalesCustomer('');setSalesLines([]);}}>Nouveau bon</button>
+                <button style={styles.button} disabled={pdfBusy || salesLines.length===0} onClick={()=>makePdf('invoice','download')}>{pdfBusy?'Enregistrement…':'Enregistrer et télécharger PDF'}</button>
+                <button style={{...styles.secondary,marginLeft:8}} disabled={pdfBusy || salesLines.length===0} onClick={()=>makePdf('invoice','share')}>{pdfBusy?'Préparation…':'Enregistrer et partager PDF'}</button>
+                <button style={{...styles.secondary,marginLeft:8,marginTop:8}} onClick={()=>{setSalesCustomer('');setSalesLines([]);setSalesSearch('');}}>Nouveau bon</button>
+                <h3 style={{marginTop:28}}>Mes bons de vente / Historique</h3>
+                {documentsLoading ? <p className="ls-muted">Chargement de l’historique…</p> : savedPdfDocuments.filter(d=>d.doc_type==='invoice').length===0 ? <p className="ls-muted">Aucun bon enregistré.</p> : <div className="ls-table-wrap"><table className="ls-table"><thead><tr><th style={styles.th}>Date</th><th style={styles.th}>Client</th><th style={styles.th}>Total</th><th style={styles.th}>Produits</th><th style={styles.th}>Consulter</th></tr></thead><tbody>{savedPdfDocuments.filter(d=>d.doc_type==='invoice').map(d=><tr key={d.id}><td style={styles.td}>{d.document_date}</td><td style={styles.td}>{d.customer_name || '—'}</td><td style={styles.td}>{Number(d.total||0).toFixed(2)} DA</td><td style={styles.td}>{Array.isArray(d.items)?d.items.length:0}</td><td style={styles.td}><details><summary style={{cursor:'pointer',fontWeight:700}}>Voir le bon</summary><div style={{minWidth:220,paddingTop:8}}><div>Client : {d.customer_name || '—'}</div>{(Array.isArray(d.items)?d.items:[]).map((item,index)=><div key={item.product_id || index} style={{padding:'6px 0',borderBottom:'1px solid #e5eaf0'}}><strong>{item.name}</strong><div className="ls-muted">{item.quantity} × {Number(item.unit_price||0).toFixed(2)} DA = {Number(item.line_total||0).toFixed(2)} DA</div></div>)}<strong>Total : {Number(d.total||0).toFixed(2)} DA</strong></div></details></td></tr>)}</tbody></table></div>}
               </section>
             )}
 
             {activePage === 'labels' && canViewPage('labels') && (
               <section className="ls-panel">
                 <h2>Étiquettes prix</h2>
-                <p className="ls-muted">Une étiquette par pièce saisie. Dimensions actuelles : {printSettings.label_width_cm} × {printSettings.label_height_cm} cm. Le PDF ne modifie pas le stock.</p>
-                <input style={styles.field} value={labelSearch} onChange={(e)=>setLabelSearch(e.target.value)} placeholder="Rechercher un produit…" />
-                <div className="ls-table-wrap ls-force-table" style={{marginTop:12}}><table className="ls-table"><thead><tr><th style={styles.th}>Désignation</th><th style={styles.th}>Prix détail</th><th style={styles.th}>Nombre d’étiquettes</th></tr></thead><tbody>{products.filter(p=>String(p.name||'').toLowerCase().includes(labelSearch.toLowerCase()) || String(p.product_ref||'').toLowerCase().includes(labelSearch.toLowerCase())).slice(0,300).map(p=><tr key={p.id}><td style={styles.td}>{p.name}<div className="ls-muted">{p.product_ref}</div></td><td style={styles.td}>{Number(p.retail_price||0).toFixed(2)} DA</td><td style={styles.td}><input type="number" min="0" max="500" step="1" style={{...styles.field,width:130}} value={labelQuantities[p.id] ?? ''} onChange={(e)=>setLabelQuantities(cur=>({...cur,[p.id]:Math.max(0,Math.min(500,Math.floor(Number(e.target.value)||0)))}))} placeholder="0" /></td></tr>)}</tbody></table></div>
-                <p className="ls-muted">Limite de sécurité : 500 étiquettes par génération.</p>
-                <button style={styles.button} disabled={pdfBusy} onClick={()=>makePdf('labels')}>{pdfBusy?'Préparation…':'Créer le PDF et partager'}</button>
+                <p className="ls-muted">Créez un document d’étiquettes comme un bon : les sélections sont conservées dans l’historique privé. Une étiquette par pièce. Dimensions : {printSettings.label_width_cm} × {printSettings.label_height_cm} cm. Le stock reste inchangé.</p>
+                <label style={{display:'block',fontWeight:700,marginBottom:6}}>Nom du document (facultatif)</label>
+                <input style={styles.field} value={labelDocumentTitle} onChange={(e)=>setLabelDocumentTitle(e.target.value)} placeholder="Ex. Étiquettes nouvelle collection" />
+                <input style={{...styles.field,marginTop:12}} value={labelSearch} onChange={(e)=>setLabelSearch(e.target.value)} placeholder="Rechercher par désignation ou référence…" />
+                <div className="ls-table-wrap ls-force-table" style={{marginTop:12}}><table className="ls-table"><thead><tr><th style={styles.th}>Désignation</th><th style={styles.th}>Prix détail</th><th style={styles.th}>Nombre d’étiquettes</th></tr></thead><tbody>{products.filter(p=>String(p.name||'').toLocaleLowerCase().includes(labelSearch.toLocaleLowerCase()) || String(p.product_ref||'').toLocaleLowerCase().includes(labelSearch.toLocaleLowerCase())).slice(0,300).map(p=><tr key={p.id}><td style={styles.td}>{p.name}<div className="ls-muted">{p.product_ref}</div></td><td style={styles.td}>{Number(p.retail_price||0).toFixed(2)} DA</td><td style={styles.td}><input type="number" min="0" max="500" step="1" style={{...styles.field,width:130}} value={labelQuantities[p.id] ?? ''} onChange={(e)=>setLabelQuantities(cur=>({...cur,[p.id]:Math.max(0,Math.min(500,Math.floor(Number(e.target.value)||0)))}))} placeholder="0" /></td></tr>)}</tbody></table></div>
+                <p className="ls-muted">Limite de sécurité : 500 étiquettes par document.</p>
+                <button style={styles.button} disabled={pdfBusy} onClick={()=>makePdf('labels','download')}>{pdfBusy?'Enregistrement…':'Enregistrer et télécharger PDF'}</button>
+                <button style={{...styles.secondary,marginLeft:8}} disabled={pdfBusy} onClick={()=>makePdf('labels','share')}>{pdfBusy?'Préparation…':'Enregistrer et partager PDF'}</button>
+                <h3 style={{marginTop:28}}>Mes documents d’étiquettes / Historique</h3>
+                {documentsLoading ? <p className="ls-muted">Chargement de l’historique…</p> : savedPdfDocuments.filter(d=>d.doc_type==='labels').length===0 ? <p className="ls-muted">Aucun document enregistré.</p> : <div className="ls-table-wrap"><table className="ls-table"><thead><tr><th style={styles.th}>Date</th><th style={styles.th}>Document</th><th style={styles.th}>Nombre d’étiquettes</th><th style={styles.th}>Consulter</th></tr></thead><tbody>{savedPdfDocuments.filter(d=>d.doc_type==='labels').map(d=><tr key={d.id}><td style={styles.td}>{d.document_date}</td><td style={styles.td}>{d.title || 'Étiquettes prix'}</td><td style={styles.td}>{Number(d.total||0)}</td><td style={styles.td}><details><summary style={{cursor:'pointer',fontWeight:700}}>Voir les étiquettes</summary><div style={{minWidth:220,paddingTop:8}}>{(Array.isArray(d.items)?d.items:[]).map((item,index)=><div key={item.product_id || index} style={{padding:'6px 0',borderBottom:'1px solid #e5eaf0'}}><strong>{item.name}</strong><div className="ls-muted">{item.quantity} étiquette(s) · {Number(item.retail_price||0).toFixed(2)} DA</div></div>)}</div></details></td></tr>)}</tbody></table></div>}
               </section>
             )}
 
