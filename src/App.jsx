@@ -5,7 +5,7 @@ import { supabase } from './supabase';
 function normalizeProductSearch(value) {
   return String(value || '')
     .normalize('NFD')
-    .replace(/[\\u0300-\\u036f]/g, '')
+    .replace(/[\u0300-\u036f]/g, '')
     .toLocaleLowerCase()
     .replace(/[^a-z0-9]+/g, ' ')
     .trim();
@@ -15,8 +15,8 @@ function productMatchesSearch(product, query) {
   const normalizedQuery = normalizeProductSearch(query);
   if (!normalizedQuery) return true;
   const searchableText = normalizeProductSearch(String(product?.name || '') + ' ' + String(product?.product_ref || ''));
-  const words = searchableText.split(/\\s+/).filter(Boolean);
-  const tokens = normalizedQuery.split(/\\s+/).filter(Boolean);
+  const words = searchableText.split(/\s+/).filter(Boolean);
+  const tokens = normalizedQuery.split(/\s+/).filter(Boolean);
   // Every typed token may match the beginning of any word, in any order.
   return tokens.every((token) => words.some((word) => word.startsWith(token)));
 }
