@@ -33,7 +33,7 @@ export default function App() {
   const [decreaseSearch, setDecreaseSearch] = useState('');
   const [decreasePage, setDecreasePage] = useState(1);
   const [decreasePageSize, setDecreasePageSize] = useState(20);
-  const [decreaseShowCode, setDecreaseShowCode] = useState(true);
+  const [decreaseShowCode, setDecreaseShowCode] = useState(false);
   const [decreaseSortKey, setDecreaseSortKey] = useState('quantity_decreased');
   const [decreaseSortDirection, setDecreaseSortDirection] = useState('desc');
   const [selectedSuggestions, setSelectedSuggestions] = useState([]);
@@ -57,7 +57,7 @@ export default function App() {
   const [hiddenSearch, setHiddenSearch] = useState('');
   const [hiddenPage, setHiddenPage] = useState(1);
   const [hiddenPageSize, setHiddenPageSize] = useState(20);
-  const [hiddenShowCode, setHiddenShowCode] = useState(true);
+  const [hiddenShowCode, setHiddenShowCode] = useState(false);
   const [hiddenSortKey, setHiddenSortKey] = useState('name');
   const [hiddenSortDirection, setHiddenSortDirection] = useState('asc');
   const [analysisSearch, setAnalysisSearch] = useState('');
@@ -65,7 +65,7 @@ export default function App() {
   const [analysisPageSize, setAnalysisPageSize] = useState(20);
   const [analysisSortKey, setAnalysisSortKey] = useState('days_remaining');
   const [analysisSortDirection, setAnalysisSortDirection] = useState('asc');
-  const [analysisShowCode, setAnalysisShowCode] = useState(true);
+  const [analysisShowCode, setAnalysisShowCode] = useState(false);
   const [activePage, setActivePage] = useState('dashboard');
   const [searchTerm, setSearchTerm] = useState('');
   const [productPhotos, setProductPhotos] = useState([]);
@@ -2529,7 +2529,7 @@ export default function App() {
                         ? activePage === 'products'
                           ? 'المنتجات المتوفرة'
                           : activePage === 'arina'
-                          ? 'Europ Arina + Africha Shop'
+                          ? 'Europ Arina'
                           : 'Chora / Voilage / Rideau'
                         : activePage === 'products'
                         ? 'Produits en stock'
