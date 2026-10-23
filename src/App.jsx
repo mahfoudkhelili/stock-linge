@@ -1656,7 +1656,7 @@ export default function App() {
     const searchMatch = !searchTokens.length || searchTokens.every((token) =>
       nameTokens.some((word) => word.startsWith(token) || word.includes(token))
     );
-    const isArina = normalizedName.includes('EUROP ARINA');
+    const isArina = normalizedName.includes('EUROPARINA');
     const isChora = normalizedName.includes('CHORA');
     const isVoilage = normalizedName.includes('VOILAGE');
     const isRideau = normalizedName.includes('RIDEAU') && !normalizedName.includes('CUISINE');
