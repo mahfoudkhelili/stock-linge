@@ -1512,7 +1512,8 @@ export default function App() {
           doc.text(nameLines, width / 2, nameY, { align: 'center', lineHeightFactor: 1.05 });
           // Retail price at the bottom: larger/bolder and with no decimal places.
           doc.setFontSize(Math.max(9, Math.min(14, width / 3.8)));
-          doc.text(Math.round(Number(product.retail_price || 0)).toLocaleString('fr-FR') + ' DA', width / 2, height * 0.86, { align: 'center' });
+          const formattedRetailPrice = Math.round(Number(product.retail_price || 0)).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+          doc.text(formattedRetailPrice + ' DA', width / 2, height * 0.86, { align: 'center' });
         });
       }
 
