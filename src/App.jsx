@@ -2846,26 +2846,39 @@ export default function App() {
                       <input
                         style={styles.field}
                         value={photoProductSearch}
-                        onChange={(event) => setPhotoProductSearch(event.target.value)}
-                        placeholder="Désignation ou référence du produit…"
+                        onChange={(event) => {
+                          setPhotoProductSearch(event.target.value);
+                          setPhotoProductId('');
+                        }}
+                        placeholder="Tapez le nom ou la référence du produit…"
                       />
-                      <select
-                        style={{ ...styles.field, marginTop: 8 }}
-                        value={photoProductId}
-                        onChange={(event) =>
-                          setPhotoProductId(event.target.value)
-                        }
-                      >
-                        <option value="">Sélectionner…</option>
-                        {products
-                          .filter((product) => productMatchesSearch(product, photoProductSearch))
-                          .slice(0, 300)
-                          .map((product) => (
-                            <option key={product.id} value={product.id}>
-                              {product.product_ref} — {product.name}
-                            </option>
-                          ))}
-                      </select>
+                      {photoProductSearch.trim() && (
+                        <div style={{ marginTop: 8, maxHeight: 220, overflowY: 'auto', border: '1px solid #dbe3ec', borderRadius: 8, background: 'white' }}>
+                          {products
+                            .filter((product) => productMatchesSearch(product, photoProductSearch))
+                            .slice(0, 30)
+                            .map((product) => (
+                              <button
+                                key={product.id}
+                                type="button"
+                                onClick={() => {
+                                  setPhotoProductId(product.id);
+                                  setPhotoProductSearch(`${product.product_ref || ''} — ${product.name || ''}`);
+                                }}
+                                style={{ display: 'block', width: '100%', padding: '10px 12px', border: 0, borderBottom: '1px solid #edf1f5', background: photoProductId === product.id ? '#eaf2ff' : 'white', color: '#102b46', textAlign: 'left', cursor: 'pointer' }}
+                              >
+                                <strong>{product.name}</strong>
+                                <div className="ls-muted">{product.product_ref || 'Sans référence'}</div>
+                              </button>
+                            ))}
+                          {products.filter((product) => productMatchesSearch(product, photoProductSearch)).length === 0 && (
+                            <p className="ls-muted" style={{ padding: 10, margin: 0 }}>Aucun produit trouvé.</p>
+                          )}
+                        </div>
+                      )}
+                      {photoProductId && (
+                        <p className="ls-muted" style={{ margin: '8px 0 0' }}>Produit sélectionné : {products.find((product) => product.id === photoProductId)?.name || ''}</p>
+                      )}
                     </div>
                     <div>
                       <label
