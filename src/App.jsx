@@ -71,6 +71,7 @@ export default function App() {
   const [productPhotos, setProductPhotos] = useState([]);
   const [photoProductId, setPhotoProductId] = useState('');
   const [photoSearch, setPhotoSearch] = useState('');
+  const [photoProductSearch, setPhotoProductSearch] = useState('');
   const [photoFile, setPhotoFile] = useState(null);
   const [photoUploading, setPhotoUploading] = useState(false);
   const [touchStart, setTouchStart] = useState(null);
@@ -2840,21 +2841,30 @@ export default function App() {
                           marginBottom: 6,
                         }}
                       >
-                        Choisir un produit
+                        Rechercher un produit à photographier
                       </label>
-                      <select
+                      <input
                         style={styles.field}
+                        value={photoProductSearch}
+                        onChange={(event) => setPhotoProductSearch(event.target.value)}
+                        placeholder="Désignation ou référence du produit…"
+                      />
+                      <select
+                        style={{ ...styles.field, marginTop: 8 }}
                         value={photoProductId}
                         onChange={(event) =>
                           setPhotoProductId(event.target.value)
                         }
                       >
                         <option value="">Sélectionner…</option>
-                        {products.map((product) => (
-                          <option key={product.id} value={product.id}>
-                            {product.product_ref} — {product.name}
-                          </option>
-                        ))}
+                        {products
+                          .filter((product) => productMatchesSearch(product, photoProductSearch))
+                          .slice(0, 300)
+                          .map((product) => (
+                            <option key={product.id} value={product.id}>
+                              {product.product_ref} — {product.name}
+                            </option>
+                          ))}
                       </select>
                     </div>
                     <div>
