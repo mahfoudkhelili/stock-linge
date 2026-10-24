@@ -684,7 +684,7 @@ export default function App() {
 
     if (snapshotDate === null) return;
 
-    if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(snapshotDate.trim())) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(snapshotDate.trim())) {
       window.alert('Date invalide. Utilisez le format AAAA-MM-JJ.');
       return;
     }
