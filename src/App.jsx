@@ -665,31 +665,34 @@ export default function App() {
     });
   }
 
-  async function importCsvToSupabase() {
+  async function importCsvToSupabase(mode = 'historical') {
     if (!csvPreview.length) {
       window.alert('Veuillez sélectionner un fichier CSV.');
       return;
     }
 
+    const isCurrentStock = mode === 'current';
     const today = new Date();
     const defaultDate = `${today.getFullYear()}-${String(
       today.getMonth() + 1
     ).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
 
     const snapshotDate = window.prompt(
-      'Date historique du stock (AAAA-MM-JJ) :',
+      `Date du ${isCurrentStock ? 'stock actuel' : 'stock historique'} (AAAA-MM-JJ) :`,
       defaultDate
     );
 
     if (snapshotDate === null) return;
 
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(snapshotDate.trim())) {
+    if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(snapshotDate.trim())) {
       window.alert('Date invalide. Utilisez le format AAAA-MM-JJ.');
       return;
     }
 
     const confirmed = window.confirm(
-      `Enregistrer ${csvPreview.length} lignes comme historique uniquement ?\n\nLe stock actuel ne sera pas modifié.\nFichier : ${csvFileName}\nDate : ${snapshotDate}`
+      isCurrentStock
+        ? `ATTENTION : remplacer le stock actuel par les quantités du fichier ?\\n\\nLes produits présents seront mis à jour et enregistrés dans l'historique. Les produits absents du fichier ne seront pas mis à zéro.\\nFichier : ${csvFileName}\\nDate : ${snapshotDate}`
+        : `Enregistrer ${csvPreview.length} lignes comme historique uniquement ?\\n\\nLe stock actuel ne sera pas modifié.\\nFichier : ${csvFileName}\\nDate : ${snapshotDate}`
     );
 
     if (!confirmed) return;
@@ -697,13 +700,9 @@ export default function App() {
     const rows = csvPreview.map((row) => ({
       product_ref: String(row['Code'] ?? '').trim(),
       name: String(row['Désignation'] ?? '').trim(),
-      quantity: String(row['Quantité'] ?? '').trim(),
-      wholesale_price: String(row['Gros'] ?? '')
-        .trim()
-        .replace(',', '.'),
-      retail_price: String(row['Détail'] ?? '')
-        .trim()
-        .replace(',', '.'),
+      quantity: String(row['Quantité'] ?? '').trim().replace(',', '.'),
+      wholesale_price: String(row['Gros'] ?? '').trim().replace(',', '.'),
+      retail_price: String(row['Détail'] ?? '').trim().replace(',', '.'),
     }));
     const invalidRows = rows
       .map((row, index) => ({
@@ -717,7 +716,7 @@ export default function App() {
           !row.reference ||
           !row.designation ||
           row.quantite === '' ||
-          !/^-?\d+(?:[.,]\d+)?$/.test(String(row.quantite ?? '').trim())
+          !/^-?\\d+(?:[.,]\\d+)?$/.test(String(row.quantite ?? '').trim())
       );
 
     if (invalidRows.length > 0) {
@@ -727,40 +726,42 @@ export default function App() {
           (row) =>
             `Ligne ${row.ligne}: Code="${row.reference}", Désignation="${row.designation}", Quantité="${row.quantite}"`
         )
-        .join('\n');
+        .join('\\n');
 
-      window.alert(
-        `Lignes CSV invalides : ${invalidRows.length}\n\n${details}`
-      );
+      window.alert(`Lignes CSV invalides : ${invalidRows.length}\\n\\n${details}`);
       return;
     }
-    setMessage('Enregistrement de l’historique en cours...');
+
+    setMessage(isCurrentStock ? 'Mise à jour du stock actuel en cours...' : 'Enregistrement de l’historique en cours...');
 
     try {
-      const { data, error } = await supabase.rpc(
-        'admin_import_historical_stock',
-        {
-          p_file_name: csvFileName,
-          p_snapshot_date: snapshotDate.trim(),
-          p_rows: rows,
-        }
-      );
+      const functionName = isCurrentStock
+        ? 'admin_import_current_stock'
+        : 'admin_import_historical_stock';
+      const { data, error } = await supabase.rpc(functionName, {
+        p_file_name: csvFileName,
+        p_snapshot_date: snapshotDate.trim(),
+        p_rows: rows,
+      });
 
       if (error) {
-        setMessage('Erreur historique : ' + error.message);
+        setMessage(`Erreur ${isCurrentStock ? 'stock actuel' : 'historique'} : ` + error.message);
         return;
       }
 
+      await loadProducts();
       await loadLastImport();
-      setMessage(
-        `Historique enregistré. Lignes : ${
-          data?.rows_saved ?? 0
-        }. Produits inactifs créés : ${
-          data?.inactive_products_created ?? 0
-        }. Le stock actuel n’a pas été modifié.`
-      );
+      if (isCurrentStock) {
+        setMessage(
+          `Stock actuel mis à jour : ${data?.rows_updated ?? 0} lignes. Nouveaux produits : ${data?.products_created ?? 0}. Historique enregistré pour le ${snapshotDate.trim()}.`
+        );
+      } else {
+        setMessage(
+          `Historique enregistré. Lignes : ${data?.rows_saved ?? 0}. Produits inactifs créés : ${data?.inactive_products_created ?? 0}. Le stock actuel n’a pas été modifié.`
+        );
+      }
     } catch (error) {
-      setMessage('Erreur historique : ' + error.message);
+      setMessage(`Erreur ${isCurrentStock ? 'stock actuel' : 'historique'} : ` + error.message);
     }
   }
   async function login(event) {
@@ -2401,11 +2402,10 @@ export default function App() {
                 {isAdmin && (
                   <section className="ls-panel">
                     <h2 style={{ marginTop: 0 }}>
-                      Importer un fichier CSV — Historique
+                      Importer un fichier CSV
                     </h2>
                     <p className="ls-muted">
-                      L’import ajoute un instantané historique. Il ne modifie
-                      pas le stock actuel.
+                      Choisissez le mode : Stock actuel met à jour les quantités et prix utilisés dans toute l’application et enregistre aussi l’historique. Historique ajoute seulement une archive sans modifier le stock actuel.
                     </p>
                     <input
                       style={styles.field}
@@ -2448,9 +2448,15 @@ export default function App() {
                         <div className="ls-toolbar">
                           <button
                             style={styles.button}
-                            onClick={importCsvToSupabase}
+                            onClick={() => importCsvToSupabase('current')}
                           >
-                            Confirmer l’import historique
+                            Confirmer — Stock actuel
+                          </button>
+                          <button
+                            style={styles.secondary}
+                            onClick={() => importCsvToSupabase('historical')}
+                          >
+                            Confirmer — Historique uniquement
                           </button>
                           <button
                             style={styles.secondary}
