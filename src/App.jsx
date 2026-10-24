@@ -2405,7 +2405,7 @@ export default function App() {
                       Importer un fichier CSV
                     </h2>
                     <p className="ls-muted">
-                      Choisissez le mode : Stock actuel met à jour les quantités et prix utilisés dans toute l’application et enregistre aussi l’historique. Historique ajoute seulement une archive sans modifier le stock actuel.
+                      Importez le Stock actuel : les quantités et les prix du fichier seront utilisés dans toute l’application et enregistrés dans l’historique. Les produits absents du fichier ne seront pas mis à zéro. Les quantités négatives et décimales sont conservées.
                     </p>
                     <input
                       style={styles.field}
@@ -2450,13 +2450,7 @@ export default function App() {
                             style={styles.button}
                             onClick={() => importCsvToSupabase('current')}
                           >
-                            Confirmer — Stock actuel
-                          </button>
-                          <button
-                            style={styles.secondary}
-                            onClick={() => importCsvToSupabase('historical')}
-                          >
-                            Confirmer — Historique uniquement
+                            Confirmer l’import — Stock actuel
                           </button>
                           <button
                             style={styles.secondary}
