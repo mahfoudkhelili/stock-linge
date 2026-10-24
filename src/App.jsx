@@ -70,6 +70,7 @@ export default function App() {
   const [searchTerm, setSearchTerm] = useState('');
   const [productPhotos, setProductPhotos] = useState([]);
   const [photoProductId, setPhotoProductId] = useState('');
+  const [photoSearch, setPhotoSearch] = useState('');
   const [photoFile, setPhotoFile] = useState(null);
   const [photoUploading, setPhotoUploading] = useState(false);
   const [touchStart, setTouchStart] = useState(null);
@@ -2891,8 +2892,9 @@ export default function App() {
                     Seul l’administrateur peut ajouter ou remplacer les photos.
                   </p>
                 )}
+                <input style={{...styles.field,margin:'14px 0'}} value={photoSearch} onChange={(event)=>setPhotoSearch(event.target.value)} placeholder="Rechercher par désignation ou référence… (mots dans n’importe quel ordre)" />
                 <div className="ls-photo-grid">
-                  {productPhotos.map((photo) => {
+                  {productPhotos.filter((photo)=>{const product=products.find((item)=>item.id===photo.product_id)||hiddenProducts.find((item)=>item.id===photo.product_id);return product && productMatchesSearch(product,photoSearch);}).map((photo) => {
                     const product =
                       products.find((item) => item.id === photo.product_id) ||
                       hiddenProducts.find(
@@ -2942,6 +2944,9 @@ export default function App() {
                   <p className="ls-muted">
                     Aucune photo enregistrée pour le moment.
                   </p>
+                )}
+                {productPhotos.length > 0 && !productPhotos.some((photo)=>{const product=products.find((item)=>item.id===photo.product_id)||hiddenProducts.find((item)=>item.id===photo.product_id);return product && productMatchesSearch(product,photoSearch);}) && (
+                  <p className="ls-muted">Aucun produit ne correspond à cette recherche.</p>
                 )}
               </section>
             )}
@@ -3661,7 +3666,7 @@ export default function App() {
                 <label style={{display:'block',fontWeight:700,marginBottom:6}}>Nom du client</label>
                 <input style={styles.field} value={salesCustomer} onChange={(e)=>setSalesCustomer(e.target.value)} placeholder="Nom du client" />
                 <div style={{marginTop:14}}>
-                  <input style={styles.field} value={salesSearch} onChange={(e)=>setSalesSearch(e.target.value)} placeholder="Rechercher par désignation ou référence…" />
+                  <input style={styles.field} value={salesSearch} onChange={(e)=>setSalesSearch(e.target.value)} onKeyDown={(e)=>{if(e.key==='Enter'){e.preventDefault();const first=products.find(p=>productMatchesSearch(p,salesSearch));if(first)addSalesLine(first.id);}}} placeholder="Rechercher par désignation ou référence… (Entrée pour ajouter le premier résultat)" />
                   {salesSearch.trim() && <div style={{marginTop:8,maxHeight:240,overflowY:'auto',border:'1px solid #dbe3ec',borderRadius:8}}>
                     {products.filter(p=>productMatchesSearch(p, salesSearch)).slice(0,20).map(p=><div key={p.id} style={{display:'flex',alignItems:'center',gap:8,padding:8,borderBottom:'1px solid #edf1f5'}}>
                       {photoFor(p.id) ? <img src={photoFor(p.id)} alt="" style={{width:42,height:42,objectFit:'cover',borderRadius:6,flexShrink:0}} /> : <div style={{width:42,height:42,background:'#f1f4f8',borderRadius:6,flexShrink:0}} />}
@@ -3688,7 +3693,7 @@ export default function App() {
                 <label style={{display:'block',fontWeight:700,marginBottom:6}}>Nom du document (facultatif)</label>
                 <input style={styles.field} value={labelDocumentTitle} onChange={(e)=>setLabelDocumentTitle(e.target.value)} placeholder="Ex. Étiquettes nouvelle collection" />
                 <h3 style={{marginTop:22}}>1. Ajouter des produits</h3>
-                <input style={{...styles.field,marginTop:4}} value={labelSearch} onChange={(e)=>setLabelSearch(e.target.value)} placeholder="Rechercher par désignation ou référence…" />
+                <input style={{...styles.field,marginTop:4}} value={labelSearch} onChange={(e)=>setLabelSearch(e.target.value)} onKeyDown={(e)=>{if(e.key==='Enter'){e.preventDefault();const first=products.find(p=>productMatchesSearch(p,labelSearch));if(first)addLabelLine(first);}}} placeholder="Rechercher par désignation ou référence… (Entrée pour ajouter le premier résultat)" />
                 {labelSearch.trim() && (
                   <div className="ls-table-wrap" style={{marginTop:10}}>
                     <table className="ls-table">
