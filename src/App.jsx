@@ -691,8 +691,8 @@ export default function App() {
 
     const confirmed = window.confirm(
       isCurrentStock
-        ? `ATTENTION : remplacer le stock actuel par les quantités du fichier ?\\n\\nLes produits présents seront mis à jour et enregistrés dans l'historique. Les produits absents du fichier ne seront pas mis à zéro.\\nFichier : ${csvFileName}\\nDate : ${snapshotDate}`
-        : `Enregistrer ${csvPreview.length} lignes comme historique uniquement ?\\n\\nLe stock actuel ne sera pas modifié.\\nFichier : ${csvFileName}\\nDate : ${snapshotDate}`
+        ? `ATTENTION : remplacer le stock actuel par les quantités du fichier ?\n\nLes produits présents seront mis à jour et enregistrés dans l'historique. Les produits absents du fichier ne seront pas mis à zéro.\\nFichier : ${csvFileName}\\nDate : ${snapshotDate}`
+        : `Enregistrer ${csvPreview.length} lignes comme historique uniquement ?\n\nLe stock actuel ne sera pas modifié.\\nFichier : ${csvFileName}\\nDate : ${snapshotDate}`
     );
 
     if (!confirmed) return;
@@ -716,7 +716,7 @@ export default function App() {
           !row.reference ||
           !row.designation ||
           row.quantite === '' ||
-          !/^-?\\d+(?:[.,]\\d+)?$/.test(String(row.quantite ?? '').trim())
+          !/^-?\d+(?:[.,]\d+)?$/.test(String(row.quantite ?? '').trim())
       );
 
     if (invalidRows.length > 0) {
@@ -726,9 +726,9 @@ export default function App() {
           (row) =>
             `Ligne ${row.ligne}: Code="${row.reference}", Désignation="${row.designation}", Quantité="${row.quantite}"`
         )
-        .join('\\n');
+        .join('\n');
 
-      window.alert(`Lignes CSV invalides : ${invalidRows.length}\\n\\n${details}`);
+      window.alert(`Lignes CSV invalides : ${invalidRows.length}\n\n${details}`);
       return;
     }
 
