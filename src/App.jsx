@@ -1,5 +1,8 @@
 import { useState } from 'react';
 import Papa from 'papaparse';
+import * as pdfjsLib from 'pdfjs-dist';
+import pdfWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
+pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker;
 import { supabase } from './supabase';
 
 function normalizeProductSearch(value) {
@@ -42,6 +45,8 @@ export default function App() {
   const [requestsLoading, setRequestsLoading] = useState(false);
   const [csvPreview, setCsvPreview] = useState([]);
   const [csvFileName, setCsvFileName] = useState('');
+  const [pdfPreview, setPdfPreview] = useState([]);
+  const [pdfFileName, setPdfFileName] = useState('');
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
@@ -667,37 +672,21 @@ export default function App() {
     });
   }
 
-  async function importCsvToSupabase(mode = 'historical') {
+  async function importCsvToSupabase() {
     if (!csvPreview.length) {
       window.alert('Veuillez sélectionner un fichier CSV.');
       return;
     }
 
-    const isCurrentStock = mode === 'current';
     const today = new Date();
-    const defaultDate = `${today.getFullYear()}-${String(
-      today.getMonth() + 1
-    ).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
-
-    const snapshotDate = window.prompt(
-      `Date du ${isCurrentStock ? 'stock actuel' : 'stock historique'} (AAAA-MM-JJ) :`,
-      defaultDate
-    );
-
+    const defaultDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+    const snapshotDate = window.prompt('Date historique CSV (AAAA-MM-JJ) :', defaultDate);
     if (snapshotDate === null) return;
-
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(snapshotDate.trim())) {
+    if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(snapshotDate.trim())) {
       window.alert('Date invalide. Utilisez le format AAAA-MM-JJ.');
       return;
     }
-
-    const confirmed = window.confirm(
-      isCurrentStock
-        ? `ATTENTION : remplacer le stock actuel par les quantités du fichier ?\n\nLes produits présents seront mis à jour et enregistrés dans l'historique. Les produits absents du fichier ne seront pas mis à zéro.\\nFichier : ${csvFileName}\\nDate : ${snapshotDate}`
-        : `Enregistrer ${csvPreview.length} lignes comme historique uniquement ?\n\nLe stock actuel ne sera pas modifié.\\nFichier : ${csvFileName}\\nDate : ${snapshotDate}`
-    );
-
-    if (!confirmed) return;
+    if (!window.confirm(`Importer ${csvPreview.length} lignes du CSV pour l’historique et les prix ?\\n\\nLa quantité actuelle ne sera PAS modifiée.\\nFichier : ${csvFileName}\\nDate : ${snapshotDate}`)) return;
 
     const rows = csvPreview.map((row) => ({
       product_ref: String(row['Code'] ?? '').trim(),
@@ -706,65 +695,113 @@ export default function App() {
       wholesale_price: String(row['Gros'] ?? '').trim().replace(',', '.'),
       retail_price: String(row['Détail'] ?? '').trim().replace(',', '.'),
     }));
-    const invalidRows = rows
-      .map((row, index) => ({
-        ligne: index + 2,
-        reference: row.product_ref,
-        designation: row.name,
-        quantite: row.quantity,
-      }))
-      .filter(
-        (row) =>
-          !row.reference ||
-          !row.designation ||
-          row.quantite === '' ||
-          !/^-?\d+(?:[.,]\d+)?$/.test(String(row.quantite ?? '').trim())
-      );
-
-    if (invalidRows.length > 0) {
-      const details = invalidRows
-        .slice(0, 5)
-        .map(
-          (row) =>
-            `Ligne ${row.ligne}: Code="${row.reference}", Désignation="${row.designation}", Quantité="${row.quantite}"`
-        )
-        .join('\n');
-
-      window.alert(`Lignes CSV invalides : ${invalidRows.length}\n\n${details}`);
+    const invalidRows = rows.map((row, index) => ({ ...row, line: index + 2 }))
+      .filter((row) => !row.product_ref || !row.name || row.quantity === '' ||
+        !/^-?\\d+(?:\\.\\d+)?$/.test(row.quantity) ||
+        (row.wholesale_price !== '' && !/^-?\\d+(?:\\.\\d+)?$/.test(row.wholesale_price)) ||
+        (row.retail_price !== '' && !/^-?\\d+(?:\\.\\d+)?$/.test(row.retail_price)));
+    if (invalidRows.length) {
+      window.alert(`Lignes CSV invalides : ${invalidRows.length}\\n` + invalidRows.slice(0, 5).map(r => `Ligne ${r.line}: ${r.product_ref} — quantité ${r.quantity}`).join('\\n'));
       return;
     }
 
-    setMessage(isCurrentStock ? 'Mise à jour du stock actuel en cours...' : 'Enregistrement de l’historique en cours...');
+    setMessage('Enregistrement de l’historique et des prix en cours...');
+    const { data, error } = await supabase.rpc('admin_import_historical_stock', {
+      p_file_name: csvFileName,
+      p_snapshot_date: snapshotDate.trim(),
+      p_rows: rows,
+    });
+    if (error) {
+      setMessage('Erreur import CSV : ' + error.message);
+      return;
+    }
+    await loadProducts();
+    await loadLastImport();
+    setMessage(`CSV enregistré : ${data?.rows_saved ?? 0} lignes historiques. Prix actualisés. La quantité actuelle n’a pas été modifiée.`);
+  }
 
+  async function handlePdfFile(event) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    setPdfFileName(file.name);
+    setPdfPreview([]);
+    setMessage('Lecture du PDF en cours...');
     try {
-      const functionName = isCurrentStock
-        ? 'admin_import_current_stock'
-        : 'admin_import_historical_stock';
-      const { data, error } = await supabase.rpc(functionName, {
-        p_file_name: csvFileName,
-        p_snapshot_date: snapshotDate.trim(),
-        p_rows: rows,
-      });
-
-      if (error) {
-        setMessage(`Erreur ${isCurrentStock ? 'stock actuel' : 'historique'} : ` + error.message);
+      const bytes = await file.arrayBuffer();
+      const pdf = await pdfjsLib.getDocument({ data: bytes }).promise;
+      const lines = [];
+      for (let pageNo = 1; pageNo <= pdf.numPages; pageNo++) {
+        const page = await pdf.getPage(pageNo);
+        const content = await page.getTextContent();
+        const grouped = new Map();
+        for (const item of content.items) {
+          if (!item.str || !item.str.trim() || !item.transform) continue;
+          const y = Math.round(item.transform[5] / 2) * 2;
+          if (!grouped.has(y)) grouped.set(y, []);
+          grouped.get(y).push({ x: item.transform[4], text: item.str.trim() });
+        }
+        for (const [y, items] of grouped) {
+          const sorted = items.sort((a, b) => a.x - b.x);
+          const textLine = sorted.map(i => i.text).join(' ').replace(/\\s+/g, ' ').trim();
+          const first = sorted[0]?.text || '';
+          if (/^[A-Z0-9][A-Z0-9._/-]{2,}$/.test(first) && sorted.length >= 3) {
+            lines.push({ y, textLine, items: sorted });
+          }
+        }
+      }
+      const numberPattern = /^-?\\d+(?:[.,]\\d+)?$/;
+      const parsed = [];
+      for (const line of lines) {
+        const code = line.items[0]?.text?.trim() || '';
+        const numericItems = line.items.filter(item => numberPattern.test(item.text.replace(/\\s/g, '')));
+        if (!code || numericItems.length < 1) continue;
+        // The quantity is the first numeric field in the report row; later numeric fields are cost and amount.
+        const quantityText = numericItems[0].text.replace(',', '.');
+        const quantity = Number(quantityText);
+        const name = line.items.slice(1).filter(item => !numericItems.includes(item)).map(item => item.text).join(' ').trim();
+        if (!Number.isFinite(quantity) || !name) continue;
+        parsed.push({ product_ref: code, name, quantity: String(quantity) });
+      }
+      const unique = new Map();
+      for (const row of parsed) unique.set(row.product_ref, row);
+      const rows = [...unique.values()];
+      if (!rows.length) {
+        setMessage('Aucune ligne produit reconnue. Vérifiez que le PDF est un état de stock texte.');
         return;
       }
-
-      await loadProducts();
-      await loadLastImport();
-      if (isCurrentStock) {
-        setMessage(
-          `Stock actuel mis à jour : ${data?.rows_updated ?? 0} lignes. Nouveaux produits : ${data?.products_created ?? 0}. Historique enregistré pour le ${snapshotDate.trim()}.`
-        );
-      } else {
-        setMessage(
-          `Historique enregistré. Lignes : ${data?.rows_saved ?? 0}. Produits inactifs créés : ${data?.inactive_products_created ?? 0}. Le stock actuel n’a pas été modifié.`
-        );
-      }
+      setPdfPreview(rows);
+      const negatives = rows.filter(r => Number(r.quantity) < 0).length;
+      setMessage(`PDF lu : ${rows.length} références. Quantités négatives : ${negatives}. Vérifiez l’aperçu avant import.`);
     } catch (error) {
-      setMessage(`Erreur ${isCurrentStock ? 'stock actuel' : 'historique'} : ` + error.message);
+      console.error('PDF parse error', error);
+      setMessage('Erreur lecture PDF : ' + error.message);
     }
+  }
+
+  async function importPdfCurrentStock() {
+    if (!pdfPreview.length) {
+      window.alert('Veuillez sélectionner un fichier PDF.');
+      return;
+    }
+    const date = window.prompt('Date du stock magasin (AAAA-MM-JJ) :', '2026-10-26');
+    if (date === null) return;
+    if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(date.trim())) {
+      window.alert('Date invalide. Utilisez le format AAAA-MM-JJ.');
+      return;
+    }
+    if (!window.confirm(`Mettre à jour les quantités actuelles depuis le PDF ?\\n\\nSeules les quantités seront modifiées, jamais les prix ni l’historique CSV.\\nFichier : ${pdfFileName}\\nDate : ${date}\\nLignes : ${pdfPreview.length}`)) return;
+    setMessage('Mise à jour des quantités depuis le PDF...');
+    const { data, error } = await supabase.rpc('admin_import_pdf_current_stock', {
+      p_file_name: pdfFileName,
+      p_snapshot_date: date.trim(),
+      p_rows: pdfPreview,
+    });
+    if (error) {
+      setMessage('Erreur import PDF : ' + error.message);
+      return;
+    }
+    await loadProducts();
+    setMessage(`PDF importé : ${data?.rows_updated ?? 0} quantités mises à jour. Références introuvables : ${data?.products_not_found ?? 0}. Prix et historique CSV inchangés.`);
   }
   async function login(event) {
     event.preventDefault();
@@ -2407,7 +2444,7 @@ export default function App() {
                       Importer un fichier CSV
                     </h2>
                     <p className="ls-muted">
-                      Importez le Stock actuel : les quantités et les prix du fichier seront utilisés dans toute l’application et enregistrés dans l’historique. Les produits absents du fichier ne seront pas mis à zéro. Les quantités négatives et décimales sont conservées.
+                      CSV : met à jour les prix et l’historique uniquement. Le stock actuel provient exclusivement du PDF magasin. Les quantités négatives sont conservées.
                     </p>
                     <input
                       style={styles.field}
@@ -2450,9 +2487,9 @@ export default function App() {
                         <div className="ls-toolbar">
                           <button
                             style={styles.button}
-                            onClick={() => importCsvToSupabase('current')}
+                            onClick={() => importCsvToSupabase()}
                           >
-                            Confirmer l’import — Stock actuel
+                            Importer CSV — prix + historique
                           </button>
                           <button
                             style={styles.secondary}
@@ -2469,6 +2506,23 @@ export default function App() {
                     )}
                   </section>
                 )}
+                    <div style={{ marginTop: 18, paddingTop: 16, borderTop: '1px solid #d7dee7' }}>
+                      <h3>Importer le stock actuel depuis un PDF</h3>
+                      <p className="ls-muted">Le PDF du magasin principal met à jour les quantités actuelles uniquement. Les prix et l’historique CSV restent inchangés. Les références absentes du PDF ne sont pas mises à zéro.</p>
+                      <input style={styles.field} type="file" accept=".pdf,application/pdf" onChange={handlePdfFile} />
+                      {pdfFileName && <p><strong>Fichier PDF :</strong> {pdfFileName}</p>}
+                      {pdfPreview.length > 0 && <>
+                        <p>{pdfPreview.length} lignes reconnues. Aperçu des 8 premières :</p>
+                        <div className="ls-table-wrap"><table className="ls-table">
+                          <thead><tr><th style={styles.th}>Référence</th><th style={styles.th}>Désignation</th><th style={styles.th}>Quantité PDF</th></tr></thead>
+                          <tbody>{pdfPreview.slice(0, 8).map((row, index) => <tr key={row.product_ref + index}><td style={styles.td}>{row.product_ref}</td><td style={styles.td}>{row.name}</td><td style={{...styles.td, color: Number(row.quantity) < 0 ? '#b42318' : undefined}}>{row.quantity}</td></tr>)}</tbody>
+                        </table></div>
+                        <div className="ls-toolbar">
+                          <button style={styles.button} onClick={importPdfCurrentStock}>Importer PDF — quantités uniquement</button>
+                          <button style={styles.secondary} onClick={() => { setPdfPreview([]); setPdfFileName(''); setMessage('Aperçu PDF annulé.'); }}>Annuler</button>
+                        </div>
+                      </>}
+                    </div>
                 {negativeProducts.filter((product)=>matchesTableSearch(tableSearch, product.name, product.product_ref)).length > 0 && (
                   <section className="ls-panel">
                     <div className="ls-alert">
