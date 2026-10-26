@@ -1750,8 +1750,9 @@ export default function App() {
       (isAdmin && activePage !== 'arina') ||
       canSeeZeroNegativeOnArina;
     const activeAllowed = product.is_active !== false || inactiveArinaAllowed;
-    const includedInLatestPdf = product.is_in_latest_pdf === true;
-    return searchMatch && pageMatch && activeAllowed && stockAllowed && includedInLatestPdf;
+    // Les produits absents du dernier PDF doivent rester visibles :
+    // leur quantité affichée est déjà ramenée à 0 dans loadProducts().
+    return searchMatch && pageMatch && activeAllowed && stockAllowed;
   });
 
   const sortedProducts = [...pageProducts].sort((a, b) => {
