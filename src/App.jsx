@@ -2512,16 +2512,21 @@ export default function App() {
                       <input style={styles.field} type="file" accept=".pdf,application/pdf" onChange={handlePdfFile} />
                       {pdfFileName && <p><strong>Fichier PDF :</strong> {pdfFileName}</p>}
                       {pdfPreview.length > 0 && <>
-                        <p>{pdfPreview.length} lignes reconnues. Aperçu des 8 premières :</p>
+                        <p><strong>{pdfPreview.length} lignes reconnues.</strong> Vérifiez l’aperçu des 8 premières avant confirmation.</p>
                         <div className="ls-table-wrap"><table className="ls-table">
                           <thead><tr><th style={styles.th}>Référence</th><th style={styles.th}>Désignation</th><th style={styles.th}>Quantité PDF</th></tr></thead>
                           <tbody>{pdfPreview.slice(0, 8).map((row, index) => <tr key={row.product_ref + index}><td style={styles.td}>{row.product_ref}</td><td style={styles.td}>{row.name}</td><td style={{...styles.td, color: Number(row.quantity) < 0 ? '#b42318' : undefined}}>{row.quantity}</td></tr>)}</tbody>
                         </table></div>
-                        <div className="ls-toolbar">
-                          <button style={styles.button} onClick={importPdfCurrentStock}>Importer PDF — quantités uniquement</button>
-                          <button style={styles.secondary} onClick={() => { setPdfPreview([]); setPdfFileName(''); setMessage('Aperçu PDF annulé.'); }}>Annuler</button>
-                        </div>
                       </>}
+                      <div className="ls-toolbar" style={{ marginTop: 12 }}>
+                        <button style={styles.button} onClick={importPdfCurrentStock} disabled={!pdfPreview.length}>
+                          Confirmer l’import PDF — quantités uniquement
+                        </button>
+                        <button style={styles.secondary} onClick={() => { setPdfPreview([]); setPdfFileName(''); setMessage('Aperçu PDF annulé.'); }}>
+                          Annuler
+                        </button>
+                      </div>
+                      {!pdfPreview.length && pdfFileName && <p className="ls-muted">Le bouton de confirmation s’activera après la lecture correcte des lignes du PDF.</p>}
                     </div>
                 {negativeProducts.filter((product)=>matchesTableSearch(tableSearch, product.name, product.product_ref)).length > 0 && (
                   <section className="ls-panel">
