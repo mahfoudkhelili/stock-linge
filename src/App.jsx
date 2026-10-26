@@ -121,7 +121,7 @@ export default function App() {
       const { data, error } = await supabase
         .from('products')
         .select(
-          'id, product_ref, name, current_quantity, wholesale_price, retail_price, min_stock_level, is_hidden, is_active'
+          'id, product_ref, name, current_quantity, wholesale_price, retail_price, min_stock_level, is_hidden, is_active, is_in_latest_pdf'
         )
         .eq('is_active', true)
         .eq('is_hidden', false)
@@ -147,7 +147,7 @@ export default function App() {
     const { data: inactiveArinaProducts, error: inactiveArinaError } = await supabase
       .from('products')
       .select(
-        'id, product_ref, name, current_quantity, wholesale_price, retail_price, min_stock_level, is_hidden, is_active'
+        'id, product_ref, name, current_quantity, wholesale_price, retail_price, min_stock_level, is_hidden, is_active, is_in_latest_pdf'
       )
       .eq('is_active', false)
       .eq('is_hidden', false)
@@ -1740,7 +1740,8 @@ export default function App() {
       (isAdmin && activePage !== 'arina') ||
       canSeeZeroNegativeOnArina;
     const activeAllowed = product.is_active !== false || inactiveArinaAllowed;
-    return searchMatch && pageMatch && activeAllowed && stockAllowed;
+    const includedInLatestPdf = product.is_in_latest_pdf === true;
+    return searchMatch && pageMatch && activeAllowed && stockAllowed && includedInLatestPdf;
   });
 
   const sortedProducts = [...pageProducts].sort((a, b) => {
