@@ -682,7 +682,7 @@ export default function App() {
     const defaultDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
     const snapshotDate = window.prompt('Date historique CSV (AAAA-MM-JJ) :', defaultDate);
     if (snapshotDate === null) return;
-    if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(snapshotDate.trim())) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(snapshotDate.trim())) {
       window.alert('Date invalide. Utilisez le format AAAA-MM-JJ.');
       return;
     }
@@ -697,9 +697,9 @@ export default function App() {
     }));
     const invalidRows = rows.map((row, index) => ({ ...row, line: index + 2 }))
       .filter((row) => !row.product_ref || !row.name || row.quantity === '' ||
-        !/^-?\\d+(?:\\.\\d+)?$/.test(row.quantity) ||
-        (row.wholesale_price !== '' && !/^-?\\d+(?:\\.\\d+)?$/.test(row.wholesale_price)) ||
-        (row.retail_price !== '' && !/^-?\\d+(?:\\.\\d+)?$/.test(row.retail_price)));
+        !/^-?\d+(?:\\.\d+)?$/.test(row.quantity) ||
+        (row.wholesale_price !== '' && !/^-?\d+(?:\\.\d+)?$/.test(row.wholesale_price)) ||
+        (row.retail_price !== '' && !/^-?\d+(?:\\.\d+)?$/.test(row.retail_price)));
     if (invalidRows.length) {
       window.alert(`Lignes CSV invalides : ${invalidRows.length}\\n` + invalidRows.slice(0, 5).map(r => `Ligne ${r.line}: ${r.product_ref} — quantité ${r.quantity}`).join('\\n'));
       return;
@@ -742,18 +742,18 @@ export default function App() {
         }
         for (const [y, items] of grouped) {
           const sorted = items.sort((a, b) => a.x - b.x);
-          const textLine = sorted.map(i => i.text).join(' ').replace(/\\s+/g, ' ').trim();
+          const textLine = sorted.map(i => i.text).join(' ').replace(/\s+/g, ' ').trim();
           const first = sorted[0]?.text || '';
           if (/^[A-Z0-9][A-Z0-9._/-]{2,}$/.test(first) && sorted.length >= 3) {
             lines.push({ y, textLine, items: sorted });
           }
         }
       }
-      const numberPattern = /^-?\\d+(?:[.,]\\d+)?$/;
+      const numberPattern = /^-?\d+(?:[.,]\d+)?$/;
       const parsed = [];
       for (const line of lines) {
         const code = line.items[0]?.text?.trim() || '';
-        const numericItems = line.items.filter(item => numberPattern.test(item.text.replace(/\\s/g, '')));
+        const numericItems = line.items.filter(item => numberPattern.test(item.text.replace(/\s/g, '')));
         if (!code || numericItems.length < 1) continue;
         // The quantity is the first numeric field in the report row; later numeric fields are cost and amount.
         const quantityText = numericItems[0].text.replace(',', '.');
@@ -785,7 +785,7 @@ export default function App() {
     }
     const date = window.prompt('Date du stock magasin (AAAA-MM-JJ) :', '2026-10-26');
     if (date === null) return;
-    if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(date.trim())) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date.trim())) {
       window.alert('Date invalide. Utilisez le format AAAA-MM-JJ.');
       return;
     }
