@@ -706,7 +706,7 @@ export default function App() {
     }
 
     setMessage('Enregistrement de l’historique et des prix en cours...');
-    const { data, error } = await supabase.rpc('admin_import_historical_stock', {
+    const { data, error } = await supabase.rpc('admin_import_csv_history_prices', {
       p_file_name: csvFileName,
       p_snapshot_date: snapshotDate.trim(),
       p_rows: rows,
