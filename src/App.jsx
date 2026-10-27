@@ -701,9 +701,9 @@ export default function App() {
     }));
     const invalidRows = rows.map((row, index) => ({ ...row, line: index + 2 }))
       .filter((row) => !row.product_ref || !row.name || row.quantity === '' ||
-        !/^-?\d+(?:\\.\d+)?$/.test(row.quantity) ||
-        (row.wholesale_price !== '' && !/^-?\d+(?:\\.\d+)?$/.test(row.wholesale_price)) ||
-        (row.retail_price !== '' && !/^-?\d+(?:\\.\d+)?$/.test(row.retail_price)));
+        !/^-?\d+(?:\.\d+)?$/.test(row.quantity) ||
+        (row.wholesale_price !== '' && !/^-?\d+(?:\.\d+)?$/.test(row.wholesale_price)) ||
+        (row.retail_price !== '' && !/^-?\d+(?:\.\d+)?$/.test(row.retail_price)));
     if (invalidRows.length) {
       window.alert(`Lignes CSV invalides : ${invalidRows.length}\\n` + invalidRows.slice(0, 5).map(r => `Ligne ${r.line}: ${r.product_ref} — quantité ${r.quantity}`).join('\\n'));
       return;
