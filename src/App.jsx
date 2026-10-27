@@ -1747,6 +1747,7 @@ export default function App() {
       Number(product.current_quantity) === 0;
     const stockAllowed =
       Number(product.current_quantity) > 0 ||
+      activePage === 'products' ||
       (isAdmin && activePage !== 'arina') ||
       canSeeZeroNegativeOnArina;
     const activeAllowed = product.is_active !== false || inactiveArinaAllowed;
