@@ -164,15 +164,9 @@ export default function App() {
       (inactiveArinaProducts || []).filter((product) => !existingIds.has(product.id))
     );
 
-    // Le dernier PDF représente le stock actuel du magasin :
-    // tout produit absent du PDF doit apparaître avec une quantité de 0,
-    // sans modifier la quantité stockée en base ni l'historique CSV.
-    allProducts = allProducts.map((product) => ({
-      ...product,
-      current_quantity: product.is_in_latest_pdf
-        ? Number(product.current_quantity || 0)
-        : 0,
-    }));
+    // Sécurité temporaire : ne pas remplacer une quantité correcte par 0
+    // tant que la détection des références présentes dans le PDF n'est pas fiabilisée.
+    // La quantité enregistrée en base reste affichée sans modification.
 
     setProducts(allProducts);
     setCurrentPage(1);
