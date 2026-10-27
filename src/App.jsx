@@ -46,6 +46,7 @@ export default function App() {
   const [csvPreview, setCsvPreview] = useState([]);
   const [csvFileName, setCsvFileName] = useState('');
   const [pdfPreview, setPdfPreview] = useState([]);
+  const [pdfSearch, setPdfSearch] = useState('');
   const [pdfFileName, setPdfFileName] = useState('');
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
@@ -729,6 +730,7 @@ export default function App() {
     if (!file) return;
     setPdfFileName(file.name);
     setPdfPreview([]);
+    setPdfSearch('');
     setMessage('Lecture du PDF en cours...');
     try {
       const bytes = await file.arrayBuffer();
@@ -774,6 +776,7 @@ export default function App() {
         return;
       }
       setPdfPreview(rows);
+      setPdfSearch('');
       const negatives = rows.filter(r => Number(r.quantity) < 0).length;
       setMessage(`PDF lu : ${rows.length} références. Quantités négatives : ${negatives}. Vérifiez l’aperçu avant import.`);
     } catch (error) {
@@ -2519,17 +2522,36 @@ export default function App() {
                       <input style={styles.field} type="file" accept=".pdf,application/pdf" onChange={handlePdfFile} />
                       {pdfFileName && <p><strong>Fichier PDF :</strong> {pdfFileName}</p>}
                       {pdfPreview.length > 0 && <>
-                        <p><strong>{pdfPreview.length} lignes reconnues.</strong> Vérifiez l’aperçu des 8 premières avant confirmation.</p>
-                        <div className="ls-table-wrap"><table className="ls-table">
-                          <thead><tr><th style={styles.th}>Référence</th><th style={styles.th}>Désignation</th><th style={styles.th}>Quantité PDF</th></tr></thead>
-                          <tbody>{pdfPreview.slice(0, 8).map((row, index) => <tr key={row.product_ref + index}><td style={styles.td}>{row.product_ref}</td><td style={styles.td}>{row.name}</td><td style={{...styles.td, color: Number(row.quantity) < 0 ? '#b42318' : undefined}}>{row.quantity}</td></tr>)}</tbody>
-                        </table></div>
+                        <p><strong>{pdfPreview.length} lignes reconnues.</strong> Recherchez une référence ou une désignation pour vérifier la quantité avant confirmation.</p>
+                        <input
+                          type="search"
+                          value={pdfSearch}
+                          onChange={(event) => setPdfSearch(event.target.value)}
+                          placeholder="Rechercher par référence ou désignation…"
+                          aria-label="Rechercher dans l’aperçu PDF"
+                          style={{...styles.input, width: '100%', marginBottom: 12}}
+                        />
+                        {(() => {
+                          const query = pdfSearch.trim().toLocaleLowerCase();
+                          const filteredRows = pdfPreview.filter((row) =>
+                            !query || String(row.product_ref || '').toLocaleLowerCase().includes(query) ||
+                            String(row.name || '').toLocaleLowerCase().includes(query)
+                          );
+                          return <>
+                            <p>{filteredRows.length} ligne(s) affichée(s) sur {pdfPreview.length}.</p>
+                            <div className="ls-table-wrap"><table className="ls-table">
+                              <thead><tr><th style={styles.th}>Référence</th><th style={styles.th}>Désignation</th><th style={styles.th}>Quantité PDF</th></tr></thead>
+                              <tbody>{filteredRows.map((row, index) => <tr key={row.product_ref + index}><td style={styles.td}>{row.product_ref}</td><td style={styles.td}>{row.name}</td><td style={{...styles.td, color: Number(row.quantity) < 0 ? '#b42318' : undefined}}>{row.quantity}</td></tr>)}</tbody>
+                            </table></div>
+                            {filteredRows.length === 0 && <p className="ls-muted">Aucun résultat. Vérifiez l’orthographe ou la référence.</p>}
+                          </>;
+                        })()}
                       </>}
                       <div className="ls-toolbar" style={{ marginTop: 12 }}>
                         <button style={styles.button} onClick={importPdfCurrentStock} disabled={!pdfPreview.length}>
                           Confirmer l’import PDF — quantités uniquement
                         </button>
-                        <button style={styles.secondary} onClick={() => { setPdfPreview([]); setPdfFileName(''); setMessage('Aperçu PDF annulé.'); }}>
+                        <button style={styles.secondary} onClick={() => { setPdfPreview([]); setPdfSearch(''); setPdfFileName(''); setMessage('Aperçu PDF annulé.'); }}>
                           Annuler
                         </button>
                       </div>
