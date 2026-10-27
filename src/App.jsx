@@ -739,35 +739,64 @@ export default function App() {
       for (let pageNo = 1; pageNo <= pdf.numPages; pageNo++) {
         const page = await pdf.getPage(pageNo);
         const content = await page.getTextContent();
-        const grouped = new Map();
-        for (const item of content.items) {
-          if (!item.str || !item.str.trim() || !item.transform) continue;
-          const y = Math.round(item.transform[5] / 2) * 2;
-          if (!grouped.has(y)) grouped.set(y, []);
-          grouped.get(y).push({ x: item.transform[4], text: item.str.trim() });
+        const items = content.items
+          .filter(item => item.str && item.str.trim() && item.transform)
+          .map(item => ({ x: item.transform[4], y: item.transform[5], text: item.str.trim() }))
+          .sort((a, b) => b.y - a.y || a.x - b.x);
+
+        // Group by baseline tolerance instead of rounding each item's Y separately.
+        const rowGroups = [];
+        for (const item of items) {
+          let group = rowGroups.find(row => Math.abs(row.y - item.y) <= 3);
+          if (!group) {
+            group = { y: item.y, items: [] };
+            rowGroups.push(group);
+          }
+          group.items.push(item);
+          group.y = group.items.reduce((sum, part) => sum + part.y, 0) / group.items.length;
         }
-        for (const [y, items] of grouped) {
-          const sorted = items.sort((a, b) => a.x - b.x);
-          const textLine = sorted.map(i => i.text).join(' ').replace(/\s+/g, ' ').trim();
+
+        for (const group of rowGroups) {
+          const sorted = group.items.sort((a, b) => a.x - b.x);
           const first = sorted[0]?.text || '';
-          if (/^[A-Z0-9][A-Z0-9._/-]{2,}$/.test(first) && sorted.length >= 3) {
-            lines.push({ y, textLine, items: sorted });
+          if (/^[A-Z0-9][A-Z0-9._/-]{2,}$/.test(first) && sorted.length >= 2) {
+            lines.push({ items: sorted });
           }
         }
       }
-      const numberPattern = /^-?\d+(?:[.,]\d+)?$/;
+
+      const numericPattern = /^-?\d[\d\s]*(?:[.,]\d+)?$/;
       const parsed = [];
       for (const line of lines) {
         const code = line.items[0]?.text?.trim() || '';
-        const numericItems = line.items.filter(item => numberPattern.test(item.text.replace(/\s/g, '')));
-        if (!code || numericItems.length < 1) continue;
-        // The quantity is the first numeric field in the report row; later numeric fields are cost and amount.
-        const quantityText = numericItems[0].text.replace(',', '.');
-        const quantity = Number(quantityText);
-        const name = line.items.slice(1).filter(item => !numericItems.includes(item)).map(item => item.text).join(' ').trim();
-        if (!Number.isFinite(quantity) || !name) continue;
+        if (!code) continue;
+        const numericItems = [];
+        for (let i = 1; i < line.items.length; i++) {
+          const text = line.items[i].text.replace(/\u00a0/g, ' ').trim();
+          if (numericPattern.test(text)) numericItems.push({ index: i, text });
+        }
+        if (!numericItems.length) continue;
+
+        let quantityText = numericItems[0].text.replace(/\s+/g, '');
+        if (
+          numericItems.length > 1 &&
+          /^-?\d+$/.test(quantityText) &&
+          /[.,]\d{2}$/.test(numericItems[1].text.replace(/\s+/g, '')) &&
+          numericItems[1].index === numericItems[0].index + 1
+        ) {
+          quantityText += numericItems[1].text.replace(/\s+/g, '');
+        }
+        const quantity = Number(quantityText.replace(',', '.'));
+        if (!Number.isFinite(quantity)) continue;
+
+        const numericIndexes = new Set(numericItems.map(item => item.index));
+        const name = line.items.slice(1)
+          .filter((item, index) => !numericIndexes.has(index + 1))
+          .map(item => item.text).join(' ').replace(/\s+/g, ' ').trim();
+        if (!name) continue;
         parsed.push({ product_ref: code, name, quantity: String(quantity) });
       }
+
       const unique = new Map();
       for (const row of parsed) unique.set(row.product_ref, row);
       const rows = [...unique.values()];
@@ -778,7 +807,12 @@ export default function App() {
       setPdfPreview(rows);
       setPdfSearch('');
       const negatives = rows.filter(r => Number(r.quantity) < 0).length;
-      setMessage(`PDF lu : ${rows.length} références. Quantités négatives : ${negatives}. Vérifiez l’aperçu avant import.`);
+      const target = rows.find(r => r.product_ref.toUpperCase() === 'COUHAD01');
+      setMessage(
+        `PDF lu : ${rows.length} références. Quantités négatives : ${negatives}.` +
+        (target ? ` COUHAD01 détecté : ${target.quantity}.` : ' COUHAD01 non détecté : vérifiez le PDF avant import.') +
+        ' Vérifiez l’aperçu avant import.'
+      );
     } catch (error) {
       console.error('PDF parse error', error);
       setMessage('Erreur lecture PDF : ' + error.message);
