@@ -24,6 +24,33 @@ function productMatchesSearch(product, query) {
   return tokens.every((token) => words.some((word) => word.startsWith(token)));
 }
 
+
+function ClearableSearchInput({ value, onChange, style, className, placeholder, 'aria-label': ariaLabel, onKeyDown, type = 'text' }) {
+  return (
+    <div style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', width: style?.width || '100%', minWidth: 0 }}>
+      <input
+        type={type}
+        className={className}
+        style={{ ...style, width: '100%', paddingRight: 38, boxSizing: 'border-box' }}
+        value={value}
+        onChange={onChange}
+        onKeyDown={onKeyDown}
+        placeholder={placeholder}
+        aria-label={ariaLabel}
+      />
+      {String(value || '').length > 0 && (
+        <button
+          type="button"
+          aria-label="Effacer la recherche"
+          title="Effacer"
+          onClick={() => onChange({ target: { value: '' } })}
+          style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', width: 26, height: 26, padding: 0, border: 0, borderRadius: '50%', background: 'transparent', color: '#64748b', fontSize: 20, lineHeight: '24px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+        >×</button>
+      )}
+    </div>
+  );
+}
+
 export default function App() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -2557,7 +2584,7 @@ export default function App() {
                       {pdfFileName && <p><strong>Fichier PDF :</strong> {pdfFileName}</p>}
                       {pdfPreview.length > 0 && <>
                         <p><strong>{pdfPreview.length} lignes reconnues.</strong> Recherchez une référence ou une désignation pour vérifier la quantité avant confirmation.</p>
-                        <input
+                        <ClearableSearchInput
                           type="search"
                           value={pdfSearch}
                           onChange={(event) => setPdfSearch(event.target.value)}
@@ -2719,7 +2746,7 @@ export default function App() {
                     <input type="checkbox" checked={showCodeColumn} onChange={(event)=>setShowCodeColumn(event.target.checked)} />
                     {language === 'ar' ? 'إظهار المرجع' : 'Afficher référence'}
                   </label>
-                  <input
+                  <ClearableSearchInput
                     className="ls-search"
                     style={styles.field}
                     value={searchTerm}
@@ -2899,7 +2926,7 @@ export default function App() {
                         ⚠️ Produits à quantité négative (
                         {negativeProducts.length})
                       </h3>
-                      <div className="ls-toolbar"><input className="ls-search" style={styles.field} value={tableSearch} onChange={(event)=>setTableSearch(event.target.value)} placeholder="Rechercher un produit négatif…" /></div>
+                      <div className="ls-toolbar"><ClearableSearchInput className="ls-search" style={styles.field} value={tableSearch} onChange={(event)=>setTableSearch(event.target.value)} placeholder="Rechercher un produit négatif…" /></div>
                       <div className="ls-alert">
                         Les quantités négatives sont conservées telles
                         qu’importées. Vérifiez ces produits.
@@ -2965,7 +2992,7 @@ export default function App() {
                       >
                         Rechercher un produit à photographier
                       </label>
-                      <input
+                      <ClearableSearchInput
                         style={styles.field}
                         value={photoProductSearch}
                         onChange={(event) => {
@@ -3037,7 +3064,7 @@ export default function App() {
                     Seul l’administrateur peut ajouter ou remplacer les photos.
                   </p>
                 )}
-                <input style={{...styles.field,margin:'14px 0'}} value={photoSearch} onChange={(event)=>setPhotoSearch(event.target.value)} placeholder="Rechercher par désignation ou référence… (mots dans n’importe quel ordre)" />
+                <ClearableSearchInput style={{...styles.field,margin:'14px 0'}} value={photoSearch} onChange={(event)=>setPhotoSearch(event.target.value)} placeholder="Rechercher par désignation ou référence… (mots dans n’importe quel ordre)" />
                 <div className="ls-photo-grid">
                   {productPhotos.filter((photo)=>{const product=products.find((item)=>item.id===photo.product_id)||hiddenProducts.find((item)=>item.id===photo.product_id);return product && productMatchesSearch(product,photoSearch);}).map((photo) => {
                     const product =
@@ -3550,7 +3577,7 @@ export default function App() {
                   </button>
                 </div>
                 <div className="ls-toolbar" style={{flexWrap:'wrap'}}>
-                  <input className="ls-search" style={styles.field} value={analysisSearch} onChange={(event)=>{setAnalysisSearch(event.target.value);setAnalysisPage(1);}} placeholder="Rechercher dans les suggestions…" />
+                  <ClearableSearchInput className="ls-search" style={styles.field} value={analysisSearch} onChange={(event)=>{setAnalysisSearch(event.target.value);setAnalysisPage(1);}} placeholder="Rechercher dans les suggestions…" />
                   <label className="ls-muted"><input type="checkbox" checked={analysisShowCode} onChange={(event)=>setAnalysisShowCode(event.target.checked)} /> Afficher référence</label>
                   <label className="ls-muted">Lignes par page <select style={styles.field} value={analysisPageSize} onChange={(event)=>{setAnalysisPageSize(Number(event.target.value));setAnalysisPage(1);}}>{[10,20,100].map(n=><option key={n} value={n}>{n}</option>)}</select></label>
                   <label className="ls-muted">Trier par <select style={styles.field} value={analysisSortKey} onChange={(event)=>{setAnalysisSortKey(event.target.value);setAnalysisPage(1);}}><option value="name">Désignation</option><option value="product_ref">Référence</option><option value="current_quantity">Dernière quantité CSV</option><option value="average_daily_decrease">Baisse moyenne / jour</option><option value="days_remaining">Jours restants estimés</option><option value="suggested_order_quantity">Quantité à commander</option><option value="last_snapshot_date">Date du dernier relevé</option></select></label>
@@ -3641,7 +3668,7 @@ export default function App() {
                     du plus grand recul au plus petit.
                   </p>
                   <div className="ls-toolbar" style={{flexWrap:'wrap'}}>
-                    <input className="ls-search" style={styles.field} value={decreaseSearch} onChange={(event)=>{setDecreaseSearch(event.target.value);setDecreasePage(1);}} placeholder="Rechercher référence ou désignation…" />
+                    <ClearableSearchInput className="ls-search" style={styles.field} value={decreaseSearch} onChange={(event)=>{setDecreaseSearch(event.target.value);setDecreasePage(1);}} placeholder="Rechercher référence ou désignation…" />
                     <label className="ls-muted"><input type="checkbox" checked={decreaseShowCode} onChange={(event)=>setDecreaseShowCode(event.target.checked)} /> Afficher référence</label>
                     <label className="ls-muted">Lignes par page <select style={styles.field} value={decreasePageSize} onChange={(event)=>{setDecreasePageSize(Number(event.target.value));setDecreasePage(1);}}>{[10,20,100].map(n=><option key={n} value={n}>{n}</option>)}</select></label>
                     <label className="ls-muted">Trier par <select style={styles.field} value={decreaseSortKey} onChange={(event)=>{setDecreaseSortKey(event.target.value);setDecreasePage(1);}}><option value="product_name">Désignation</option><option value="product_ref">Référence</option><option value="previous_quantity">Quantité précédente</option><option value="current_quantity">Quantité actuelle</option><option value="quantity_decreased">Baisse de quantité</option><option value="previous_date">Date précédente</option><option value="latest_snapshot_date">Dernière date</option><option value="days_between">Jours entre les fichiers</option></select></label>
@@ -3756,7 +3783,7 @@ export default function App() {
                   </button>
                 </div>
                 <div className="ls-toolbar" style={{flexWrap:'wrap'}}>
-                  <input className="ls-search" style={styles.field} value={hiddenSearch} onChange={(event)=>{setHiddenSearch(event.target.value);setHiddenPage(1);}} placeholder="Rechercher un produit masqué…" />
+                  <ClearableSearchInput className="ls-search" style={styles.field} value={hiddenSearch} onChange={(event)=>{setHiddenSearch(event.target.value);setHiddenPage(1);}} placeholder="Rechercher un produit masqué…" />
                   <label className="ls-muted"><input type="checkbox" checked={hiddenShowCode} onChange={(event)=>setHiddenShowCode(event.target.checked)} /> Afficher référence</label>
                   <label className="ls-muted">Lignes par page <select style={styles.field} value={hiddenPageSize} onChange={(event)=>{setHiddenPageSize(Number(event.target.value));setHiddenPage(1);}}>{[10,20,100].map(n=><option key={n} value={n}>{n}</option>)}</select></label>
                   <label className="ls-muted">Trier par <select style={styles.field} value={hiddenSortKey} onChange={(event)=>{setHiddenSortKey(event.target.value);setHiddenPage(1);}}><option value="name">Désignation</option><option value="product_ref">Référence</option><option value="current_quantity">Quantité</option></select></label>
@@ -3811,7 +3838,7 @@ export default function App() {
                 <label style={{display:'block',fontWeight:700,marginBottom:6}}>Nom du client</label>
                 <input style={styles.field} value={salesCustomer} onChange={(e)=>setSalesCustomer(e.target.value)} placeholder="Nom du client" />
                 <div style={{marginTop:14}}>
-                  <input style={styles.field} value={salesSearch} onChange={(e)=>setSalesSearch(e.target.value)} onKeyDown={(e)=>{if(e.key==='Enter'){e.preventDefault();const first=products.find(p=>productMatchesSearch(p,salesSearch));if(first)addSalesLine(first.id);}}} placeholder="Rechercher par désignation ou référence… (Entrée pour ajouter le premier résultat)" />
+                  <ClearableSearchInput style={styles.field} value={salesSearch} onChange={(e)=>setSalesSearch(e.target.value)} onKeyDown={(e)=>{if(e.key==='Enter'){e.preventDefault();const first=products.find(p=>productMatchesSearch(p,salesSearch));if(first)addSalesLine(first.id);}}} placeholder="Rechercher par désignation ou référence… (Entrée pour ajouter le premier résultat)" />
                   {salesSearch.trim() && <div style={{marginTop:8,maxHeight:240,overflowY:'auto',border:'1px solid #dbe3ec',borderRadius:8}}>
                     {products.filter(p=>productMatchesSearch(p, salesSearch)).slice(0,20).map(p=><div key={p.id} style={{display:'flex',alignItems:'center',gap:8,padding:8,borderBottom:'1px solid #edf1f5'}}>
                       {photoFor(p.id) ? <img src={photoFor(p.id)} alt="" style={{width:42,height:42,objectFit:'cover',borderRadius:6,flexShrink:0}} /> : <div style={{width:42,height:42,background:'#f1f4f8',borderRadius:6,flexShrink:0}} />}
@@ -3838,7 +3865,7 @@ export default function App() {
                 <label style={{display:'block',fontWeight:700,marginBottom:6}}>Nom du document (facultatif)</label>
                 <input style={styles.field} value={labelDocumentTitle} onChange={(e)=>setLabelDocumentTitle(e.target.value)} placeholder="Ex. Étiquettes nouvelle collection" />
                 <h3 style={{marginTop:22}}>1. Ajouter des produits</h3>
-                <input style={{...styles.field,marginTop:4}} value={labelSearch} onChange={(e)=>setLabelSearch(e.target.value)} onKeyDown={(e)=>{if(e.key==='Enter'){e.preventDefault();const first=products.find(p=>productMatchesSearch(p,labelSearch));if(first)addLabelLine(first);}}} placeholder="Rechercher par désignation ou référence… (Entrée pour ajouter le premier résultat)" />
+                <ClearableSearchInput style={{...styles.field,marginTop:4}} value={labelSearch} onChange={(e)=>setLabelSearch(e.target.value)} onKeyDown={(e)=>{if(e.key==='Enter'){e.preventDefault();const first=products.find(p=>productMatchesSearch(p,labelSearch));if(first)addLabelLine(first);}}} placeholder="Rechercher par désignation ou référence… (Entrée pour ajouter le premier résultat)" />
                 {labelSearch.trim() && (
                   <div className="ls-table-wrap" style={{marginTop:10}}>
                     <table className="ls-table">
