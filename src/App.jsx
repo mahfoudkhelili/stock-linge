@@ -63,6 +63,7 @@ export default function App() {
   const [decreaseSearch, setDecreaseSearch] = useState('');
   const [decreasePage, setDecreasePage] = useState(1);
   const [decreasePageSize, setDecreasePageSize] = useState(20);
+  const [decreaseDays, setDecreaseDays] = useState(1);
   const [decreaseShowCode, setDecreaseShowCode] = useState(false);
   const [decreaseSortKey, setDecreaseSortKey] = useState('quantity_decreased');
   const [decreaseSortDirection, setDecreaseSortDirection] = useState('desc');
@@ -305,7 +306,8 @@ export default function App() {
 
     try {
       const { data, error } = await supabase.rpc(
-        'get_stock_decrease_analysis'
+        'get_pdf_stock_decrease_analysis',
+        { p_days: Math.max(1, Math.min(3650, Number(decreaseDays) || 1)) }
       );
 
       if (error) throw error;
@@ -851,7 +853,13 @@ export default function App() {
       window.alert('Veuillez sélectionner un fichier PDF.');
       return;
     }
-    const date = window.prompt('Date du stock magasin (AAAA-MM-JJ) :', '2026-10-26');
+    const today = new Date();
+    const defaultStockDate = [
+      today.getFullYear(),
+      String(today.getMonth() + 1).padStart(2, '0'),
+      String(today.getDate()).padStart(2, '0'),
+    ].join('-');
+    const date = window.prompt('Date du stock magasin (AAAA-MM-JJ) :', defaultStockDate);
     if (date === null) return;
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date.trim())) {
       window.alert('Date invalide. Utilisez le format AAAA-MM-JJ.');
@@ -859,7 +867,7 @@ export default function App() {
     }
     if (!window.confirm(`Mettre à jour les quantités actuelles depuis le PDF ?\\n\\nSeules les quantités seront modifiées, jamais les prix ni l’historique CSV.\\nFichier : ${pdfFileName}\\nDate : ${date}\\nLignes : ${pdfPreview.length}`)) return;
     setMessage('Mise à jour des quantités depuis le PDF...');
-    const { data, error } = await supabase.rpc('admin_import_pdf_current_stock', {
+    const { data, error } = await supabase.rpc('admin_import_pdf_current_stock_with_history', {
       p_file_name: pdfFileName,
       p_snapshot_date: date.trim(),
       p_rows: pdfPreview,
@@ -3664,11 +3672,21 @@ export default function App() {
                     Produits dont le stock a diminué
                   </h2>
                   <p className="ls-muted">
-                    Comparaison des deux derniers fichiers CSV enregistrés.
-                    Seuls les produits dont la quantité a baissé sont affichés,
-                    du plus grand recul au plus petit.
+                    Comparaison du dernier PDF importé avec le PDF de référence
+                    selon la période choisie. Seuls les produits dont la quantité a baissé sont affichés.
                   </p>
                   <div className="ls-toolbar" style={{flexWrap:'wrap'}}>
+                    <label className="ls-muted">Comparer avec le PDF d’il y a (jours)
+                      <input
+                        type="number"
+                        min="1"
+                        max="3650"
+                        step="1"
+                        value={decreaseDays}
+                        onChange={(event)=>{setDecreaseDays(Math.max(1, Math.min(3650, Number(event.target.value) || 1)));setDecreasePage(1);}}
+                        style={{...styles.field, width: 90, marginLeft: 6}}
+                      />
+                    </label>
                     <ClearableSearchInput className="ls-search" style={styles.field} value={decreaseSearch} onChange={(event)=>{setDecreaseSearch(event.target.value);setDecreasePage(1);}} placeholder="Rechercher référence ou désignation…" />
                     <label className="ls-muted"><input type="checkbox" checked={decreaseShowCode} onChange={(event)=>setDecreaseShowCode(event.target.checked)} /> Afficher référence</label>
                     <label className="ls-muted">Lignes par page <select style={styles.field} value={decreasePageSize} onChange={(event)=>{setDecreasePageSize(Number(event.target.value));setDecreasePage(1);}}>{[10,20,100].map(n=><option key={n} value={n}>{n}</option>)}</select></label>
@@ -3681,7 +3699,7 @@ export default function App() {
                     >
                       {stockDecreaseLoading
                         ? 'Actualisation…'
-                        : 'Actualiser les baisses de stock'}
+                        : 'Actualiser les baisses PDF'}
                     </button>
                     <span className="ls-muted">
                       {stockDecreaseProducts.length} produit(s) en baisse
@@ -3695,8 +3713,7 @@ export default function App() {
                     <p>Chargement de l’analyse des baisses…</p>
                   ) : stockDecreaseProducts.length === 0 ? (
                     <p>
-                      Aucune baisse trouvée entre les deux derniers fichiers
-                      CSV, ou cliquez sur « Actualiser les baisses de stock ».
+                      Aucune baisse trouvée entre le dernier PDF et le PDF de référence choisi, ou cliquez sur « Actualiser les baisses PDF ».
                     </p>
                   ) : (
                     <>
