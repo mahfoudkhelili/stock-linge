@@ -159,7 +159,7 @@ begin
     old_row.quantity - new_row.quantity,
     old_import.stock_date,
     new_import.stock_date,
-    greatest(0, (new_import.imported_at::date - old_import.imported_at::date)::integer)
+    greatest(0, ceil(extract(epoch from (new_import.imported_at - old_import.imported_at)) / 86400.0)::integer)
   from reference_import old_import
   cross join latest_import new_import
   join public.pdf_stock_snapshot_rows old_row
