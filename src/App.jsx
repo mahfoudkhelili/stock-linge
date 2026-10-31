@@ -853,7 +853,13 @@ export default function App() {
       window.alert('Veuillez sélectionner un fichier PDF.');
       return;
     }
-    const date = window.prompt('Date du stock magasin (AAAA-MM-JJ) :', '2026-10-26');
+    const today = new Date();
+    const defaultStockDate = [
+      today.getFullYear(),
+      String(today.getMonth() + 1).padStart(2, '0'),
+      String(today.getDate()).padStart(2, '0'),
+    ].join('-');
+    const date = window.prompt('Date du stock magasin (AAAA-MM-JJ) :', defaultStockDate);
     if (date === null) return;
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date.trim())) {
       window.alert('Date invalide. Utilisez le format AAAA-MM-JJ.');
@@ -861,7 +867,7 @@ export default function App() {
     }
     if (!window.confirm(`Mettre à jour les quantités actuelles depuis le PDF ?\\n\\nSeules les quantités seront modifiées, jamais les prix ni l’historique CSV.\\nFichier : ${pdfFileName}\\nDate : ${date}\\nLignes : ${pdfPreview.length}`)) return;
     setMessage('Mise à jour des quantités depuis le PDF...');
-    const { data, error } = await supabase.rpc('admin_import_pdf_current_stock', {
+    const { data, error } = await supabase.rpc('admin_import_pdf_current_stock_with_history', {
       p_file_name: pdfFileName,
       p_snapshot_date: date.trim(),
       p_rows: pdfPreview,
