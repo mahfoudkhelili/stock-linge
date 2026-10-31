@@ -2579,7 +2579,7 @@ export default function App() {
                 )}
                     <div style={{ marginTop: 18, paddingTop: 16, borderTop: '1px solid #d7dee7' }}>
                       <h3>Importer le stock actuel depuis un PDF</h3>
-                      <p className="ls-muted">Le PDF du magasin principal met à jour les quantités actuelles uniquement. Les prix et l’historique CSV restent inchangés. Les références absentes du PDF ne sont pas mises à zéro.</p>
+                      <p className="ls-muted">Le PDF du magasin principal met à jour les quantités actuelles : les produits absents du PDF passent à zéro. Les prix et l’historique CSV restent inchangés. L’aperçu affiche au maximum 10 produits à la fois.</p>
                       <input style={styles.field} type="file" accept=".pdf,application/pdf" onChange={handlePdfFile} />
                       {pdfFileName && <p><strong>Fichier PDF :</strong> {pdfFileName}</p>}
                       {pdfPreview.length > 0 && <>
@@ -2598,11 +2598,12 @@ export default function App() {
                             !query || String(row.product_ref || '').toLocaleLowerCase().includes(query) ||
                             String(row.name || '').toLocaleLowerCase().includes(query)
                           );
+                          const visibleRows = filteredRows.slice(0, 10);
                           return <>
-                            <p>{filteredRows.length} ligne(s) affichée(s) sur {pdfPreview.length}.</p>
+                            <p>Affichage de {visibleRows.length} produit(s) sur {filteredRows.length} résultat(s) filtré(s), parmi {pdfPreview.length{'}'} références reconnues. L’aperçu est limité à 10 produits.</p>
                             <div className="ls-table-wrap"><table className="ls-table">
                               <thead><tr><th style={styles.th}>Référence</th><th style={styles.th}>Désignation</th><th style={styles.th}>Quantité PDF</th></tr></thead>
-                              <tbody>{filteredRows.map((row, index) => <tr key={row.product_ref + index}><td style={styles.td}>{row.product_ref}</td><td style={styles.td}>{row.name}</td><td style={{...styles.td, color: Number(row.quantity) < 0 ? '#b42318' : undefined}}>{row.quantity}</td></tr>)}</tbody>
+                              <tbody>{visibleRows.map((row, index) => <tr key={row.product_ref + index}><td style={styles.td}>{row.product_ref}</td><td style={styles.td}>{row.name}</td><td style={{...styles.td, color: Number(row.quantity) < 0 ? '#b42318' : undefined}}>{row.quantity}</td></tr>)}</tbody>
                             </table></div>
                             {filteredRows.length === 0 && <p className="ls-muted">Aucun résultat. Vérifiez l’orthographe ou la référence.</p>}
                           </>;
