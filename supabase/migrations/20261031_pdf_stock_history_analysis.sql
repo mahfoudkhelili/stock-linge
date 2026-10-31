@@ -145,7 +145,7 @@ begin
     select ref.*
     from public.pdf_stock_imports ref
     cross join latest_import latest
-    where ref.imported_at <= latest.imported_at - make_interval(days => p_days)
+    where ref.imported_at::date <= (latest.imported_at::date - p_days)
       and ref.imported_at < latest.imported_at
     order by ref.imported_at desc, ref.id desc
     limit 1
@@ -159,7 +159,7 @@ begin
     old_row.quantity - new_row.quantity,
     old_import.stock_date,
     new_import.stock_date,
-    greatest(0, ceil(extract(epoch from (new_import.imported_at - old_import.imported_at)) / 86400.0)::integer)
+    greatest(0, (new_import.imported_at::date - old_import.imported_at::date)::integer)
   from reference_import old_import
   cross join latest_import new_import
   join public.pdf_stock_snapshot_rows old_row
