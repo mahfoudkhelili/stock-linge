@@ -68,6 +68,7 @@ export default function App() {
   const [decreaseSortKey, setDecreaseSortKey] = useState('quantity_decreased');
   const [decreaseSortDirection, setDecreaseSortDirection] = useState('desc');
   const [selectedSuggestions, setSelectedSuggestions] = useState([]);
+  const [selectedStockDecrease, setSelectedStockDecrease] = useState([]);
   const [stockHistory, setStockHistory] = useState([]);
   const [replenishmentRequests, setReplenishmentRequests] = useState([]);
   const [requestsLoading, setRequestsLoading] = useState(false);
@@ -3580,6 +3581,28 @@ export default function App() {
                   </button>
                   <button
                     style={styles.secondary}
+                    onClick={async () => {
+                      const names = suggestedProducts
+                        .filter((product) => selectedSuggestions.includes(product.id))
+                        .map((product) => product.name)
+                        .filter(Boolean);
+                      if (!names.length) {
+                        window.alert('Sélectionnez au moins un produit.');
+                        return;
+                      }
+                      const textToCopy = names.join('\n');
+                      try {
+                        await navigator.clipboard.writeText(textToCopy);
+                        window.alert(`${names.length} désignation(s) copiée(s).`);
+                      } catch (error) {
+                        window.prompt('Copiez les désignations :', textToCopy);
+                      }
+                    }}
+                  >
+                    Copier la sélection ({selectedSuggestions.length})
+                  </button>
+                  <button
+                    style={styles.secondary}
                     onClick={() => setSelectedSuggestions([])}
                   >
                     Désélectionner tout
@@ -3701,6 +3724,34 @@ export default function App() {
                         ? 'Actualisation…'
                         : 'Actualiser les baisses PDF'}
                     </button>
+                    <button
+                      style={styles.secondary}
+                      onClick={async () => {
+                        const names = stockDecreaseProducts
+                          .filter((product) => selectedStockDecrease.includes(product.product_id))
+                          .map((product) => product.product_name)
+                          .filter(Boolean);
+                        if (!names.length) {
+                          window.alert('Sélectionnez au moins un produit.');
+                          return;
+                        }
+                        const textToCopy = names.join('\n');
+                        try {
+                          await navigator.clipboard.writeText(textToCopy);
+                          window.alert(`${names.length} désignation(s) copiée(s).`);
+                        } catch (error) {
+                          window.prompt('Copiez les désignations :', textToCopy);
+                        }
+                      }}
+                    >
+                      Copier la sélection ({selectedStockDecrease.length})
+                    </button>
+                    <button
+                      style={styles.secondary}
+                      onClick={() => setSelectedStockDecrease([])}
+                    >
+                      Désélectionner tout
+                    </button>
                     <span className="ls-muted">
                       {stockDecreaseProducts.length} produit(s) en baisse
                       {stockDecreaseProducts.length > 0
@@ -3722,6 +3773,7 @@ export default function App() {
                       <table className="ls-table">
                         <thead>
                           <tr>
+                            <th style={styles.th}>Sélection</th>
                             {decreaseShowCode && <th style={styles.th}>Référence</th>}
                             <th style={styles.th}>Désignation</th>
                             <th style={styles.th}>Quantité précédente</th>
@@ -3737,6 +3789,19 @@ export default function App() {
                             <tr
                               key={`${product.product_id}-${product.previous_date}-${product.latest_snapshot_date}`}
                             >
+                              <td style={styles.td}>
+                                <input
+                                  type="checkbox"
+                                  checked={selectedStockDecrease.includes(product.product_id)}
+                                  onChange={(event) =>
+                                    setSelectedStockDecrease((current) =>
+                                      event.target.checked
+                                        ? [...current, product.product_id]
+                                        : current.filter((id) => id !== product.product_id)
+                                    )
+                                  }
+                                />
+                              </td>
                               {decreaseShowCode && <td style={styles.td}>{product.product_ref || '—'}</td>}
                               <td style={styles.td}>{product.product_name || '—'}</td>
                               <td style={styles.td}>
