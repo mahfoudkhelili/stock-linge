@@ -2608,7 +2608,7 @@ export default function App() {
                           );
                           const visibleRows = filteredRows.slice(0, 10);
                           return <>
-                            <p>Affichage de {visibleRows.length} produit(s) sur {filteredRows.length} résultat(s) filtré(s), parmi {pdfPreview.length{'}'} références reconnues. L’aperçu est limité à 10 produits.</p>
+                            <p>Affichage de {visibleRows.length} produit(s) sur {filteredRows.length} résultat(s) filtré(s), parmi {pdfPreview.length} références reconnues. L’aperçu est limité à 10 produits.</p>
                             <div className="ls-table-wrap"><table className="ls-table">
                               <thead><tr><th style={styles.th}>Référence</th><th style={styles.th}>Désignation</th><th style={styles.th}>Quantité PDF</th></tr></thead>
                               <tbody>{visibleRows.map((row, index) => <tr key={row.product_ref + index}><td style={styles.td}>{row.product_ref}</td><td style={styles.td}>{row.name}</td><td style={{...styles.td, color: Number(row.quantity) < 0 ? '#b42318' : undefined}}>{row.quantity}</td></tr>)}</tbody>
