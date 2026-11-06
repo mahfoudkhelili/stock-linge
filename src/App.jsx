@@ -4260,26 +4260,11 @@ export default function App() {
                 <h2 style={{ marginTop: 0 }}>
                   Suggestions de réapprovisionnement urgent
                 </h2>
-                <p className="ls-muted">
-                  Estimation basée sur le dernier CSV et l’historique du stock.
-                  Les produits dont le stock estimé dure moins de 7 jours sont
-                  affichés en priorité.
-                </p>
-                <div className="ls-toolbar">
+                <div className="ls-toolbar" style={{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap'}}>
+                  <button style={{...styles.secondary,padding:'6px 11px',fontSize:12}} onClick={loadSuggestedProducts}>Actualiser</button>
+                  <button style={{...styles.button,padding:'6px 11px',fontSize:12}} onClick={hideSelectedSuggestions}>Masquer</button>
                   <button
-                    style={styles.secondary}
-                    onClick={loadSuggestedProducts}
-                  >
-                    Actualiser les suggestions
-                  </button>
-                  <button
-                    style={styles.button}
-                    onClick={hideSelectedSuggestions}
-                  >
-                    Masquer les produits sélectionnés
-                  </button>
-                  <button
-                    style={styles.secondary}
+                    style={{...styles.secondary,padding:'6px 11px',fontSize:12}}
                     onClick={async () => {
                       const names = suggestedProducts
                         .filter((product) => selectedSuggestions.includes(product.id))
@@ -4289,7 +4274,7 @@ export default function App() {
                         window.alert('Sélectionnez au moins un produit.');
                         return;
                       }
-                      const textToCopy = names.join('\n');
+                      const textToCopy = names.join('\\n');
                       try {
                         await navigator.clipboard.writeText(textToCopy);
                         window.alert(`${names.length} désignation(s) copiée(s).`);
@@ -4297,22 +4282,21 @@ export default function App() {
                         window.prompt('Copiez les désignations :', textToCopy);
                       }
                     }}
-                  >
-                    Copier la sélection ({selectedSuggestions.length})
-                  </button>
-                  <button
-                    style={styles.secondary}
-                    onClick={() => setSelectedSuggestions([])}
-                  >
-                    Désélectionner tout
-                  </button>
+                  >Copier ({selectedSuggestions.length})</button>
+                  <button style={{...styles.secondary,padding:'6px 11px',fontSize:12}} onClick={() => setSelectedSuggestions([])}>Désélectionner</button>
+                  <label className="ls-muted" style={{display:'flex',alignItems:'center',gap:6,marginLeft:6}}>
+                    <input type="checkbox" checked={analysisShowCode} onChange={(event)=>setAnalysisShowCode(event.target.checked)} />
+                    Afficher référence
+                  </label>
+                  <label className="ls-muted" style={{display:'flex',alignItems:'center',gap:6}}>
+                    Lignes par page
+                    <select style={{...styles.field,width:'auto'}} value={analysisPageSize} onChange={(event)=>{setAnalysisPageSize(Number(event.target.value));setAnalysisPage(1);}}>
+                      {[10,20,100].map(n=><option key={n} value={n}>{n}</option>)}
+                    </select>
+                  </label>
                 </div>
                 <div className="ls-toolbar" style={{flexWrap:'wrap'}}>
                   <ClearableSearchInput className="ls-search" style={styles.field} value={analysisSearch} onChange={(event)=>{setAnalysisSearch(event.target.value);setAnalysisPage(1);}} placeholder="Rechercher dans les suggestions…" />
-                  <label className="ls-muted"><input type="checkbox" checked={analysisShowCode} onChange={(event)=>setAnalysisShowCode(event.target.checked)} /> Afficher référence</label>
-                  <label className="ls-muted">Lignes par page <select style={styles.field} value={analysisPageSize} onChange={(event)=>{setAnalysisPageSize(Number(event.target.value));setAnalysisPage(1);}}>{[10,20,100].map(n=><option key={n} value={n}>{n}</option>)}</select></label>
-                  <label className="ls-muted">Trier par <select style={styles.field} value={analysisSortKey} onChange={(event)=>{setAnalysisSortKey(event.target.value);setAnalysisPage(1);}}><option value="name">Désignation</option><option value="product_ref">Référence</option><option value="current_quantity">Dernière quantité CSV</option><option value="average_daily_decrease">Baisse moyenne / jour</option><option value="days_remaining">Jours restants estimés</option><option value="suggested_order_quantity">Quantité à commander</option><option value="last_snapshot_date">Date du dernier relevé</option></select></label>
-                  <button style={styles.secondary} onClick={()=>{setAnalysisSortDirection(d=>d==='asc'?'desc':'asc');setAnalysisPage(1);}}>{analysisSortDirection==='asc'?'Croissant ▲':'Décroissant ▼'}</button>
                 </div>
                 {(() => { const filtered = suggestedProducts.filter(p=>matchesTableSearch(analysisSearch,p.name,p.product_ref)); const sorted = [...filtered].sort((a,b)=>{const av=a[analysisSortKey],bv=b[analysisSortKey]; const numeric=['current_quantity','average_daily_decrease','days_remaining','suggested_order_quantity'].includes(analysisSortKey); let c=numeric?(av==null?Number.POSITIVE_INFINITY:Number(av))-(bv==null?Number.POSITIVE_INFINITY:Number(bv)):String(av??'').localeCompare(String(bv??''),'fr',{numeric:true,sensitivity:'base'}); return analysisSortDirection==='asc'?c:-c;}); const pages=Math.max(1,Math.ceil(sorted.length/analysisPageSize)); const safe=Math.min(analysisPage,pages); const rows=sorted.slice((safe-1)*analysisPageSize,safe*analysisPageSize); return <>
                 {filtered.length === 0 ? (
@@ -4326,13 +4310,13 @@ export default function App() {
                       <thead>
                         <tr>
                           <th style={styles.th}>Sélection</th>
-                          {analysisShowCode && <th style={styles.th}>Référence</th>}
-                          <th style={styles.th}>Désignation</th>
-                          <th style={styles.th}>Dernière quantité CSV</th>
-                          <th style={styles.th}>Baisse moyenne / jour</th>
-                          <th style={styles.th}>Jours restants estimés</th>
-                          <th style={styles.th}>Quantité à commander</th>
-                          <th style={styles.th}>Date du dernier relevé</th>
+                          {analysisShowCode && <th style={styles.th}><button onClick={()=>{setAnalysisSortDirection(analysisSortKey==='product_ref'&&analysisSortDirection==='asc'?'desc':'asc');setAnalysisSortKey('product_ref');setAnalysisPage(1);}}>Référence {analysisSortKey==='product_ref'?(analysisSortDirection==='asc'?'▲':'▼'):''}</button></th>}
+                          <th style={styles.th}><button onClick={()=>{setAnalysisSortDirection(analysisSortKey==='name'&&analysisSortDirection==='asc'?'desc':'asc');setAnalysisSortKey('name');setAnalysisPage(1);}}>Désignation {analysisSortKey==='name'?(analysisSortDirection==='asc'?'▲':'▼'):''}</button></th>
+                          <th style={styles.th}><button onClick={()=>{setAnalysisSortDirection(analysisSortKey==='current_quantity'&&analysisSortDirection==='asc'?'desc':'asc');setAnalysisSortKey('current_quantity');setAnalysisPage(1);}}>Dernière quantité CSV {analysisSortKey==='current_quantity'?(analysisSortDirection==='asc'?'▲':'▼'):''}</button></th>
+                          <th style={styles.th}><button onClick={()=>{setAnalysisSortDirection(analysisSortKey==='average_daily_decrease'&&analysisSortDirection==='asc'?'desc':'asc');setAnalysisSortKey('average_daily_decrease');setAnalysisPage(1);}}>Baisse moyenne / jour {analysisSortKey==='average_daily_decrease'?(analysisSortDirection==='asc'?'▲':'▼'):''}</button></th>
+                          <th style={styles.th}><button onClick={()=>{setAnalysisSortDirection(analysisSortKey==='days_remaining'&&analysisSortDirection==='asc'?'desc':'asc');setAnalysisSortKey('days_remaining');setAnalysisPage(1);}}>Jours restants estimés {analysisSortKey==='days_remaining'?(analysisSortDirection==='asc'?'▲':'▼'):''}</button></th>
+                          <th style={styles.th}><button onClick={()=>{setAnalysisSortDirection(analysisSortKey==='suggested_order_quantity'&&analysisSortDirection==='asc'?'desc':'asc');setAnalysisSortKey('suggested_order_quantity');setAnalysisPage(1);}}>Quantité à commander {analysisSortKey==='suggested_order_quantity'?(analysisSortDirection==='asc'?'▲':'▼'):''}</button></th>
+                          <th style={styles.th}><button onClick={()=>{setAnalysisSortDirection(analysisSortKey==='last_snapshot_date'&&analysisSortDirection==='asc'?'desc':'asc');setAnalysisSortKey('last_snapshot_date');setAnalysisPage(1);}}>Date du dernier relevé {analysisSortKey==='last_snapshot_date'?(analysisSortDirection==='asc'?'▲':'▼'):''}</button></th>
                         </tr>
                       </thead>
                       <tbody>
