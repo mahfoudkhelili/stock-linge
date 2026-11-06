@@ -148,6 +148,16 @@ export default function App() {
   const [tapisAnalysisSortDirection, setTapisAnalysisSortDirection] = useState('asc');
   const [tapisAnalysisShowCode, setTapisAnalysisShowCode] = useState(true);
   const [selectedTapisSuggestions, setSelectedTapisSuggestions] = useState([]);
+  const [tapisStockDecreaseProducts, setTapisStockDecreaseProducts] = useState([]);
+  const [tapisStockDecreaseLoading, setTapisStockDecreaseLoading] = useState(false);
+  const [tapisDecreaseSearch, setTapisDecreaseSearch] = useState('');
+  const [tapisDecreasePage, setTapisDecreasePage] = useState(1);
+  const [tapisDecreasePageSize, setTapisDecreasePageSize] = useState(20);
+  const [tapisDecreaseDays, setTapisDecreaseDays] = useState(1);
+  const [tapisDecreaseShowCode, setTapisDecreaseShowCode] = useState(false);
+  const [tapisDecreaseSortKey, setTapisDecreaseSortKey] = useState('quantity_decreased');
+  const [tapisDecreaseSortDirection, setTapisDecreaseSortDirection] = useState('desc');
+  const [selectedTapisStockDecrease, setSelectedTapisStockDecrease] = useState([]);
   const [suggestionTitle, setSuggestionTitle] = useState('');
   const [suggestionBody, setSuggestionBody] = useState('');
   const [suggestionsLoading, setSuggestionsLoading] = useState(false);
@@ -341,6 +351,24 @@ export default function App() {
       setMessage('Erreur suggestions Tapis : ' + error.message);
     } finally {
       setTapisSuggestionsLoading(false);
+    }
+  }
+
+  async function loadTapisStockDecreaseAnalysis() {
+    setTapisStockDecreaseLoading(true);
+    try {
+      const { data, error } = await supabase.rpc(
+        'get_tapis_pdf_stock_decrease_analysis',
+        { p_days: Math.max(1, Math.min(3650, Number(tapisDecreaseDays) || 1)) }
+      );
+      if (error) throw error;
+      setTapisStockDecreaseProducts(data || []);
+      setSelectedTapisStockDecrease([]);
+    } catch (error) {
+      console.error('[Tapis stock decrease analysis]', error);
+      setMessage('Erreur analyse des baisses Tapis : ' + error.message);
+    } finally {
+      setTapisStockDecreaseLoading(false);
     }
   }
 
@@ -1861,7 +1889,7 @@ export default function App() {
       loadSuggestedProducts();
       loadStockDecreaseAnalysis();
     }
-    if (page === 'tapis-analysis') loadTapisSuggestedProducts();
+    if (page === 'tapis-analysis') { loadTapisSuggestedProducts(); loadTapisStockDecreaseAnalysis(); }
     if (page === 'history' && canViewPage('history')) loadStockHistory();
     if (page === 'requests') loadReplenishmentRequests();
     if (page === 'notes') loadProductNotes();
@@ -3998,6 +4026,160 @@ export default function App() {
                     </div>
                   </>;
                 })()}
+                <div
+                  style={{
+                    marginTop: 28,
+                    paddingTop: 22,
+                    borderTop: '2px solid #e2e8f0',
+                  }}
+                >
+                  <h2 style={{ marginTop: 0 }}>
+                    Produits Tapis dont le stock a diminué
+                  </h2>
+                  <p className="ls-muted">
+                    Comparaison du dernier PDF Tapis importé avec le PDF de référence
+                    selon la période choisie. Seuls les produits dont la quantité a baissé sont affichés.
+                  </p>
+                  <div className="ls-toolbar" style={{flexWrap:'wrap'}}>
+                    <label className="ls-muted">Comparer avec le PDF d’il y a (jours)
+                      <input
+                        type="number"
+                        min="1"
+                        max="3650"
+                        step="1"
+                        value={tapisDecreaseDays}
+                        onChange={(event)=>{setDecreaseDays(Math.max(1, Math.min(3650, Number(event.target.value) || 1)));setDecreasePage(1);}}
+                        style={{...styles.field, width: 90, marginLeft: 6}}
+                      />
+                    </label>
+                    <ClearableSearchInput className="ls-search" style={styles.field} value={tapisDecreaseSearch} onChange={(event)=>{setDecreaseSearch(event.target.value);setDecreasePage(1);}} placeholder="Rechercher référence ou désignation…" />
+                    <label className="ls-muted"><input type="checkbox" checked={tapisDecreaseShowCode} onChange={(event)=>setDecreaseShowCode(event.target.checked)} /> Afficher référence</label>
+                    <label className="ls-muted">Lignes par page <select style={styles.field} value={tapisDecreasePageSize} onChange={(event)=>{setDecreasePageSize(Number(event.target.value));setDecreasePage(1);}}>{[10,20,100].map(n=><option key={n} value={n}>{n}</option>)}</select></label>
+                    <label className="ls-muted">Trier par <select style={styles.field} value={tapisDecreaseSortKey} onChange={(event)=>{setDecreaseSortKey(event.target.value);setDecreasePage(1);}}><option value="product_name">Désignation</option><option value="product_ref">Référence</option><option value="previous_quantity">Quantité précédente</option><option value="current_quantity">Quantité actuelle</option><option value="quantity_decreased">Baisse de quantité</option><option value="previous_date">Date précédente</option><option value="latest_snapshot_date">Dernière date</option><option value="days_between">Jours entre les fichiers</option></select></label>
+                    <button style={styles.secondary} onClick={()=>setDecreaseSortDirection(d=>d==='asc'?'desc':'asc')}>{tapisDecreaseSortDirection==='asc'?'Croissant ▲':'Décroissant ▼'}</button>
+                    <button
+                      style={styles.secondary}
+                      onClick={loadTapisStockDecreaseAnalysis}
+                      disabled={tapisStockDecreaseLoading}
+                    >
+                      {tapisStockDecreaseLoading
+                        ? 'Actualisation…'
+                        : 'Actualiser les baisses PDF Tapis'}
+                    </button>
+                    <button
+                      style={styles.secondary}
+                      onClick={async () => {
+                        const names = tapisStockDecreaseProducts
+                          .filter((product) => selectedTapisStockDecrease.includes(product.product_id))
+                          .map((product) => product.product_name)
+                          .filter(Boolean);
+                        if (!names.length) {
+                          window.alert('Sélectionnez au moins un produit.');
+                          return;
+                        }
+                        const textToCopy = names.join('\n');
+                        try {
+                          await navigator.clipboard.writeText(textToCopy);
+                          window.alert(`${names.length} désignation(s) copiée(s).`);
+                        } catch (error) {
+                          window.prompt('Copiez les désignations :', textToCopy);
+                        }
+                      }}
+                    >
+                      Copier la sélection ({selectedTapisStockDecrease.length})
+                    </button>
+                    <button
+                      style={styles.secondary}
+                      onClick={() => setSelectedStockDecrease([])}
+                    >
+                      Désélectionner tout
+                    </button>
+                    <span className="ls-muted">
+                      {tapisStockDecreaseProducts.length} produit(s) en baisse
+                      {tapisStockDecreaseProducts.length > 0
+                        ? ` — période : ${tapisStockDecreaseProducts[0].previous_date} → ${tapisStockDecreaseProducts[0].latest_snapshot_date} (${tapisStockDecreaseProducts[0].days_between} jour(s))`
+                        : ''}
+                    </span>
+                  </div>
+
+                  {tapisStockDecreaseLoading ? (
+                    <p>Chargement de l’analyse des baisses Tapis…</p>
+                  ) : tapisStockDecreaseProducts.length === 0 ? (
+                    <p>
+                      Aucune baisse trouvée entre le dernier PDF Tapis et le PDF de référence choisi, ou cliquez sur « Actualiser les baisses PDF Tapis ».
+                    </p>
+                  ) : (
+                    <>
+                    {(() => { const filtered=tapisStockDecreaseProducts.filter(product=>matchesTableSearch(tapisDecreaseSearch,product.product_name,product.product_ref)); const sorted=[...filtered].sort((a,b)=>{const av=a[tapisDecreaseSortKey],bv=b[tapisDecreaseSortKey];const numeric=['previous_quantity','current_quantity','quantity_decreased','days_between'].includes(tapisDecreaseSortKey);const c=numeric?(Number(av)||0)-(Number(bv)||0):String(av??'').localeCompare(String(bv??''),'fr',{numeric:true,sensitivity:'base'});return tapisDecreaseSortDirection==='asc'?c:-c;});const pages=Math.max(1,Math.ceil(sorted.length/tapisDecreasePageSize));const safePage=Math.min(tapisDecreasePage,pages);const rows=sorted.slice((safePage-1)*tapisDecreasePageSize,safePage*tapisDecreasePageSize);return <>
+                    <div className="ls-table-wrap">
+                      <table className="ls-table">
+                        <thead>
+                          <tr>
+                            <th style={styles.th}>Sélection</th>
+                            {tapisDecreaseShowCode && <th style={styles.th}>Référence</th>}
+                            <th style={styles.th}>Désignation</th>
+                            <th style={styles.th}>Quantité précédente</th>
+                            <th style={styles.th}>Quantité actuelle</th>
+                            <th style={styles.th}>Baisse de quantité</th>
+                            <th style={styles.th}>Date précédente</th>
+                            <th style={styles.th}>Dernière date</th>
+                            <th style={styles.th}>Jours entre les fichiers</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {rows.map((product) => (
+                            <tr
+                              key={`${product.product_id}-${product.previous_date}-${product.latest_snapshot_date}`}
+                            >
+                              <td style={styles.td}>
+                                <input
+                                  type="checkbox"
+                                  checked={selectedTapisStockDecrease.includes(product.product_id)}
+                                  onChange={(event) =>
+                                    setSelectedStockDecrease((current) =>
+                                      event.target.checked
+                                        ? [...current, product.product_id]
+                                        : current.filter((id) => id !== product.product_id)
+                                    )
+                                  }
+                                />
+                              </td>
+                              {tapisDecreaseShowCode && <td style={styles.td}>{product.product_ref || '—'}</td>}
+                              <td style={styles.td}>{product.product_name || '—'}</td>
+                              <td style={styles.td}>
+                                {product.previous_quantity ?? '—'}
+                              </td>
+                              <td style={styles.td}>
+                                {product.current_quantity ?? '—'}
+                              </td>
+                              <td
+                                style={{
+                                  ...styles.td,
+                                  color: '#b42318',
+                                  fontWeight: 800,
+                                }}
+                              >
+                                −{product.quantity_decreased}
+                              </td>
+                              <td style={styles.td}>
+                                {product.previous_date || '—'}
+                              </td>
+                              <td style={styles.td}>
+                                {product.latest_snapshot_date || '—'}
+                              </td>
+                              <td style={styles.td}>
+                                {product.days_between ?? '—'}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                    <div className="ls-pagination"><span className="ls-muted">Page {safePage} sur {pages} · {filtered.length} produit(s)</span><div className="ls-toolbar" style={{margin:0}}><button style={styles.secondary} disabled={safePage<=1} onClick={()=>setDecreasePage(p=>Math.max(1,p-1))}>← Précédent</button><button style={styles.secondary} disabled={safePage>=pages} onClick={()=>setDecreasePage(p=>Math.min(pages,p+1))}>Suivant →</button></div></div>
+                    </>; })()}
+                    </>
+                  )}
+                </div>
               </section>
             )}
 
