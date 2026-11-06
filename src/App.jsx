@@ -89,6 +89,8 @@ export default function App() {
   const [requestsLoading, setRequestsLoading] = useState(false);
   const [csvPreview, setCsvPreview] = useState([]);
   const [csvFileName, setCsvFileName] = useState('');
+  const [tapisCsvPreview, setTapisCsvPreview] = useState([]);
+  const [tapisCsvFileName, setTapisCsvFileName] = useState('');
   const [pdfPreview, setPdfPreview] = useState([]);
   const [pdfSearch, setPdfSearch] = useState('');
   const [pdfFileName, setPdfFileName] = useState('');
@@ -802,6 +804,83 @@ export default function App() {
         setMessage('Erreur lecture CSV : ' + error.message);
       },
     });
+  }
+
+  function handleTapisCsvFile(event) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setTapisCsvFileName(file.name);
+    setTapisCsvPreview([]);
+    Papa.parse(file, {
+      delimiter: ';',
+      header: true,
+      skipEmptyLines: true,
+      transformHeader: (header) => header.trim().replace(/�/g, 'é'),
+      complete: (results) => {
+        if (results.errors.length > 0) {
+          setMessage('Erreur lecture CSV Tapis : ' + results.errors[0].message);
+          return;
+        }
+        if (!results.data || results.data.length === 0) {
+          setMessage('Le fichier CSV Tapis est vide.');
+          return;
+        }
+        setTapisCsvPreview(results.data);
+        setMessage(\`Fichier CSV Tapis lu : \${results.data.length} lignes. Vérifiez les colonnes avant import.\`);
+      },
+      error: (error) => setMessage('Erreur lecture CSV Tapis : ' + error.message),
+    });
+  }
+
+  async function importTapisCsvToSupabase() {
+    if (!tapisCsvPreview.length) {
+      window.alert('Veuillez sélectionner un fichier CSV Tapis.');
+      return;
+    }
+
+    const today = new Date();
+    const defaultDate = \`\${today.getFullYear()}-\${String(today.getMonth() + 1).padStart(2, '0')}-\${String(today.getDate()).padStart(2, '0')}\`;
+    const snapshotDate = window.prompt('Date historique CSV Tapis (AAAA-MM-JJ) :', defaultDate);
+    if (snapshotDate === null) return;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(snapshotDate.trim())) {
+      window.alert('Date invalide. Utilisez le format AAAA-MM-JJ.');
+      return;
+    }
+
+    const rows = tapisCsvPreview.map((row) => ({
+      product_ref: String(row['Code'] ?? '').trim(),
+      name: String(row['Désignation'] ?? '').trim(),
+      quantity: String(row['Quantité'] ?? '').trim().replace(',', '.'),
+      wholesale_price: String(row['Gros'] ?? '').trim().replace(',', '.'),
+      retail_price: String(row['Détail'] ?? '').trim().replace(',', '.'),
+    }));
+    const invalidRows = rows.map((row, index) => ({ ...row, line: index + 2 }))
+      .filter((row) => !row.product_ref || !row.name || row.quantity === '' ||
+        !/^-?\d+(?:\.\d+)?$/.test(row.quantity) ||
+        (row.wholesale_price !== '' && !/^-?\d+(?:\.\d+)?$/.test(row.wholesale_price)) ||
+        (row.retail_price !== '' && !/^-?\d+(?:\.\d+)?$/.test(row.retail_price)));
+    if (invalidRows.length) {
+      window.alert(\`Lignes CSV Tapis invalides : \${invalidRows.length}\n\` + invalidRows.slice(0, 5).map(r => \`Ligne \${r.line}: \${r.product_ref} — quantité \${r.quantity}\`).join('\n'));
+      return;
+    }
+
+    if (!window.confirm(\`Importer \${rows.length} lignes CSV Tapis pour les prix et l’historique ?\n\nLe stock actuel Tapis ne sera PAS modifié.\nFichier : \${tapisCsvFileName}\nDate : \${snapshotDate}\`)) return;
+
+    setMessage('Enregistrement des prix et de l’historique Tapis en cours...');
+    const { data, error } = await supabase.rpc('admin_import_tapis_csv_history_prices', {
+      p_file_name: tapisCsvFileName,
+      p_snapshot_date: snapshotDate.trim(),
+      p_rows: rows,
+    });
+    if (error) {
+      setMessage('Erreur import CSV Tapis : ' + error.message);
+      return;
+    }
+    await loadProducts();
+    setMessage(\`CSV Tapis enregistré : \${data?.rows_saved ?? 0} lignes historiques. Prix Tapis actualisés. Le stock actuel n’a pas été modifié.\`);
+    setTapisCsvPreview([]);
+    setTapisCsvFileName('');
   }
 
   async function importCsvToSupabase() {
@@ -2929,6 +3008,38 @@ export default function App() {
                     )}
                   </section>
                 )}
+                    {isAdmin && (
+                      <section className="ls-panel" style={{ marginTop: 18 }}>
+                        <h2 style={{ marginTop: 0 }}>Importer un fichier CSV Tapis</h2>
+                        <p className="ls-muted">
+                          CSV Tapis indépendant de Linge : met à jour les prix et l’historique mensuel Tapis uniquement.
+                          Le stock actuel Tapis provient exclusivement du PDF magasin et ne sera pas modifié.
+                        </p>
+                        <input style={styles.field} type="file" accept=".csv,text/csv" onChange={handleTapisCsvFile} />
+                        {tapisCsvFileName && <p><strong>Fichier Tapis :</strong> {tapisCsvFileName}</p>}
+                        {tapisCsvPreview.length > 0 && <>
+                          <p><strong>{tapisCsvPreview.length} lignes détectées.</strong> Aperçu des 5 premières lignes :</p>
+                          <div className="ls-table-wrap">
+                            <table className="ls-table">
+                              <thead><tr>{Object.keys(tapisCsvPreview[0]).map((header) => <th style={styles.th} key={header}>{header}</th>)}</tr></thead>
+                              <tbody>{tapisCsvPreview.slice(0, 5).map((row, index) => (
+                                <tr key={index}>{Object.keys(tapisCsvPreview[0]).map((header) => <td style={styles.td} key={header}>{String(row[header] ?? '')}</td>)}</tr>
+                              ))}</tbody>
+                            </table>
+                          </div>
+                          <div className="ls-toolbar">
+                            <button style={styles.button} onClick={importTapisCsvToSupabase}>
+                              Importer CSV Tapis — prix + historique
+                            </button>
+                            <button style={styles.secondary} onClick={() => {
+                              setTapisCsvPreview([]);
+                              setTapisCsvFileName('');
+                              setMessage('Aperçu CSV Tapis annulé.');
+                            }}>Annuler</button>
+                          </div>
+                        </>}
+                      </section>
+                    )}
                     <div style={{ marginTop: 18, paddingTop: 16, borderTop: '1px solid #d7dee7' }}>
                       <h3>Importer le stock actuel depuis un PDF</h3>
                       <p className="ls-muted">Le PDF du magasin principal met à jour les quantités actuelles : les produits absents du PDF passent à zéro. Les prix et l’historique CSV restent inchangés. L’aperçu affiche au maximum 10 produits à la fois.</p>
