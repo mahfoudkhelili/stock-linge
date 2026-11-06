@@ -4421,7 +4421,7 @@ export default function App() {
                         .filter((product) => selectedStockDecrease.includes(product.product_id))
                         .map((product) => product.product_name).filter(Boolean);
                       if (!names.length) { window.alert('Sélectionnez au moins un produit.'); return; }
-                      const textToCopy = names.join('\\n');
+                      const textToCopy = names.join('\n');
                       try { await navigator.clipboard.writeText(textToCopy); window.alert(`${names.length} désignation(s) copiée(s).`); }
                       catch (error) { window.prompt('Copiez les désignations :', textToCopy); }
                     }}>Copier ({selectedStockDecrease.length})</button>
