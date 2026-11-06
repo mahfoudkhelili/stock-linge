@@ -1,10 +1,10 @@
 -- Tapis: base de données isolée, avec copie des fonctions métier Linge.
 -- À exécuter une seule fois dans Supabase SQL Editor.
--- Les tables Tapis sont indépendantes : aucune ligne Linge n'est copiée.
+-- Aucune donnée Linge n'est copiée dans les tables Tapis.
 
 begin;
 
--- 1) Tables séparées, en conservant les colonnes, types, defaults et index Linge.
+-- 1) Tables opérationnelles Tapis, sans lignes Linge.
 create table if not exists public.tapis_products
   (like public.products including all);
 
@@ -13,6 +13,10 @@ create table if not exists public.tapis_import_batches
 
 create table if not exists public.tapis_stock_snapshots
   (like public.stock_snapshots including defaults including generated including identity);
+
+-- Historique mensuel indépendant. La structure est copiée depuis le vrai tableau Linge.
+create table if not exists public.tapis_monthly_stock_history
+  (like public.monthly_stock_history including all);
 
 create table if not exists public.tapis_pdf_stock_imports (
   id uuid primary key default gen_random_uuid(),
@@ -39,7 +43,7 @@ create index if not exists tapis_pdf_stock_imports_imported_at_idx
 create index if not exists tapis_pdf_stock_snapshot_rows_product_idx
   on public.tapis_pdf_stock_snapshot_rows (product_id, import_id);
 
--- Recreate the essential foreign keys against the Tapis tables.
+-- Recréer les clés étrangères vers les tables Tapis, et non vers Linge.
 do $$
 begin
   if not exists (select 1 from pg_constraint where conname = 'tapis_stock_snapshots_product_id_fkey') then
@@ -47,13 +51,19 @@ begin
       add constraint tapis_stock_snapshots_product_id_fkey
       foreign key (product_id) references public.tapis_products(id) on delete cascade;
   end if;
+
+  if not exists (select 1 from pg_constraint where conname = 'tapis_stock_snapshots_import_batch_id_fkey') then
+    alter table public.tapis_stock_snapshots
+      add constraint tapis_stock_snapshots_import_batch_id_fkey
+      foreign key (import_batch_id) references public.tapis_import_batches(id) on delete cascade;
+  end if;
 end $$;
 
--- 2) RLS: lecture/écriture directe réservée à l'admin; les RPC SECURITY DEFINER
--- clonées ci-dessous font leurs propres vérifications public.is_admin().
+-- 2) RLS: accès direct admin uniquement.
 alter table public.tapis_products enable row level security;
 alter table public.tapis_import_batches enable row level security;
 alter table public.tapis_stock_snapshots enable row level security;
+alter table public.tapis_monthly_stock_history enable row level security;
 alter table public.tapis_pdf_stock_imports enable row level security;
 alter table public.tapis_pdf_stock_snapshot_rows enable row level security;
 
@@ -66,6 +76,9 @@ create policy tapis_import_batches_admin_all on public.tapis_import_batches
 drop policy if exists tapis_stock_snapshots_admin_all on public.tapis_stock_snapshots;
 create policy tapis_stock_snapshots_admin_all on public.tapis_stock_snapshots
   for all to authenticated using (public.is_admin()) with check (public.is_admin());
+drop policy if exists tapis_monthly_history_admin_all on public.tapis_monthly_stock_history;
+create policy tapis_monthly_history_admin_all on public.tapis_monthly_stock_history
+  for all to authenticated using (public.is_admin()) with check (public.is_admin());
 drop policy if exists tapis_pdf_imports_admin_all on public.tapis_pdf_stock_imports;
 create policy tapis_pdf_imports_admin_all on public.tapis_pdf_stock_imports
   for all to authenticated using (public.is_admin()) with check (public.is_admin());
@@ -73,21 +86,20 @@ drop policy if exists tapis_pdf_rows_admin_all on public.tapis_pdf_stock_snapsho
 create policy tapis_pdf_rows_admin_all on public.tapis_pdf_stock_snapshot_rows
   for all to authenticated using (public.is_admin()) with check (public.is_admin());
 
--- 3) Clone the real deployed Linge functions from PostgreSQL itself, so the
--- Tapis procedures inherit the exact business rules currently installed in Supabase.
--- Table/function identifiers are redirected to Tapis. This avoids guessing or
--- reimplementing the production logic from incomplete frontend snippets.
+-- 3) Cloner les fonctions réellement installées sur Supabase.
+-- Les références aux tables/fonctions Linge sont redirigées vers Tapis.
 do $$
 declare
   v_source record;
   v_definition text;
-  v_target_name text;
   v_replacements text[][] := array[
+    array['public.monthly_stock_history','public.tapis_monthly_stock_history'],
     array['public.products','public.tapis_products'],
     array['public.import_batches','public.tapis_import_batches'],
     array['public.stock_snapshots','public.tapis_stock_snapshots'],
     array['public.pdf_stock_imports','public.tapis_pdf_stock_imports'],
     array['public.pdf_stock_snapshot_rows','public.tapis_pdf_stock_snapshot_rows'],
+    array['admin_import_historical_stock','admin_import_tapis_historical_stock'],
     array['admin_import_csv_history_prices','admin_import_tapis_csv_history_prices'],
     array['admin_import_pdf_current_stock_with_history','admin_import_tapis_pdf_current_stock_with_history'],
     array['admin_import_pdf_current_stock','admin_import_tapis_pdf_current_stock'],
@@ -102,6 +114,7 @@ begin
     join pg_namespace n on n.oid = p.pronamespace
     where n.nspname = 'public'
       and p.proname in (
+        'admin_import_historical_stock',
         'admin_import_csv_history_prices',
         'admin_import_pdf_current_stock',
         'admin_import_pdf_current_stock_with_history',
@@ -111,24 +124,95 @@ begin
     order by p.proname, p.oid
   loop
     v_definition := pg_get_functiondef(v_source.oid);
+
     foreach v_pair slice 1 in array v_replacements loop
       v_definition := replace(v_definition, v_pair[1], v_pair[2]);
     end loop;
-    -- Redirect unqualified table references too, without changing compound identifiers
-    -- such as product_ref or stock_snapshots_id.
-    v_definition := regexp_replace(v_definition, '\mproducts\M', 'tapis_products', 'g');
-    v_definition := regexp_replace(v_definition, '\mimport_batches\M', 'tapis_import_batches', 'g');
-    v_definition := regexp_replace(v_definition, '\mstock_snapshots\M', 'tapis_stock_snapshots', 'g');
-    v_definition := regexp_replace(v_definition, '\mpdf_stock_imports\M', 'tapis_pdf_stock_imports', 'g');
-    v_definition := regexp_replace(v_definition, '\mpdf_stock_snapshot_rows\M', 'tapis_pdf_stock_snapshot_rows', 'g');
-    -- Do not overwrite any existing Tapis function unexpectedly.
+
+    -- Rediriger aussi les noms non qualifiés de tables.
+    v_definition := regexp_replace(v_definition, '\\mmonthly_stock_history\\M', 'tapis_monthly_stock_history', 'g');
+    v_definition := regexp_replace(v_definition, '\\mproducts\\M', 'tapis_products', 'g');
+    v_definition := regexp_replace(v_definition, '\\mimport_batches\\M', 'tapis_import_batches', 'g');
+    v_definition := regexp_replace(v_definition, '\\mstock_snapshots\\M', 'tapis_stock_snapshots', 'g');
+    v_definition := regexp_replace(v_definition, '\\mpdf_stock_imports\\M', 'tapis_pdf_stock_imports', 'g');
+    v_definition := regexp_replace(v_definition, '\\mpdf_stock_snapshot_rows\\M', 'tapis_pdf_stock_snapshot_rows', 'g');
+
     execute v_definition;
   end loop;
 end $$;
 
--- 4) The history-aware PDF importer gets its own independent Tapis archive.
--- If the source wrapper exists, the cloned wrapper already writes to Tapis history.
--- Create the first Tapis baseline only when there are Tapis products.
+-- 4) Importer le fichier de mouvements mensuels Tapis.
+-- p_rows attend un tableau JSON avec: product_ref, month_no,
+-- initial_quantity, entry_quantity, outgoing_quantity, final_quantity.
+-- L'import remplace uniquement l'historique mensuel Tapis, jamais celui de Linge.
+create or replace function public.admin_import_tapis_monthly_stock_history(p_rows jsonb)
+returns jsonb
+language plpgsql
+security definer
+set search_path to ''
+as $function$
+declare
+  v_count integer;
+  v_actor uuid;
+begin
+  v_actor := auth.uid();
+
+  if v_actor is null or not public.is_admin() then
+    raise exception 'Accès réservé à l’administrateur actif.';
+  end if;
+
+  if p_rows is null or jsonb_typeof(p_rows) <> 'array' or jsonb_array_length(p_rows) = 0 then
+    raise exception 'Le fichier historique Tapis est vide ou invalide.';
+  end if;
+
+  if exists (
+    select 1
+    from jsonb_array_elements(p_rows) as x(value)
+    where nullif(trim(x.value->>'product_ref'), '') is null
+       or coalesce(nullif(trim(x.value->>'month_no'), '')::integer, 0) not between 1 and 12
+  ) then
+    raise exception 'Chaque ligne doit contenir une référence et un mois entre 1 et 12.';
+  end if;
+
+  if exists (
+    select 1
+    from (
+      select trim(value->>'product_ref') as product_ref,
+             (value->>'month_no')::integer as month_no
+      from jsonb_array_elements(p_rows)
+    ) d
+    group by product_ref, month_no
+    having count(*) > 1
+  ) then
+    raise exception 'Le fichier contient une référence répétée pour le même mois.';
+  end if;
+
+  delete from public.tapis_monthly_stock_history;
+
+  insert into public.tapis_monthly_stock_history (
+    product_ref, month_no, initial_quantity,
+    entry_quantity, outgoing_quantity, final_quantity
+  )
+  select
+    trim(value->>'product_ref'),
+    (value->>'month_no')::integer,
+    nullif(replace(trim(coalesce(value->>'initial_quantity','')), ',', '.'), '')::numeric,
+    nullif(replace(trim(coalesce(value->>'entry_quantity','')), ',', '.'), '')::numeric,
+    nullif(replace(trim(coalesce(value->>'outgoing_quantity','')), ',', '.'), '')::numeric,
+    nullif(replace(trim(coalesce(value->>'final_quantity','')), ',', '.'), '')::numeric
+  from jsonb_array_elements(p_rows);
+
+  get diagnostics v_count = row_count;
+
+  return jsonb_build_object(
+    'success', true,
+    'rows_imported', v_count,
+    'target', 'tapis_monthly_stock_history'
+  );
+end;
+$function$;
+
+-- 5) Créer une baseline PDF Tapis indépendante, si aucune archive n'existe.
 do $$
 declare
   v_import_id uuid;
@@ -147,9 +231,8 @@ begin
   end if;
 end $$;
 
--- Restrict newly cloned Tapis RPCs to authenticated sessions. Their function
--- bodies retain the original admin checks.
-do $
+-- 6) Accès RPC authentifié uniquement.
+do $$
 declare
   v_fn record;
 begin
@@ -159,16 +242,18 @@ begin
     join pg_namespace n on n.oid = p.pronamespace
     where n.nspname = 'public'
       and p.proname in (
+        'admin_import_tapis_historical_stock',
         'admin_import_tapis_csv_history_prices',
         'admin_import_tapis_pdf_current_stock',
         'admin_import_tapis_pdf_current_stock_with_history',
         'get_tapis_reorder_suggestions',
-        'get_tapis_pdf_stock_decrease_analysis'
+        'get_tapis_pdf_stock_decrease_analysis',
+        'admin_import_tapis_monthly_stock_history'
       )
   loop
     execute format('revoke all on function %s from public', v_fn.signature);
     execute format('grant execute on function %s to authenticated', v_fn.signature);
   end loop;
-end $;
+end $$;
 
 commit;
