@@ -51,12 +51,6 @@ begin
       add constraint tapis_stock_snapshots_product_id_fkey
       foreign key (product_id) references public.tapis_products(id) on delete cascade;
   end if;
-
-  if not exists (select 1 from pg_constraint where conname = 'tapis_stock_snapshots_import_batch_id_fkey') then
-    alter table public.tapis_stock_snapshots
-      add constraint tapis_stock_snapshots_import_batch_id_fkey
-      foreign key (import_batch_id) references public.tapis_import_batches(id) on delete cascade;
-  end if;
 end $$;
 
 -- 2) RLS: accès direct admin uniquement.
