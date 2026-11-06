@@ -47,11 +47,6 @@ begin
       add constraint tapis_stock_snapshots_product_id_fkey
       foreign key (product_id) references public.tapis_products(id) on delete cascade;
   end if;
-  if not exists (select 1 from pg_constraint where conname = 'tapis_stock_snapshots_import_batch_id_fkey') then
-    alter table public.tapis_stock_snapshots
-      add constraint tapis_stock_snapshots_import_batch_id_fkey
-      foreign key (import_batch_id) references public.tapis_import_batches(id) on delete cascade;
-  end if;
 end $$;
 
 -- 2) RLS: lecture/écriture directe réservée à l'admin; les RPC SECURITY DEFINER
@@ -152,8 +147,28 @@ begin
   end if;
 end $$;
 
--- Authenticated users can call the cloned routines; each routine retains the
--- original Linge admin checks from its deployed definition.
-grant execute on all functions in schema public to authenticated;
+-- Restrict newly cloned Tapis RPCs to authenticated sessions. Their function
+-- bodies retain the original admin checks.
+do $
+declare
+  v_fn record;
+begin
+  for v_fn in
+    select p.oid::regprocedure as signature
+    from pg_proc p
+    join pg_namespace n on n.oid = p.pronamespace
+    where n.nspname = 'public'
+      and p.proname in (
+        'admin_import_tapis_csv_history_prices',
+        'admin_import_tapis_pdf_current_stock',
+        'admin_import_tapis_pdf_current_stock_with_history',
+        'get_tapis_reorder_suggestions',
+        'get_tapis_pdf_stock_decrease_analysis'
+      )
+  loop
+    execute format('revoke all on function %s from public', v_fn.signature);
+    execute format('grant execute on function %s to authenticated', v_fn.signature);
+  end loop;
+end $;
 
 commit;
