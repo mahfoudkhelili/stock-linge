@@ -1,6 +1,16 @@
 -- Tapis PDF importer: create/update product master records, then archive a full Tapis-only snapshot.
 begin;
 
+-- Keep the original isolated importer as an internal implementation.
+do $$
+begin
+  if to_regprocedure('public.admin_import_tapis_pdf_current_stock_with_history_legacy(text,date,jsonb)') is null
+     and to_regprocedure('public.admin_import_tapis_pdf_current_stock_with_history(text,date,jsonb)') is not null then
+    alter function public.admin_import_tapis_pdf_current_stock_with_history(text,date,jsonb)
+      rename to admin_import_tapis_pdf_current_stock_with_history_legacy;
+  end if;
+end $$;
+
 create or replace function public.admin_import_tapis_pdf_current_stock_with_history(
   p_file_name text,
   p_snapshot_date date,
@@ -15,7 +25,6 @@ declare
   v_result jsonb;
   v_actor uuid;
   v_rows integer;
-  v_import_id uuid;
 begin
   v_actor := auth.uid();
   if v_actor is null or not public.is_admin() then
@@ -53,7 +62,6 @@ begin
     raise exception 'Le PDF contient des références produit en double.';
   end if;
 
-  -- Create missing Tapis products and refresh names/current quantities.
   insert into public.tapis_products (product_ref, name, current_quantity, is_active)
   select
     trim(value->>'product_ref'),
@@ -68,8 +76,6 @@ begin
 
   get diagnostics v_rows = row_count;
 
-  -- The isolated PDF importer updates quantities for all Tapis products and archives
-  -- the complete post-import stock snapshot in Tapis-only tables.
   v_result := public.admin_import_tapis_pdf_current_stock_with_history_legacy(
     p_file_name, p_snapshot_date, p_rows
   );
@@ -78,15 +84,6 @@ begin
     jsonb_build_object('products_created_or_refreshed', v_rows);
 end;
 $function$;
-
--- Preserve the cloned implementation under an internal name before replacing the public RPC.
-do $$
-begin
-  if to_regprocedure('public.admin_import_tapis_pdf_current_stock_with_history_legacy(text,date,jsonb)') is null then
-    alter function public.admin_import_tapis_pdf_current_stock_with_history(text,date,jsonb)
-      rename to admin_import_tapis_pdf_current_stock_with_history_legacy;
-  end if;
-end $$;
 
 revoke all on function public.admin_import_tapis_pdf_current_stock_with_history(text,date,jsonb) from public;
 grant execute on function public.admin_import_tapis_pdf_current_stock_with_history(text,date,jsonb) to authenticated;
