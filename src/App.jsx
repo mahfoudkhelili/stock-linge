@@ -329,6 +329,31 @@ export default function App() {
     window.alert('Produits sélectionnés masqués avec succès.');
   }
 
+  async function hideSelectedStockDecrease() {
+    if (selectedStockDecrease.length === 0) {
+      window.alert('Veuillez sélectionner au moins un produit.');
+      return;
+    }
+    const confirmed = window.confirm(
+      `Voulez-vous masquer les ${selectedStockDecrease.length} produit(s) sélectionné(s) ?`
+    );
+    if (!confirmed) return;
+    const { error } = await supabase
+      .from('products')
+      .update({ is_hidden: true })
+      .in('id', selectedStockDecrease);
+    if (error) {
+      window.alert('Erreur : ' + error.message);
+      return;
+    }
+    setStockDecreaseProducts((current) =>
+      current.filter((product) => !selectedStockDecrease.includes(product.product_id))
+    );
+    setSelectedStockDecrease([]);
+    await loadHiddenProducts();
+    window.alert('Produits sélectionnés masqués avec succès.');
+  }
+
   async function loadHiddenProducts() {
     const { data, error } = await supabase
       .from('products')
@@ -4381,66 +4406,43 @@ export default function App() {
                     Comparaison du dernier PDF importé avec le PDF de référence
                     selon la période choisie. Seuls les produits dont la quantité a baissé sont affichés.
                   </p>
-                  <div className="ls-toolbar" style={{flexWrap:'wrap'}}>
+                  <div className="ls-toolbar" style={{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap'}}>
                     <label className="ls-muted">Comparer avec le PDF d’il y a (jours)
-                      <input
-                        type="number"
-                        min="1"
-                        max="3650"
-                        step="1"
-                        value={decreaseDays}
+                      <input type="number" min="1" max="3650" step="1" value={decreaseDays}
                         onChange={(event)=>{setDecreaseDays(Math.max(1, Math.min(3650, Number(event.target.value) || 1)));setDecreasePage(1);}}
-                        style={{...styles.field, width: 90, marginLeft: 6}}
-                      />
+                        style={{...styles.field,width:90,marginLeft:6}} />
                     </label>
-                    <ClearableSearchInput className="ls-search" style={styles.field} value={decreaseSearch} onChange={(event)=>{setDecreaseSearch(event.target.value);setDecreasePage(1);}} placeholder="Rechercher référence ou désignation…" />
-                    <label className="ls-muted"><input type="checkbox" checked={decreaseShowCode} onChange={(event)=>setDecreaseShowCode(event.target.checked)} /> Afficher référence</label>
-                    <label className="ls-muted">Lignes par page <select style={styles.field} value={decreasePageSize} onChange={(event)=>{setDecreasePageSize(Number(event.target.value));setDecreasePage(1);}}>{[10,20,100].map(n=><option key={n} value={n}>{n}</option>)}</select></label>
-                    <label className="ls-muted">Trier par <select style={styles.field} value={decreaseSortKey} onChange={(event)=>{setDecreaseSortKey(event.target.value);setDecreasePage(1);}}><option value="product_name">Désignation</option><option value="product_ref">Référence</option><option value="previous_quantity">Quantité précédente</option><option value="current_quantity">Quantité actuelle</option><option value="quantity_decreased">Baisse de quantité</option><option value="previous_date">Date précédente</option><option value="latest_snapshot_date">Dernière date</option><option value="days_between">Jours entre les fichiers</option></select></label>
-                    <button style={styles.secondary} onClick={()=>setDecreaseSortDirection(d=>d==='asc'?'desc':'asc')}>{decreaseSortDirection==='asc'?'Croissant ▲':'Décroissant ▼'}</button>
-                    <button
-                      style={styles.secondary}
-                      onClick={loadStockDecreaseAnalysis}
-                      disabled={stockDecreaseLoading}
-                    >
-                      {stockDecreaseLoading
-                        ? 'Actualisation…'
-                        : 'Actualiser les baisses PDF'}
+                    <button style={{...styles.secondary,padding:'6px 11px',fontSize:12}} onClick={loadStockDecreaseAnalysis} disabled={stockDecreaseLoading}>
+                      {stockDecreaseLoading ? 'Actualisation…' : 'Actualiser'}
                     </button>
-                    <button
-                      style={styles.secondary}
-                      onClick={async () => {
-                        const names = stockDecreaseProducts
-                          .filter((product) => selectedStockDecrease.includes(product.product_id))
-                          .map((product) => product.product_name)
-                          .filter(Boolean);
-                        if (!names.length) {
-                          window.alert('Sélectionnez au moins un produit.');
-                          return;
-                        }
-                        const textToCopy = names.join('\n');
-                        try {
-                          await navigator.clipboard.writeText(textToCopy);
-                          window.alert(`${names.length} désignation(s) copiée(s).`);
-                        } catch (error) {
-                          window.prompt('Copiez les désignations :', textToCopy);
-                        }
-                      }}
-                    >
-                      Copier la sélection ({selectedStockDecrease.length})
-                    </button>
-                    <button
-                      style={styles.secondary}
-                      onClick={() => setSelectedStockDecrease([])}
-                    >
-                      Désélectionner tout
-                    </button>
+                    <button style={{...styles.button,padding:'6px 11px',fontSize:12}} onClick={hideSelectedStockDecrease}>Masquer</button>
+                    <button style={{...styles.secondary,padding:'6px 11px',fontSize:12}} onClick={async () => {
+                      const names = stockDecreaseProducts
+                        .filter((product) => selectedStockDecrease.includes(product.product_id))
+                        .map((product) => product.product_name).filter(Boolean);
+                      if (!names.length) { window.alert('Sélectionnez au moins un produit.'); return; }
+                      const textToCopy = names.join('\\n');
+                      try { await navigator.clipboard.writeText(textToCopy); window.alert(`${names.length} désignation(s) copiée(s).`); }
+                      catch (error) { window.prompt('Copiez les désignations :', textToCopy); }
+                    }}>Copier ({selectedStockDecrease.length})</button>
+                    <button style={{...styles.secondary,padding:'6px 11px',fontSize:12}} onClick={() => setSelectedStockDecrease([])}>Désélectionner</button>
+                    <label className="ls-muted" style={{display:'flex',alignItems:'center',gap:6,marginLeft:6}}>
+                      <input type="checkbox" checked={decreaseShowCode} onChange={(event)=>setDecreaseShowCode(event.target.checked)} />
+                      Afficher référence
+                    </label>
+                    <label className="ls-muted" style={{display:'flex',alignItems:'center',gap:6}}>
+                      Lignes par page
+                      <select style={{...styles.field,width:'auto'}} value={decreasePageSize} onChange={(event)=>{setDecreasePageSize(Number(event.target.value));setDecreasePage(1);}}>
+                        {[10,20,100].map(n=><option key={n} value={n}>{n}</option>)}
+                      </select>
+                    </label>
                     <span className="ls-muted">
                       {stockDecreaseProducts.length} produit(s) en baisse
-                      {stockDecreaseProducts.length > 0
-                        ? ` — période : ${stockDecreaseProducts[0].previous_date} → ${stockDecreaseProducts[0].latest_snapshot_date} (${stockDecreaseProducts[0].days_between} jour(s))`
-                        : ''}
+                      {stockDecreaseProducts.length > 0 ? ` — période : ${stockDecreaseProducts[0].previous_date} → ${stockDecreaseProducts[0].latest_snapshot_date} (${stockDecreaseProducts[0].days_between} jour(s))` : ''}
                     </span>
+                  </div>
+                  <div className="ls-toolbar" style={{flexWrap:'wrap'}}>
+                    <ClearableSearchInput className="ls-search" style={styles.field} value={decreaseSearch} onChange={(event)=>{setDecreaseSearch(event.target.value);setDecreasePage(1);}} placeholder="Rechercher référence ou désignation…" />
                   </div>
 
                   {stockDecreaseLoading ? (
@@ -4457,14 +4459,14 @@ export default function App() {
                         <thead>
                           <tr>
                             <th style={styles.th}>Sélection</th>
-                            {decreaseShowCode && <th style={styles.th}>Référence</th>}
-                            <th style={styles.th}>Désignation</th>
-                            <th style={styles.th}>Quantité précédente</th>
-                            <th style={styles.th}>Quantité actuelle</th>
-                            <th style={styles.th}>Baisse de quantité</th>
-                            <th style={styles.th}>Date précédente</th>
-                            <th style={styles.th}>Dernière date</th>
-                            <th style={styles.th}>Jours entre les fichiers</th>
+                            {decreaseShowCode && <th style={styles.th}><button onClick={()=>{setDecreaseSortDirection(decreaseSortKey==='product_ref'&&decreaseSortDirection==='asc'?'desc':'asc');setDecreaseSortKey('product_ref');setDecreasePage(1);}}>Référence {decreaseSortKey==='product_ref'?(decreaseSortDirection==='asc'?'▲':'▼'):''}</button></th>}
+                            <th style={styles.th}><button onClick={()=>{setDecreaseSortDirection(decreaseSortKey==='product_name'&&decreaseSortDirection==='asc'?'desc':'asc');setDecreaseSortKey('product_name');setDecreasePage(1);}}>Désignation {decreaseSortKey==='product_name'?(decreaseSortDirection==='asc'?'▲':'▼'):''}</button></th>
+                            <th style={styles.th}><button onClick={()=>{setDecreaseSortDirection(decreaseSortKey==='previous_quantity'&&decreaseSortDirection==='asc'?'desc':'asc');setDecreaseSortKey('previous_quantity');setDecreasePage(1);}}>Quantité précédente {decreaseSortKey==='previous_quantity'?(decreaseSortDirection==='asc'?'▲':'▼'):''}</button></th>
+                            <th style={styles.th}><button onClick={()=>{setDecreaseSortDirection(decreaseSortKey==='current_quantity'&&decreaseSortDirection==='asc'?'desc':'asc');setDecreaseSortKey('current_quantity');setDecreasePage(1);}}>Quantité actuelle {decreaseSortKey==='current_quantity'?(decreaseSortDirection==='asc'?'▲':'▼'):''}</button></th>
+                            <th style={styles.th}><button onClick={()=>{setDecreaseSortDirection(decreaseSortKey==='quantity_decreased'&&decreaseSortDirection==='asc'?'desc':'asc');setDecreaseSortKey('quantity_decreased');setDecreasePage(1);}}>Baisse de quantité {decreaseSortKey==='quantity_decreased'?(decreaseSortDirection==='asc'?'▲':'▼'):''}</button></th>
+                            <th style={styles.th}><button onClick={()=>{setDecreaseSortDirection(decreaseSortKey==='previous_date'&&decreaseSortDirection==='asc'?'desc':'asc');setDecreaseSortKey('previous_date');setDecreasePage(1);}}>Date précédente {decreaseSortKey==='previous_date'?(decreaseSortDirection==='asc'?'▲':'▼'):''}</button></th>
+                            <th style={styles.th}><button onClick={()=>{setDecreaseSortDirection(decreaseSortKey==='latest_snapshot_date'&&decreaseSortDirection==='asc'?'desc':'asc');setDecreaseSortKey('latest_snapshot_date');setDecreasePage(1);}}>Dernière date {decreaseSortKey==='latest_snapshot_date'?(decreaseSortDirection==='asc'?'▲':'▼'):''}</button></th>
+                            <th style={styles.th}><button onClick={()=>{setDecreaseSortDirection(decreaseSortKey==='days_between'&&decreaseSortDirection==='asc'?'desc':'asc');setDecreaseSortKey('days_between');setDecreasePage(1);}}>Jours entre les fichiers {decreaseSortKey==='days_between'?(decreaseSortDirection==='asc'?'▲':'▼'):''}</button></th>
                           </tr>
                         </thead>
                         <tbody>
