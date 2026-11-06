@@ -4052,9 +4052,6 @@ export default function App() {
                       Analyse indépendante basée sur le stock du dernier PDF Tapis et l’historique mensuel Tapis. Les stocks négatifs, les stocks nuls avec sorties et les produits estimés à moins de 2 jours sont affichés.
                     </p>
                   </div>
-                  <button style={styles.secondary} onClick={loadTapisSuggestedProducts} disabled={tapisSuggestionsLoading}>
-                    {tapisSuggestionsLoading ? 'Actualisation…' : 'Actualiser les suggestions Tapis'}
-                  </button>
                 </div>
                 {(() => {
                   const negativeCount = tapisSuggestedProducts.filter(p => Number(p.current_quantity) < 0).length;
