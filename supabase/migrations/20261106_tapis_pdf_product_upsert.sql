@@ -45,7 +45,7 @@ begin
     where nullif(trim(x.value->>'product_ref'), '') is null
        or nullif(trim(x.value->>'name'), '') is null
        or nullif(trim(x.value->>'quantity'), '') is null
-       or replace(replace(trim(coalesce(x.value->>'quantity','')), ' ', ''), ',', '.') !~ '^-?[0-9]+(\\.[0-9]+)?$'
+       or replace(replace(trim(coalesce(x.value->>'quantity','')), ' ', ''), ',', '.') !~ '^-?[0-9]+([.][0-9]+)?$'
   ) then
     raise exception 'Chaque ligne PDF doit contenir un code, un nom et une quantité numérique.';
   end if;
