@@ -139,6 +139,15 @@ export default function App() {
   const [arinaQuantities, setArinaQuantities] = useState({});
   const [theme, setTheme] = useState('light');
   const [suggestions, setSuggestions] = useState([]);
+  const [tapisSuggestedProducts, setTapisSuggestedProducts] = useState([]);
+  const [tapisSuggestionsLoading, setTapisSuggestionsLoading] = useState(false);
+  const [tapisAnalysisSearch, setTapisAnalysisSearch] = useState('');
+  const [tapisAnalysisPage, setTapisAnalysisPage] = useState(1);
+  const [tapisAnalysisPageSize, setTapisAnalysisPageSize] = useState(20);
+  const [tapisAnalysisSortKey, setTapisAnalysisSortKey] = useState('days_remaining');
+  const [tapisAnalysisSortDirection, setTapisAnalysisSortDirection] = useState('asc');
+  const [tapisAnalysisShowCode, setTapisAnalysisShowCode] = useState(true);
+  const [selectedTapisSuggestions, setSelectedTapisSuggestions] = useState([]);
   const [suggestionTitle, setSuggestionTitle] = useState('');
   const [suggestionBody, setSuggestionBody] = useState('');
   const [suggestionsLoading, setSuggestionsLoading] = useState(false);
@@ -319,6 +328,22 @@ export default function App() {
     setSelectedSuggestions([]);
     setSelectedSuggestions([]);
   }
+
+  async function loadTapisSuggestedProducts() {
+    setTapisSuggestionsLoading(true);
+    try {
+      const { data, error } = await supabase.rpc('get_tapis_reorder_suggestions');
+      if (error) throw error;
+      setTapisSuggestedProducts(data || []);
+      setSelectedTapisSuggestions([]);
+    } catch (error) {
+      console.error('[Tapis reorder suggestions]', error);
+      setMessage('Erreur suggestions Tapis : ' + error.message);
+    } finally {
+      setTapisSuggestionsLoading(false);
+    }
+  }
+
   async function loadStockDecreaseAnalysis() {
     setStockDecreaseLoading(true);
 
@@ -1836,6 +1861,7 @@ export default function App() {
       loadSuggestedProducts();
       loadStockDecreaseAnalysis();
     }
+    if (page === 'tapis-analysis') loadTapisSuggestedProducts();
     if (page === 'history' && canViewPage('history')) loadStockHistory();
     if (page === 'requests') loadReplenishmentRequests();
     if (page === 'notes') loadProductNotes();
@@ -1870,6 +1896,12 @@ export default function App() {
       id: 'analysis',
       label: language === 'ar' ? 'Analyse Linge' : 'Analyse Linge',
       icon: '⌁',
+      admin: true,
+    },
+    {
+      id: 'tapis-analysis',
+      label: language === 'ar' ? 'Analyse Tapis' : 'Analyse Tapis',
+      icon: '▧',
       admin: true,
     },
     {
@@ -3862,6 +3894,110 @@ export default function App() {
                 {stockHistory.length === 0 && (
                   <p>Aucune modification enregistrée.</p>
                 )}
+              </section>
+            )}
+
+
+            {activePage === 'tapis-analysis' && canViewPage('tapis-analysis') && (
+              <section className="ls-panel">
+                <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:12,flexWrap:'wrap'}}>
+                  <div>
+                    <h2 style={{marginTop:0,marginBottom:6}}>Suggestions de réapprovisionnement Tapis</h2>
+                    <p className="ls-muted" style={{marginTop:0}}>
+                      Analyse indépendante basée sur le stock du dernier PDF Tapis et l’historique mensuel Tapis. Les stocks négatifs, les stocks nuls avec sorties et les produits estimés à moins de 2 jours sont affichés.
+                    </p>
+                  </div>
+                  <button style={styles.secondary} onClick={loadTapisSuggestedProducts} disabled={tapisSuggestionsLoading}>
+                    {tapisSuggestionsLoading ? 'Actualisation…' : 'Actualiser les suggestions Tapis'}
+                  </button>
+                </div>
+                {(() => {
+                  const negativeCount = tapisSuggestedProducts.filter(p => Number(p.current_quantity) < 0).length;
+                  const zeroCount = tapisSuggestedProducts.filter(p => Number(p.current_quantity) === 0).length;
+                  const positiveCount = tapisSuggestedProducts.filter(p => Number(p.current_quantity) > 0).length;
+                  return (
+                    <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(145px,1fr))',gap:12,margin:'12px 0 18px'}}>
+                      <div className="ls-stat-card"><div className="ls-muted">Total suggestions</div><strong style={{fontSize:28}}>{tapisSuggestedProducts.length}</strong></div>
+                      <div className="ls-stat-card"><div className="ls-muted">Stock négatif</div><strong style={{fontSize:28,color:'#b42318'}}>{negativeCount}</strong></div>
+                      <div className="ls-stat-card"><div className="ls-muted">Stock zéro avec mouvement</div><strong style={{fontSize:28}}>{zeroCount}</strong></div>
+                      <div className="ls-stat-card"><div className="ls-muted">Stock positif urgent</div><strong style={{fontSize:28}}>{positiveCount}</strong></div>
+                    </div>
+                  );
+                })()}
+                <div className="ls-toolbar" style={{flexWrap:'wrap'}}>
+                  <ClearableSearchInput
+                    className="ls-search"
+                    style={styles.field}
+                    value={tapisAnalysisSearch}
+                    onChange={(event)=>{setTapisAnalysisSearch(event.target.value);setTapisAnalysisPage(1);}}
+                    placeholder="Rechercher une référence ou désignation Tapis…"
+                  />
+                  <label className="ls-muted"><input type="checkbox" checked={tapisAnalysisShowCode} onChange={(event)=>setTapisAnalysisShowCode(event.target.checked)} /> Afficher référence</label>
+                  <label className="ls-muted">Lignes par page <select style={styles.field} value={tapisAnalysisPageSize} onChange={(event)=>{setTapisAnalysisPageSize(Number(event.target.value));setTapisAnalysisPage(1);}}>{[10,20,100].map(n=><option key={n} value={n}>{n}</option>)}</select></label>
+                  <label className="ls-muted">Trier par <select style={styles.field} value={tapisAnalysisSortKey} onChange={(event)=>{setTapisAnalysisSortKey(event.target.value);setTapisAnalysisPage(1);}}><option value="name">Désignation</option><option value="product_ref">Référence</option><option value="current_quantity">Quantité PDF actuelle</option><option value="average_daily_decrease">Sortie moyenne / jour</option><option value="days_remaining">Jours restants estimés</option><option value="suggested_order_quantity">Quantité à commander</option></select></label>
+                  <button style={styles.secondary} onClick={()=>{setTapisAnalysisSortDirection(d=>d==='asc'?'desc':'asc');setTapisAnalysisPage(1);}}>{tapisAnalysisSortDirection==='asc'?'Croissant ▲':'Décroissant ▼'}</button>
+                  <button style={styles.secondary} onClick={async()=>{
+                    const names=tapisSuggestedProducts.filter(p=>selectedTapisSuggestions.includes(p.id)).map(p=>p.name).filter(Boolean);
+                    if(!names.length){window.alert('Sélectionnez au moins un produit.');return;}
+                    const textToCopy=names.join('\n');
+                    try{await navigator.clipboard.writeText(textToCopy);window.alert(names.length+' désignation(s) copiée(s).');}
+                    catch(error){window.prompt('Copiez les désignations :',textToCopy);}
+                  }}>Copier la sélection ({selectedTapisSuggestions.length})</button>
+                  <button style={styles.secondary} onClick={()=>setSelectedTapisSuggestions([])}>Désélectionner</button>
+                </div>
+                {(() => {
+                  const filtered=tapisSuggestedProducts.filter(p=>matchesTableSearch(tapisAnalysisSearch,p.name,p.product_ref));
+                  const numericKeys=['current_quantity','average_daily_decrease','days_remaining','suggested_order_quantity'];
+                  const sorted=[...filtered].sort((a,b)=>{
+                    const av=a[tapisAnalysisSortKey],bv=b[tapisAnalysisSortKey];
+                    const c=numericKeys.includes(tapisAnalysisSortKey)
+                      ? (av==null?Number.POSITIVE_INFINITY:Number(av))-(bv==null?Number.POSITIVE_INFINITY:Number(bv))
+                      : String(av??'').localeCompare(String(bv??''),'fr',{numeric:true,sensitivity:'base'});
+                    return tapisAnalysisSortDirection==='asc'?c:-c;
+                  });
+                  const pages=Math.max(1,Math.ceil(sorted.length/tapisAnalysisPageSize));
+                  const safe=Math.min(tapisAnalysisPage,pages);
+                  const rows=sorted.slice((safe-1)*tapisAnalysisPageSize,safe*tapisAnalysisPageSize);
+                  return <>
+                    {tapisSuggestionsLoading ? <p>Chargement des suggestions Tapis…</p> : filtered.length===0 ? (
+                      <p>Aucune suggestion Tapis à afficher. Cliquez sur Actualiser.</p>
+                    ) : (
+                      <div className="ls-table-wrap">
+                        <table className="ls-table">
+                          <thead><tr>
+                            <th style={styles.th}>Sélection</th>
+                            {tapisAnalysisShowCode && <th style={styles.th}>Référence</th>}
+                            <th style={styles.th}>Désignation</th>
+                            <th style={styles.th}>Quantité PDF actuelle</th>
+                            <th style={styles.th}>Sortie moyenne / jour</th>
+                            <th style={styles.th}>Jours restants estimés</th>
+                            <th style={styles.th}>Quantité à commander</th>
+                            <th style={styles.th}>Date du dernier relevé</th>
+                          </tr></thead>
+                          <tbody>{rows.map(product=>(
+                            <tr key={product.id || product.product_ref}>
+                              <td style={styles.td}><input type="checkbox" checked={selectedTapisSuggestions.includes(product.id)} onChange={event=>setSelectedTapisSuggestions(current=>event.target.checked?[...current,product.id]:current.filter(id=>id!==product.id))}/></td>
+                              {tapisAnalysisShowCode && <td style={styles.td}>{product.product_ref || '—'}</td>}
+                              <td style={styles.td}>{product.name || '—'}</td>
+                              <td style={{...styles.td,fontWeight:700,color:Number(product.current_quantity)<0?'#b42318':undefined}}>{product.current_quantity ?? '—'}</td>
+                              <td style={styles.td}>{product.average_daily_decrease ?? '—'}</td>
+                              <td style={{...styles.td,color:Number(product.current_quantity)<=0?'#b42318':undefined}}>{Number(product.current_quantity)<=0?'Stock négatif / nul':product.days_remaining==null?'Non estimé':product.days_remaining+' jours'}</td>
+                              <td style={styles.td}>{product.suggested_order_quantity ?? '—'}</td>
+                              <td style={styles.td}>{product.last_snapshot_date || '—'}</td>
+                            </tr>
+                          ))}</tbody>
+                        </table>
+                      </div>
+                    )}
+                    <div className="ls-pagination">
+                      <span className="ls-muted">Page {safe} sur {pages} · {filtered.length} produit(s)</span>
+                      <div className="ls-toolbar" style={{margin:0}}>
+                        <button style={styles.secondary} disabled={safe<=1} onClick={()=>setTapisAnalysisPage(p=>Math.max(1,p-1))}>← Précédent</button>
+                        <button style={styles.secondary} disabled={safe>=pages} onClick={()=>setTapisAnalysisPage(p=>Math.min(pages,p+1))}>Suivant →</button>
+                      </div>
+                    </div>
+                  </>;
+                })()}
               </section>
             )}
 
