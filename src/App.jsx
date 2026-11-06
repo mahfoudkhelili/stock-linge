@@ -1803,10 +1803,10 @@ export default function App() {
     setLabelSearch('');
   }
 
-  function updateLabelLineQuantity(productId, value) {
+  function updateLabelLineQuantity(product, value) {
     const quantity = value === '' ? '' : Math.max(1, Math.min(500, Math.floor(Number(value) || 1)));
     setLabelLines((current) => current.map((line) =>
-      String(line.id) === String(productId) ? { ...line, quantity } : line
+      String(line.id) === String(product.id) && line.catalog_source === product.catalog_source ? { ...line, quantity } : line
     ));
   }
 
@@ -4583,7 +4583,7 @@ export default function App() {
                     {!catalogProducts.some(p=>productMatchesSearch(p, salesSearch)) && <p style={{padding:10}} className="ls-muted">Aucun produit trouvé.</p>}
                   </div>}
                 </div>
-                {salesLines.length > 0 ? <div className="ls-table-wrap ls-force-table" style={{marginTop:16}}><table className="ls-table"><thead><tr><th style={styles.th}>Désignation</th><th style={styles.th}>Quantité</th><th style={styles.th}>Prix de gros</th><th style={styles.th}>Total</th><th style={styles.th}>Action</th></tr></thead><tbody>{salesLines.map(line=><tr key={line.id}><td style={styles.td}><div style={{display:'flex',alignItems:'center',gap:8}}>{photoFor(line.id) ? <img src={photoFor(line.id)} alt="" style={{width:38,height:38,objectFit:'cover',borderRadius:6,flexShrink:0}} /> : null}<span>{line.name}</span></div></td><td style={styles.td}><input type="number" min="0.01" step="any" style={{...styles.field,width:100}} value={line.quantity} onChange={(e)=>setSalesLines(cur=>cur.map(x=>x.id===line.id?{...x,quantity:Math.max(0,Number(e.target.value)||0)}:x))}/></td><td style={styles.td}>{Number(line.wholesale_price||0).toFixed(2)} DA</td><td style={styles.td}>{(Number(line.quantity||0)*Number(line.wholesale_price||0)).toFixed(2)} DA</td><td style={styles.td}><button style={styles.secondary} onClick={()=>setSalesLines(cur=>cur.filter(x=>x.id!==line.id))}>Retirer</button></td></tr>)}</tbody></table></div> : <p className="ls-muted">Aucun produit ajouté.</p>}
+                {salesLines.length > 0 ? <div className="ls-table-wrap ls-force-table" style={{marginTop:16}}><table className="ls-table"><thead><tr><th style={styles.th}>Désignation</th><th style={styles.th}>Quantité</th><th style={styles.th}>Prix de gros</th><th style={styles.th}>Total</th><th style={styles.th}>Action</th></tr></thead><tbody>{salesLines.map(line=><tr key={`${line.catalog_source}:${line.id}`}><td style={styles.td}><div style={{display:'flex',alignItems:'center',gap:8}}>{line.catalog_source !== 'tapis_products' && photoFor(line.id) ? <img src={photoFor(line.id)} alt="" style={{width:38,height:38,objectFit:'cover',borderRadius:6,flexShrink:0}} /> : null}<span>{line.name}{line.catalog_source === 'tapis_products' ? <small style={{marginInlineStart:7,color:'#64748b'}}>Tapis</small> : null}</span></div></td><td style={styles.td}><input type="number" min="0.01" step="any" style={{...styles.field,width:100}} value={line.quantity} onChange={(e)=>setSalesLines(cur=>cur.map(x=>x.id===line.id && x.catalog_source===line.catalog_source?{...x,quantity:Math.max(0,Number(e.target.value)||0)}:x))}/></td><td style={styles.td}>{Number(line.wholesale_price||0).toFixed(2)} DA</td><td style={styles.td}>{(Number(line.quantity||0)*Number(line.wholesale_price||0)).toFixed(2)} DA</td><td style={styles.td}><button style={styles.secondary} onClick={()=>setSalesLines(cur=>cur.filter(x=>!(x.id===line.id && x.catalog_source===line.catalog_source)))}>Retirer</button></td></tr>)}</tbody></table></div> : <p className="ls-muted">Aucun produit ajouté.</p>}
                 <h3 style={{textAlign:'right'}}>Total : {salesTotal.toFixed(2)} DA</h3>
                 <button style={styles.button} disabled={pdfBusy || salesLines.length===0} onClick={()=>makePdf('invoice','download')}>{pdfBusy?'Enregistrement…':'Enregistrer et télécharger PDF'}</button>
                 <button style={{...styles.secondary,marginLeft:8}} disabled={pdfBusy || salesLines.length===0} onClick={()=>makePdf('invoice','share')}>{pdfBusy?'Préparation…':'Enregistrer et partager PDF'}</button>
@@ -4607,7 +4607,7 @@ export default function App() {
                       <thead><tr><th style={styles.th}>Désignation</th><th style={styles.th}>Prix détail</th><th style={styles.th}>Action</th></tr></thead>
                       <tbody>
                         {catalogProducts.filter(p=>productMatchesSearch(p, labelSearch)).slice(0,30).map(p=>(
-                          <tr key={p.id}>
+                          <tr key={`${p.catalog_source}:${p.id}`}>
                             <td style={styles.td}><strong>{p.name}{p.catalog_source === 'tapis_products' ? <small style={{marginInlineStart:7,color:'#64748b'}}>Tapis</small> : null}</strong><div className="ls-muted">{p.product_ref}</div></td>
                             <td style={styles.td}>{Number(p.retail_price||0).toFixed(2)} DA</td>
                             <td style={styles.td}><button type="button" style={styles.button} onClick={()=>addLabelLine(p)}>Ajouter</button></td>
@@ -4624,11 +4624,11 @@ export default function App() {
                     <table className="ls-table">
                       <thead><tr><th style={styles.th}>Désignation</th><th style={styles.th}>Prix détail</th><th style={styles.th}>Nombre d’étiquettes</th><th style={styles.th}>Action</th></tr></thead>
                       <tbody>{labelLines.map(line=>(
-                        <tr key={line.id}>
-                          <td style={styles.td}><strong>{line.name}</strong><div className="ls-muted">{line.product_ref}</div></td>
+                        <tr key={`${line.catalog_source}:${line.id}`}>
+                          <td style={styles.td}><strong>{line.name}{line.catalog_source === 'tapis_products' ? <small style={{marginInlineStart:7,color:'#64748b'}}>Tapis</small> : null}</strong><div className="ls-muted">{line.product_ref}</div></td>
                           <td style={styles.td}>{Number(line.retail_price||0).toFixed(2)} DA</td>
-                          <td style={styles.td}><input aria-label={'Nombre d’étiquettes pour '+line.name} type="number" min="1" max="500" step="1" style={{...styles.field,width:120}} value={line.quantity} onChange={(e)=>updateLabelLineQuantity(line.id,e.target.value)} /></td>
-                          <td style={styles.td}><button type="button" style={styles.secondary} onClick={()=>setLabelLines(current=>current.filter(item=>String(item.id)!==String(line.id)))}>Retirer</button></td>
+                          <td style={styles.td}><input aria-label={'Nombre d’étiquettes pour '+line.name} type="number" min="1" max="500" step="1" style={{...styles.field,width:120}} value={line.quantity} onChange={(e)=>updateLabelLineQuantity(line,e.target.value)} /></td>
+                          <td style={styles.td}><button type="button" style={styles.secondary} onClick={()=>setLabelLines(current=>current.filter(item=>!(String(item.id)===String(line.id) && item.catalog_source===line.catalog_source)))}>Retirer</button></td>
                         </tr>
                       ))}</tbody>
                     </table>
