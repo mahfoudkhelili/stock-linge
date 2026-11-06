@@ -134,6 +134,9 @@ export default function App() {
   const [showTraderQuantities, setShowTraderQuantities] = useState(true);
   const [showArinaZeroStock, setShowArinaZeroStock] = useState(true);
   const [lastImportBatch, setLastImportBatch] = useState(null);
+  const [lastLingePdfImport, setLastLingePdfImport] = useState(null);
+  const [lastTapisImportBatch, setLastTapisImportBatch] = useState(null);
+  const [lastTapisPdfImport, setLastTapisPdfImport] = useState(null);
   const [productNotes, setProductNotes] = useState([]);
   const [noteProductId, setNoteProductId] = useState('');
   const [noteText, setNoteText] = useState('');
@@ -1374,13 +1377,29 @@ export default function App() {
   }
 
   async function loadLastImport() {
-    const { data, error } = await supabase
-      .from('import_batches')
-      .select('*')
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    if (!error) setLastImportBatch(data || null);
+    const [lingeCsv, lingePdf, tapisCsv, tapisPdf] = await Promise.all([
+      supabase.from('import_batches').select('*').order('created_at', { ascending: false }).limit(1).maybeSingle(),
+      supabase.from('pdf_stock_imports').select('*').order('imported_at', { ascending: false }).limit(1).maybeSingle(),
+      supabase.from('tapis_import_batches').select('*').order('created_at', { ascending: false }).limit(1).maybeSingle(),
+      supabase.from('tapis_pdf_stock_imports').select('*').order('imported_at', { ascending: false }).limit(1).maybeSingle(),
+    ]);
+    if (!lingeCsv.error) setLastImportBatch(lingeCsv.data || null);
+    if (!lingePdf.error) setLastLingePdfImport(lingePdf.data || null);
+    if (!tapisCsv.error) setLastTapisImportBatch(tapisCsv.data || null);
+    if (!tapisPdf.error) setLastTapisPdfImport(tapisPdf.data || null);
+  }
+
+  function latestImportRecord(...records) {
+    return records.filter(Boolean).sort((a, b) => {
+      const dateA = new Date(a.imported_at || a.created_at || a.stock_date || a.snapshot_date || 0).getTime();
+      const dateB = new Date(b.imported_at || b.created_at || b.stock_date || b.snapshot_date || 0).getTime();
+      return dateB - dateA;
+    })[0] || null;
+  }
+
+  function displayImportDate(record) {
+    const value = record?.imported_at || record?.created_at || record?.stock_date || record?.snapshot_date;
+    return value ? new Date(value).toLocaleString('fr-FR') : 'Aucun import trouvé';
   }
 
   async function loadQuantitySetting() {
@@ -2788,36 +2807,31 @@ export default function App() {
                 {isAdmin && (
                   <section className="ls-panel ls-import-panel">
                     <h2 style={{ marginTop: 0 }}>Dernier import historique</h2>
-                    <div className="ls-muted">
-                      Fichier :{' '}
-                      <strong>
-                        {lastImportBatch?.file_name ||
-                          lastImportBatch?.filename ||
-                          lastImportBatch?.source_file_name ||
-                          'Information non disponible'}
-                      </strong>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 16 }}>
+                      <div style={{ border: '1px solid #dbe3ec', borderRadius: 14, padding: 16, background: '#f8fafc' }}>
+                        <h3 style={{ margin: '0 0 10px', color: '#183b5b' }}>Linge</h3>
+                        <div className="ls-muted">Dernier fichier : <strong>{latestImportRecord(lastImportBatch, lastLingePdfImport)?.file_name || latestImportRecord(lastImportBatch, lastLingePdfImport)?.filename || 'Aucun fichier importé'}</strong></div>
+                        <div className="ls-muted" style={{ marginTop: 6 }}>Date : <strong>{displayImportDate(latestImportRecord(lastImportBatch, lastLingePdfImport))}</strong></div>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 14 }}>
+                          <button type="button" style={styles.button} onClick={() => document.getElementById('linge-csv-upload')?.click()}>Importer CSV</button>
+                          <button type="button" style={styles.secondary} onClick={() => document.getElementById('linge-pdf-upload')?.click()}>Importer PDF</button>
+                        </div>
+                      </div>
+                      <div style={{ border: '1px solid #dbe3ec', borderRadius: 14, padding: 16, background: '#f8fafc' }}>
+                        <h3 style={{ margin: '0 0 10px', color: '#183b5b' }}>Tapis</h3>
+                        <div className="ls-muted">Dernier fichier : <strong>{latestImportRecord(lastTapisImportBatch, lastTapisPdfImport)?.file_name || latestImportRecord(lastTapisImportBatch, lastTapisPdfImport)?.filename || 'Aucun fichier importé'}</strong></div>
+                        <div className="ls-muted" style={{ marginTop: 6 }}>Date : <strong>{displayImportDate(latestImportRecord(lastTapisImportBatch, lastTapisPdfImport))}</strong></div>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 14 }}>
+                          <button type="button" style={styles.button} onClick={() => document.getElementById('tapis-csv-upload')?.click()}>Importer CSV</button>
+                          <button type="button" style={styles.secondary} onClick={() => document.getElementById('tapis-pdf-upload')?.click()}>Importer PDF</button>
+                        </div>
+                      </div>
                     </div>
-                    <div className="ls-muted" style={{ marginTop: 5 }}>
-                      Date :{' '}
-                      <strong>
-                        {lastImportBatch?.snapshot_date ||
-                          lastImportBatch?.import_date ||
-                          (lastImportBatch?.created_at
-                            ? new Date(
-                                lastImportBatch.created_at
-                              ).toLocaleString('fr-FR')
-                            : 'Aucun import trouvé')}
-                      </strong>
-                    </div>
-                    <div className="ls-muted" style={{ marginTop: 5 }}>
-                      Dernière correction manuelle :{' '}
-                      <strong>
-                        {lastStockUpdate
-                          ? new Date(lastStockUpdate).toLocaleString('fr-FR')
-                          : 'Aucune correction enregistrée'}
-                      </strong>
-                    </div>
+                    <p className="ls-muted" style={{ marginBottom: 0, marginTop: 12 }}>Chaque bouton ouvre directement le sélecteur du fichier correspondant. Les aperçus et confirmations restent dans leurs sections respectives ci-dessous.</p>
                   </section>
+                )}
+                {isAdmin && (
+                  <section                  </section>
                 )}
                 {isAdmin && (
                   <section
@@ -2952,6 +2966,7 @@ export default function App() {
                       style={styles.field}
                       type="file"
                       accept=".csv,text/csv"
+                      id="linge-csv-upload"
                       onChange={handleCsvFile}
                     />
                     {csvFileName && (
@@ -3015,7 +3030,7 @@ export default function App() {
                           CSV Tapis indépendant de Linge : met à jour les prix et l’historique mensuel Tapis uniquement.
                           Le stock actuel Tapis provient exclusivement du PDF magasin et ne sera pas modifié.
                         </p>
-                        <input style={styles.field} type="file" accept=".csv,text/csv" onChange={handleTapisCsvFile} />
+                        <input id="tapis-csv-upload" style={styles.field} type="file" accept=".csv,text/csv" onChange={handleTapisCsvFile} />
                         {tapisCsvFileName && <p><strong>Fichier Tapis :</strong> {tapisCsvFileName}</p>}
                         {tapisCsvPreview.length > 0 && <>
                           <p><strong>{tapisCsvPreview.length} lignes détectées.</strong> Aperçu des 5 premières lignes :</p>
@@ -3043,7 +3058,7 @@ export default function App() {
                     <div style={{ marginTop: 18, paddingTop: 16, borderTop: '1px solid #d7dee7' }}>
                       <h3>Importer le stock actuel depuis un PDF</h3>
                       <p className="ls-muted">Le PDF du magasin principal met à jour les quantités actuelles : les produits absents du PDF passent à zéro. Les prix et l’historique CSV restent inchangés. L’aperçu affiche au maximum 10 produits à la fois.</p>
-                      <input style={styles.field} type="file" accept=".pdf,application/pdf" onChange={handlePdfFile} />
+                      <input id="linge-pdf-upload" style={styles.field} type="file" accept=".pdf,application/pdf" onChange={handlePdfFile} />
                       {pdfFileName && <p><strong>Fichier PDF :</strong> {pdfFileName}</p>}
                       {pdfPreview.length > 0 && <>
                         <p><strong>{pdfPreview.length} lignes reconnues.</strong> Recherchez une référence ou une désignation pour vérifier la quantité avant confirmation.</p>
@@ -3093,6 +3108,7 @@ export default function App() {
                         style={styles.field}
                         type="file"
                         accept=".pdf,application/pdf"
+                        id="tapis-pdf-upload"
                         onChange={handleTapisPdfFile}
                       />
                       {tapisPdfFileName && <p><strong>Fichier Tapis :</strong> {tapisPdfFileName}</p>}
