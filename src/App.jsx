@@ -1720,6 +1720,12 @@ export default function App() {
       adminOnly: true,
     },
     {
+      id: 'imports',
+      label: language === 'ar' ? 'الاستيراد والمراقبة' : 'Imports et contrôle',
+      icon: '⇧',
+      adminOnly: true,
+    },
+    {
       id: 'products',
       label: language === 'ar' ? 'جميع المنتجات' : 'Tous les produits',
       icon: '▦',
@@ -2432,6 +2438,35 @@ export default function App() {
                     <strong>{productPhotos.length}</strong>
                   </button>
                 </div>
+                <section className="ls-dashboard-shortcuts">
+                  <div className="ls-section-heading">
+                    <h2>Accès rapide</h2>
+                    <span>Choisissez une section pour ouvrir son tableau</span>
+                  </div>
+                  <div className="ls-shortcut-grid">
+                    {[
+                      { id: 'products', label: 'Liste des produits', icon: '▦', tone: 'lavender' },
+                      { id: 'analysis', label: 'Analyse des produits', icon: '↘', tone: 'peach' },
+                      { id: 'arina', label: 'Matelas Europ Arina', icon: '▣', tone: 'sage' },
+                      { id: 'textiles', label: 'Chora / Voilage / Rideau', icon: '▤', tone: 'blue' },
+                      { id: 'sales', label: 'Bon de vente', icon: '▧', tone: 'peach' },
+                      { id: 'labels', label: 'Étiquettes prix', icon: '▤', tone: 'lavender' },
+                      { id: 'photos', label: 'Photos des produits', icon: '▧', tone: 'sage' },
+                      { id: 'requests', label: 'Demandes clients', icon: '☷', tone: 'blue' },
+                    ].filter((item) => visibleNavItems.some((nav) => nav.id === item.id)).map((item) => (
+                      <button key={item.id} type="button" className="ls-shortcut-card" onClick={() => navigateTo(item.id)}>
+                        <span className={`ls-shortcut-icon ls-icon-${item.tone}`}>{item.icon}</span>
+                        <span>{item.label}</span>
+                        <span className="ls-shortcut-arrow">↗</span>
+                      </button>
+                    ))}
+                  </div>
+                </section>
+              </>
+            )}
+
+            {activePage === 'imports' && isAdmin && (
+              <>
                 {isAdmin && (
                   <section className="ls-panel ls-import-panel">
                     <h2 style={{ marginTop: 0 }}>Dernier import historique</h2>
@@ -2748,30 +2783,6 @@ export default function App() {
                     </button>
                   </section>
                 )}
-                <section className="ls-dashboard-shortcuts">
-                  <div className="ls-section-heading">
-                    <h2>Accès rapide</h2>
-                    <span>Choisissez une section pour ouvrir son tableau</span>
-                  </div>
-                  <div className="ls-shortcut-grid">
-                    {[
-                      { id: 'products', label: 'Liste des produits', icon: '▦', tone: 'lavender' },
-                      { id: 'analysis', label: 'Analyse des produits', icon: '↘', tone: 'peach' },
-                      { id: 'arina', label: 'Matelas Europ Arina', icon: '▣', tone: 'sage' },
-                      { id: 'textiles', label: 'Chora / Voilage / Rideau', icon: '▤', tone: 'blue' },
-                      { id: 'sales', label: 'Bon de vente', icon: '▧', tone: 'peach' },
-                      { id: 'labels', label: 'Étiquettes prix', icon: '▤', tone: 'lavender' },
-                      { id: 'photos', label: 'Photos des produits', icon: '▧', tone: 'sage' },
-                      { id: 'requests', label: 'Demandes clients', icon: '☷', tone: 'blue' },
-                    ].filter((item) => visibleNavItems.some((nav) => nav.id === item.id)).map((item) => (
-                      <button key={item.id} type="button" className="ls-shortcut-card" onClick={() => navigateTo(item.id)}>
-                        <span className={`ls-shortcut-icon ls-icon-${item.tone}`}>{item.icon}</span>
-                        <span>{item.label}</span>
-                        <span className="ls-shortcut-arrow">↗</span>
-                      </button>
-                    ))}
-                  </div>
-                </section>
               </>
             )}
 
