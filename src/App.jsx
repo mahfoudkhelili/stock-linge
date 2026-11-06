@@ -51,11 +51,26 @@ function ClearableSearchInput({ value, onChange, style, className, placeholder, 
   );
 }
 
+function DashboardIcon({ name, className = '' }) {
+  const paths = {
+    products: <><path d="M4 7.5 12 3l8 4.5-8 4.5-8-4.5Z"/><path d="M4 12l8 4.5 8-4.5M4 16.5 12 21l8-4.5"/></>,
+    analysis: <><path d="M4 19V5M4 19h17"/><path d="m7 15 4-4 3 2 5-6"/><path d="M16 7h3v3"/></>,
+    requests: <><path d="M7 4h10l3 3v13H4V4h3Z"/><path d="M8 10h8M8 14h8M8 18h5"/></>,
+    photos: <><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="m4 17 5-4 3 3 3-3 5 4"/></>,
+    arina: <><path d="M4 7h16M4 17h16"/><path d="M6 7v10M18 7v10M4 12h16"/></>,
+    textiles: <><path d="M4 4h16M6 4v16M18 4v16M6 8c3 2 3 2 6 0s3-2 6 0M6 13c3 2 3 2 6 0s3-2 6 0"/></>,
+    sales: <><path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5M9 13h7M9 17h7"/></>,
+    labels: <><path d="m4 11 7-7h8v8l-7 7-8-8Z"/><circle cx="15" cy="8" r="1"/></>
+  };
+  return <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{paths[name] || paths.products}</svg>;
+}
+
 export default function App() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [user, setUser] = useState(null);
   const [products, setProducts] = useState([]);
+  const [catalogProducts, setCatalogProducts] = useState([]);
   const [hiddenProducts, setHiddenProducts] = useState([]);
   const [suggestedProducts, setSuggestedProducts] = useState([]);
   const [stockDecreaseProducts, setStockDecreaseProducts] = useState([]);
@@ -74,9 +89,14 @@ export default function App() {
   const [requestsLoading, setRequestsLoading] = useState(false);
   const [csvPreview, setCsvPreview] = useState([]);
   const [csvFileName, setCsvFileName] = useState('');
+  const [tapisCsvPreview, setTapisCsvPreview] = useState([]);
+  const [tapisCsvFileName, setTapisCsvFileName] = useState('');
   const [pdfPreview, setPdfPreview] = useState([]);
   const [pdfSearch, setPdfSearch] = useState('');
   const [pdfFileName, setPdfFileName] = useState('');
+  const [tapisPdfPreview, setTapisPdfPreview] = useState([]);
+  const [tapisPdfSearch, setTapisPdfSearch] = useState('');
+  const [tapisPdfFileName, setTapisPdfFileName] = useState('');
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
@@ -114,6 +134,9 @@ export default function App() {
   const [showTraderQuantities, setShowTraderQuantities] = useState(true);
   const [showArinaZeroStock, setShowArinaZeroStock] = useState(true);
   const [lastImportBatch, setLastImportBatch] = useState(null);
+  const [lastLingePdfImport, setLastLingePdfImport] = useState(null);
+  const [lastTapisImportBatch, setLastTapisImportBatch] = useState(null);
+  const [lastTapisPdfImport, setLastTapisPdfImport] = useState(null);
   const [productNotes, setProductNotes] = useState([]);
   const [noteProductId, setNoteProductId] = useState('');
   const [noteText, setNoteText] = useState('');
@@ -122,6 +145,25 @@ export default function App() {
   const [arinaQuantities, setArinaQuantities] = useState({});
   const [theme, setTheme] = useState('light');
   const [suggestions, setSuggestions] = useState([]);
+  const [tapisSuggestedProducts, setTapisSuggestedProducts] = useState([]);
+  const [tapisSuggestionsLoading, setTapisSuggestionsLoading] = useState(false);
+  const [tapisAnalysisSearch, setTapisAnalysisSearch] = useState('');
+  const [tapisAnalysisPage, setTapisAnalysisPage] = useState(1);
+  const [tapisAnalysisPageSize, setTapisAnalysisPageSize] = useState(20);
+  const [tapisAnalysisSortKey, setTapisAnalysisSortKey] = useState('days_remaining');
+  const [tapisAnalysisSortDirection, setTapisAnalysisSortDirection] = useState('asc');
+  const [tapisAnalysisShowCode, setTapisAnalysisShowCode] = useState(true);
+  const [selectedTapisSuggestions, setSelectedTapisSuggestions] = useState([]);
+  const [tapisStockDecreaseProducts, setTapisStockDecreaseProducts] = useState([]);
+  const [tapisStockDecreaseLoading, setTapisStockDecreaseLoading] = useState(false);
+  const [tapisDecreaseSearch, setTapisDecreaseSearch] = useState('');
+  const [tapisDecreasePage, setTapisDecreasePage] = useState(1);
+  const [tapisDecreasePageSize, setTapisDecreasePageSize] = useState(20);
+  const [tapisDecreaseDays, setTapisDecreaseDays] = useState(1);
+  const [tapisDecreaseShowCode, setTapisDecreaseShowCode] = useState(false);
+  const [tapisDecreaseSortKey, setTapisDecreaseSortKey] = useState('quantity_decreased');
+  const [tapisDecreaseSortDirection, setTapisDecreaseSortDirection] = useState('desc');
+  const [selectedTapisStockDecrease, setSelectedTapisStockDecrease] = useState([]);
   const [suggestionTitle, setSuggestionTitle] = useState('');
   const [suggestionBody, setSuggestionBody] = useState('');
   const [suggestionsLoading, setSuggestionsLoading] = useState(false);
@@ -194,11 +236,35 @@ export default function App() {
       (inactiveArinaProducts || []).filter((product) => !existingIds.has(product.id))
     );
 
+    // Charger le catalogue Tapis séparément, sans mélanger ses opérations avec Linge.
+    let tapisProducts = [];
+    let tapisStart = 0;
+    while (true) {
+      const { data: tapisPage, error: tapisError } = await supabase
+        .from('tapis_products')
+        .select('id, product_ref, name, current_quantity, wholesale_price, retail_price, min_stock_level, is_hidden, is_active, is_in_latest_pdf')
+        .eq('is_active', true)
+        .eq('is_hidden', false)
+        .order('name')
+        .range(tapisStart, tapisStart + pageSize - 1);
+      if (tapisError) {
+        setMessage('Erreur produits Tapis : ' + tapisError.message + '. Vérifiez la migration des droits de lecture Tapis.');
+        return;
+      }
+      tapisProducts = tapisProducts.concat(tapisPage || []);
+      if (!tapisPage || tapisPage.length < pageSize) break;
+      tapisStart += pageSize;
+    }
+
     // Sécurité temporaire : ne pas remplacer une quantité correcte par 0
     // tant que la détection des références présentes dans le PDF n'est pas fiabilisée.
     // La quantité enregistrée en base reste affichée sans modification.
 
-    setProducts(allProducts);
+    setProducts(allProducts.map((product) => ({ ...product, catalog_source: 'products' })));
+    setCatalogProducts([
+      ...allProducts.map((product) => ({ ...product, catalog_source: 'products' })),
+      ...tapisProducts.map((product) => ({ ...product, catalog_source: 'tapis_products' })),
+    ]);
     setCurrentPage(1);
     setMessage('');
   }
@@ -209,8 +275,9 @@ export default function App() {
 
     if (!confirmed) return;
 
+    const sourceTable = product.catalog_source === 'tapis_products' ? 'tapis_products' : 'products';
     const { error } = await supabase
-      .from('products')
+      .from(sourceTable)
       .update({ is_hidden: true })
       .eq('id', product.id);
 
@@ -219,7 +286,8 @@ export default function App() {
       return;
     }
 
-    setProducts((current) => current.filter((item) => item.id !== product.id));
+    setProducts((current) => current.filter((item) => !(item.id === product.id && item.catalog_source === sourceTable)));
+    setCatalogProducts((current) => current.filter((item) => !(item.id === product.id && item.catalog_source === sourceTable)));
 
     window.alert('Produit masqué avec succès.');
   }
@@ -258,6 +326,31 @@ export default function App() {
 
     await loadHiddenProducts();
 
+    window.alert('Produits sélectionnés masqués avec succès.');
+  }
+
+  async function hideSelectedStockDecrease() {
+    if (selectedStockDecrease.length === 0) {
+      window.alert('Veuillez sélectionner au moins un produit.');
+      return;
+    }
+    const confirmed = window.confirm(
+      `Voulez-vous masquer les ${selectedStockDecrease.length} produit(s) sélectionné(s) ?`
+    );
+    if (!confirmed) return;
+    const { error } = await supabase
+      .from('products')
+      .update({ is_hidden: true })
+      .in('id', selectedStockDecrease);
+    if (error) {
+      window.alert('Erreur : ' + error.message);
+      return;
+    }
+    setStockDecreaseProducts((current) =>
+      current.filter((product) => !selectedStockDecrease.includes(product.product_id))
+    );
+    setSelectedStockDecrease([]);
+    await loadHiddenProducts();
     window.alert('Produits sélectionnés masqués avec succès.');
   }
 
@@ -301,6 +394,59 @@ export default function App() {
     setSuggestedProducts(data || []);
     setSelectedSuggestions([]);
     setSelectedSuggestions([]);
+  }
+
+  async function loadTapisSuggestedProducts() {
+    setTapisSuggestionsLoading(true);
+    try {
+      const { data, error } = await supabase.rpc('get_tapis_reorder_suggestions');
+      if (error) throw error;
+      setTapisSuggestedProducts(data || []);
+      setSelectedTapisSuggestions([]);
+    } catch (error) {
+      console.error('[Tapis reorder suggestions]', error);
+      setMessage('Erreur suggestions Tapis : ' + error.message);
+    } finally {
+      setTapisSuggestionsLoading(false);
+    }
+  }
+
+  async function loadTapisStockDecreaseAnalysis() {
+    setTapisStockDecreaseLoading(true);
+    try {
+      const { data, error } = await supabase.rpc(
+        'get_tapis_pdf_stock_decrease_analysis',
+        { p_days: Math.max(1, Math.min(3650, Number(tapisDecreaseDays) || 1)) }
+      );
+      if (error) throw error;
+      setTapisStockDecreaseProducts(data || []);
+      setSelectedTapisStockDecrease([]);
+    } catch (error) {
+      console.error('[Tapis stock decrease analysis]', error);
+      setMessage('Erreur analyse des baisses Tapis : ' + error.message);
+    } finally {
+      setTapisStockDecreaseLoading(false);
+    }
+  }
+
+  async function hideSelectedTapisSuggestions() {
+    if (!selectedTapisSuggestions.length) { window.alert('Veuillez sélectionner au moins un produit.'); return; }
+    if (!window.confirm('Voulez-vous masquer les ' + selectedTapisSuggestions.length + ' produit(s) Tapis sélectionné(s) ?')) return;
+    const { error } = await supabase.from('tapis_products').update({ is_hidden: true }).in('id', selectedTapisSuggestions);
+    if (error) { window.alert('Erreur : ' + error.message); return; }
+    setTapisSuggestedProducts(current => current.filter(p => !selectedTapisSuggestions.includes(p.id)));
+    setSelectedTapisSuggestions([]);
+    window.alert('Produits Tapis sélectionnés masqués avec succès.');
+  }
+
+  async function hideSelectedTapisStockDecrease() {
+    if (!selectedTapisStockDecrease.length) { window.alert('Veuillez sélectionner au moins un produit.'); return; }
+    if (!window.confirm('Voulez-vous masquer les ' + selectedTapisStockDecrease.length + ' produit(s) Tapis sélectionné(s) ?')) return;
+    const { error } = await supabase.from('tapis_products').update({ is_hidden: true }).in('id', selectedTapisStockDecrease);
+    if (error) { window.alert('Erreur : ' + error.message); return; }
+    setTapisStockDecreaseProducts(current => current.filter(p => !selectedTapisStockDecrease.includes(p.product_id)));
+    setSelectedTapisStockDecrease([]);
+    window.alert('Produits Tapis sélectionnés masqués avec succès.');
   }
   async function loadStockDecreaseAnalysis() {
     setStockDecreaseLoading(true);
@@ -707,6 +853,83 @@ export default function App() {
     });
   }
 
+  function handleTapisCsvFile(event) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setTapisCsvFileName(file.name);
+    setTapisCsvPreview([]);
+    Papa.parse(file, {
+      delimiter: ';',
+      header: true,
+      skipEmptyLines: true,
+      transformHeader: (header) => header.trim().replace(/�/g, 'é'),
+      complete: (results) => {
+        if (results.errors.length > 0) {
+          setMessage('Erreur lecture CSV Tapis : ' + results.errors[0].message);
+          return;
+        }
+        if (!results.data || results.data.length === 0) {
+          setMessage('Le fichier CSV Tapis est vide.');
+          return;
+        }
+        setTapisCsvPreview(results.data);
+        setMessage(`Fichier CSV Tapis lu : ${results.data.length} lignes. Vérifiez les colonnes avant import.`);
+      },
+      error: (error) => setMessage('Erreur lecture CSV Tapis : ' + error.message),
+    });
+  }
+
+  async function importTapisCsvToSupabase() {
+    if (!tapisCsvPreview.length) {
+      window.alert('Veuillez sélectionner un fichier CSV Tapis.');
+      return;
+    }
+
+    const today = new Date();
+    const defaultDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+    const snapshotDate = window.prompt('Date historique CSV Tapis (AAAA-MM-JJ) :', defaultDate);
+    if (snapshotDate === null) return;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(snapshotDate.trim())) {
+      window.alert('Date invalide. Utilisez le format AAAA-MM-JJ.');
+      return;
+    }
+
+    const rows = tapisCsvPreview.map((row) => ({
+      product_ref: String(row['Code'] ?? '').trim(),
+      name: String(row['Désignation'] ?? '').trim(),
+      quantity: String(row['Quantité'] ?? '').trim().replace(',', '.'),
+      wholesale_price: String(row['Gros'] ?? '').trim().replace(',', '.'),
+      retail_price: String(row['Détail'] ?? '').trim().replace(',', '.'),
+    }));
+    const invalidRows = rows.map((row, index) => ({ ...row, line: index + 2 }))
+      .filter((row) => !row.product_ref || !row.name || row.quantity === '' ||
+        !/^-?\d+(?:\.\d+)?$/.test(row.quantity) ||
+        (row.wholesale_price !== '' && !/^-?\d+(?:\.\d+)?$/.test(row.wholesale_price)) ||
+        (row.retail_price !== '' && !/^-?\d+(?:\.\d+)?$/.test(row.retail_price)));
+    if (invalidRows.length) {
+      window.alert(`Lignes CSV Tapis invalides : ${invalidRows.length}\n` + invalidRows.slice(0, 5).map(r => `Ligne ${r.line}: ${r.product_ref} — quantité ${r.quantity}`).join('\n'));
+      return;
+    }
+
+    if (!window.confirm(`Importer ${rows.length} lignes CSV Tapis pour les prix et l’historique ?\n\nLe stock actuel Tapis ne sera PAS modifié.\nFichier : ${tapisCsvFileName}\nDate : ${snapshotDate}`)) return;
+
+    setMessage('Enregistrement des prix et de l’historique Tapis en cours...');
+    const { data, error } = await supabase.rpc('admin_import_tapis_csv_history_prices', {
+      p_file_name: tapisCsvFileName,
+      p_snapshot_date: snapshotDate.trim(),
+      p_rows: rows,
+    });
+    if (error) {
+      setMessage('Erreur import CSV Tapis : ' + error.message);
+      return;
+    }
+    await loadProducts();
+    setMessage(`CSV Tapis enregistré : ${data?.rows_saved ?? 0} lignes historiques. Prix Tapis actualisés. Le stock actuel n’a pas été modifié.`);
+    setTapisCsvPreview([]);
+    setTapisCsvFileName('');
+  }
+
   async function importCsvToSupabase() {
     if (!csvPreview.length) {
       window.alert('Veuillez sélectionner un fichier CSV.');
@@ -880,6 +1103,125 @@ export default function App() {
     await loadProducts();
     setMessage(`PDF importé : ${data?.rows_updated ?? 0} quantités mises à jour. Références introuvables : ${data?.products_not_found ?? 0}. Prix et historique CSV inchangés.`);
   }
+  async function handleTapisPdfFile(event) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    setTapisPdfFileName(file.name);
+    setTapisPdfPreview([]);
+    setTapisPdfSearch('');
+    setMessage('Lecture du PDF Tapis en cours...');
+    try {
+      const bytes = await file.arrayBuffer();
+      const pdf = await pdfjsLib.getDocument({ data: bytes }).promise;
+      const lines = [];
+      for (let pageNo = 1; pageNo <= pdf.numPages; pageNo++) {
+        const page = await pdf.getPage(pageNo);
+        const content = await page.getTextContent();
+        const items = content.items
+          .filter(item => item.str && item.str.trim() && item.transform)
+          .map(item => ({ x: item.transform[4], y: item.transform[5], text: item.str.trim() }))
+          .sort((a, b) => b.y - a.y || a.x - b.x);
+        const rowGroups = [];
+        for (const item of items) {
+          let group = rowGroups.find(row => Math.abs(row.y - item.y) <= 3);
+          if (!group) {
+            group = { y: item.y, items: [] };
+            rowGroups.push(group);
+          }
+          group.items.push(item);
+          group.y = group.items.reduce((sum, part) => sum + part.y, 0) / group.items.length;
+        }
+        for (const group of rowGroups) {
+          const sorted = group.items.sort((a, b) => a.x - b.x);
+          const first = sorted[0]?.text || '';
+          if (/^[A-Z0-9][A-Z0-9._/-]{2,}$/i.test(first) && sorted.length >= 2) {
+            lines.push({ items: sorted });
+          }
+        }
+      }
+
+      const numericPattern = /^-?\d[\d\s]*(?:[.,]\d+)?$/;
+      const parsed = [];
+      for (const line of lines) {
+        const code = line.items[0]?.text?.trim() || '';
+        if (!code) continue;
+        const numericItems = [];
+        for (let i = 1; i < line.items.length; i++) {
+          const value = line.items[i].text.replace(/\u00a0/g, ' ').trim();
+          if (numericPattern.test(value)) numericItems.push({ index: i, text: value });
+        }
+        if (!numericItems.length) continue;
+        let quantityText = numericItems[0].text.replace(/\s+/g, '');
+        if (
+          numericItems.length > 1 &&
+          /^-?\d+$/.test(quantityText) &&
+          /[.,]\d{2}$/.test(numericItems[1].text.replace(/\s+/g, '')) &&
+          numericItems[1].index === numericItems[0].index + 1
+        ) {
+          quantityText += numericItems[1].text.replace(/\s+/g, '');
+        }
+        const quantity = Number(quantityText.replace(',', '.'));
+        if (!Number.isFinite(quantity)) continue;
+        const numericIndexes = new Set(numericItems.map(item => item.index));
+        const name = line.items.slice(1)
+          .filter((item, index) => !numericIndexes.has(index + 1))
+          .map(item => item.text).join(' ').replace(/\s+/g, ' ').trim();
+        if (!name) continue;
+        parsed.push({ product_ref: code, name, quantity: String(quantity) });
+      }
+      const unique = new Map();
+      for (const row of parsed) unique.set(row.product_ref, row);
+      const rows = [...unique.values()];
+      if (!rows.length) {
+        setMessage('Aucune ligne Tapis reconnue. Vérifiez que le PDF contient du texte sélectionnable avec code, désignation et quantité.');
+        return;
+      }
+      setTapisPdfPreview(rows);
+      const negatives = rows.filter(row => Number(row.quantity) < 0).length;
+      setMessage(`PDF Tapis lu : ${rows.length} références reconnues. Quantités négatives : ${negatives}. Vérifiez l’aperçu avant import.`);
+    } catch (error) {
+      console.error('Tapis PDF parse error', error);
+      setMessage('Erreur lecture PDF Tapis : ' + error.message);
+    }
+  }
+
+  async function importTapisPdfCurrentStock() {
+    if (!tapisPdfPreview.length) {
+      window.alert('Veuillez sélectionner un PDF Tapis.');
+      return;
+    }
+    const today = new Date();
+    const defaultStockDate = [
+      today.getFullYear(),
+      String(today.getMonth() + 1).padStart(2, '0'),
+      String(today.getDate()).padStart(2, '0'),
+    ].join('-');
+    const date = window.prompt('Date du stock Tapis (AAAA-MM-JJ) :', defaultStockDate);
+    if (date === null) return;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date.trim())) {
+      window.alert('Date invalide. Utilisez le format AAAA-MM-JJ.');
+      return;
+    }
+    if (!window.confirm(
+      `Importer le stock actuel Tapis ?\n\nLes nouveaux produits seront créés dans la base Tapis. Les produits absents du PDF passeront à zéro. Aucune donnée Linge ne sera modifiée.\n\nFichier : ${tapisPdfFileName}\nDate : ${date}\nLignes : ${tapisPdfPreview.length}`
+    )) return;
+    setMessage('Import du stock Tapis et création des produits en cours...');
+    const { data, error } = await supabase.rpc('admin_import_tapis_pdf_current_stock_with_history', {
+      p_file_name: tapisPdfFileName,
+      p_snapshot_date: date.trim(),
+      p_rows: tapisPdfPreview,
+    });
+    if (error) {
+      setMessage('Erreur import PDF Tapis : ' + error.message);
+      return;
+    }
+    setMessage(
+      `PDF Tapis importé : ${data?.rows_updated ?? 0} quantités mises à jour. Produits créés/actualisés : ${data?.products_created_or_refreshed ?? 0}. Références introuvables : ${data?.products_not_found ?? 0}.`
+    );
+    setTapisPdfPreview([]);
+    setTapisPdfSearch('');
+  }
+
   async function login(event) {
     event.preventDefault();
     setLoading(true);
@@ -965,6 +1307,10 @@ export default function App() {
   }
 
   async function adjustStock(product) {
+    if (product.catalog_source === 'tapis_products') {
+      window.alert('La modification manuelle du stock Tapis sera ajoutée avec ses propres fonctions.');
+      return;
+    }
     const quantityInput = window.prompt(
       `الكمية الجديدة للمنتج ${product.name}:`,
       String(product.current_quantity)
@@ -1075,13 +1421,29 @@ export default function App() {
   }
 
   async function loadLastImport() {
-    const { data, error } = await supabase
-      .from('import_batches')
-      .select('*')
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    if (!error) setLastImportBatch(data || null);
+    const [lingeCsv, lingePdf, tapisCsv, tapisPdf] = await Promise.all([
+      supabase.from('import_batches').select('*').order('created_at', { ascending: false }).limit(1).maybeSingle(),
+      supabase.from('pdf_stock_imports').select('*').order('imported_at', { ascending: false }).limit(1).maybeSingle(),
+      supabase.from('tapis_import_batches').select('*').order('created_at', { ascending: false }).limit(1).maybeSingle(),
+      supabase.from('tapis_pdf_stock_imports').select('*').order('imported_at', { ascending: false }).limit(1).maybeSingle(),
+    ]);
+    if (!lingeCsv.error) setLastImportBatch(lingeCsv.data || null);
+    if (!lingePdf.error) setLastLingePdfImport(lingePdf.data || null);
+    if (!tapisCsv.error) setLastTapisImportBatch(tapisCsv.data || null);
+    if (!tapisPdf.error) setLastTapisPdfImport(tapisPdf.data || null);
+  }
+
+  function latestImportRecord(...records) {
+    return records.filter(Boolean).sort((a, b) => {
+      const dateA = new Date(a.imported_at || a.created_at || a.stock_date || a.snapshot_date || 0).getTime();
+      const dateB = new Date(b.imported_at || b.created_at || b.stock_date || b.snapshot_date || 0).getTime();
+      return dateB - dateA;
+    })[0] || null;
+  }
+
+  function displayImportDate(record) {
+    const value = record?.imported_at || record?.created_at || record?.stock_date || record?.snapshot_date;
+    return value ? new Date(value).toLocaleString('fr-FR') : 'Aucun import trouvé';
   }
 
   async function loadQuantitySetting() {
@@ -1538,12 +1900,14 @@ export default function App() {
     setPrintSettingsMessage('Dimensions enregistrées pour tous les comptes autorisés.');
   }
 
-  function addSalesLine(productId = salesProductId) {
-    const product = products.find((item) => String(item.id) === String(productId));
+  function addSalesLine(productOrId = salesProductId) {
+    const product = productOrId && typeof productOrId === 'object'
+      ? productOrId
+      : catalogProducts.find((item) => String(item.id) === String(productOrId));
     if (!product) { window.alert('Choisissez un produit dans les résultats de recherche.'); return; }
     setSalesLines((current) => {
-      const existing = current.find((line) => String(line.id) === String(product.id));
-      return existing ? current.map((line) => String(line.id) === String(product.id) ? { ...line, quantity: Number(line.quantity) + 1 } : line) : [...current, { ...product, quantity: 1 }];
+      const existing = current.find((line) => String(line.id) === String(product.id) && line.catalog_source === product.catalog_source);
+      return existing ? current.map((line) => String(line.id) === String(product.id) && line.catalog_source === product.catalog_source ? { ...line, quantity: Number(line.quantity) + 1 } : line) : [...current, { ...product, quantity: 1 }];
     });
     setSalesProductId('');
     setSalesSearch('');
@@ -1570,9 +1934,9 @@ export default function App() {
   function addLabelLine(product) {
     if (!product) return;
     setLabelLines((current) => {
-      const existing = current.find((line) => String(line.id) === String(product.id));
+      const existing = current.find((line) => String(line.id) === String(product.id) && line.catalog_source === product.catalog_source);
       if (existing) {
-        return current.map((line) => String(line.id) === String(product.id)
+        return current.map((line) => String(line.id) === String(product.id) && line.catalog_source === product.catalog_source
           ? { ...line, quantity: Math.min(500, Number(line.quantity || 0) + 1) }
           : line);
       }
@@ -1581,10 +1945,10 @@ export default function App() {
     setLabelSearch('');
   }
 
-  function updateLabelLineQuantity(productId, value) {
+  function updateLabelLineQuantity(product, value) {
     const quantity = value === '' ? '' : Math.max(1, Math.min(500, Math.floor(Number(value) || 1)));
     setLabelLines((current) => current.map((line) =>
-      String(line.id) === String(productId) ? { ...line, quantity } : line
+      String(line.id) === String(product.id) && line.catalog_source === product.catalog_source ? { ...line, quantity } : line
     ));
   }
 
@@ -1700,6 +2064,7 @@ export default function App() {
       loadSuggestedProducts();
       loadStockDecreaseAnalysis();
     }
+    if (page === 'tapis-analysis') { loadTapisSuggestedProducts(); loadTapisStockDecreaseAnalysis(); }
     if (page === 'history' && canViewPage('history')) loadStockHistory();
     if (page === 'requests') loadReplenishmentRequests();
     if (page === 'notes') loadProductNotes();
@@ -1720,14 +2085,26 @@ export default function App() {
       adminOnly: true,
     },
     {
+      id: 'imports',
+      label: language === 'ar' ? 'الاستيراد والمراقبة' : 'Imports et contrôle',
+      icon: '⇧',
+      adminOnly: true,
+    },
+    {
       id: 'products',
       label: language === 'ar' ? 'جميع المنتجات' : 'Tous les produits',
       icon: '▦',
     },
     {
       id: 'analysis',
-      label: language === 'ar' ? 'تحليل المنتجات' : 'Analyse des produits',
+      label: language === 'ar' ? 'Analyse Linge' : 'Analyse Linge',
       icon: '⌁',
+      admin: true,
+    },
+    {
+      id: 'tapis-analysis',
+      label: language === 'ar' ? 'Analyse Tapis' : 'Analyse Tapis',
+      icon: '▧',
       admin: true,
     },
     {
@@ -1788,7 +2165,7 @@ export default function App() {
     const words = values.join(' ').toLocaleUpperCase('fr').normalize('NFD').replace(/[\u0300-\u036f]/g, '').split(/[^A-Z0-9]+/).filter(Boolean);
     return tokens.every((token) => words.some((word) => word.startsWith(token) || word.includes(token)));
   };
-  const pageProducts = products.filter((product) => {
+  const pageProducts = (activePage === 'products' ? catalogProducts : products).filter((product) => {
     const normalizedName = normalizeName(product.name);
     const searchTokens = String(searchTerm || '').toLocaleUpperCase('fr').normalize('NFD').replace(/[\u0300-\u036f]/g, '').split(/[^A-Z0-9]+/).filter(Boolean);
     const nameTokens = String(product.name || '').toLocaleUpperCase('fr').normalize('NFD').replace(/[\u0300-\u036f]/g, '').split(/[^A-Z0-9]+/).filter(Boolean);
@@ -1903,6 +2280,10 @@ export default function App() {
       );
     });
 
+  const negativeTapisProducts = (catalogProducts || [])
+    .filter((product) => product.catalog_source === 'tapis_products' && Number(product.current_quantity) < 0)
+    .sort((a, b) => String(a.product_ref || '').localeCompare(String(b.product_ref || ''), 'fr', { numeric: true }));
+
   const activeRequests = replenishmentRequests.filter(
     (request) => !request.archived_at
   );
@@ -1930,6 +2311,7 @@ export default function App() {
     (request) => request.status === 'new'
   );
   const urgentNewRequests = newRequests.filter((request) => request.is_urgent);
+  const tableSortButtonStyle = { border: 0, padding: 0, background: 'transparent', color: 'inherit', font: 'inherit', fontWeight: 700, cursor: 'pointer', textAlign: 'inherit' };
   const styles = {
     button: {
       border: 0,
@@ -1988,19 +2370,11 @@ export default function App() {
       <div className="ls-actions">
         {isAdmin ? (
           <>
-            <button
-              style={styles.secondary}
-              onClick={() => adjustStock(product)}
-            >
-              {language === 'ar' ? 'تعديل المخزون' : 'Modifier stock'}
-            </button>
-            <button
-              style={styles.secondary}
-              onClick={() => hideProduct(product)}
-            >
-              {language === 'ar' ? 'إخفاء' : 'Masquer'}
-            </button>
+            {product.catalog_source !== 'tapis_products' && <button style={styles.secondary} onClick={() => adjustStock(product)}>{language === 'ar' ? 'تعديل المخزون' : 'Modifier stock'}</button>}
+            <button style={styles.secondary} onClick={() => hideProduct(product)}>{language === 'ar' ? 'إخفاء' : 'Masquer'}</button>
           </>
+        ) : product.catalog_source === 'tapis_products' ? (
+          <span className="ls-muted">Consultation uniquement</span>
         ) : user?.profile?.role === 'trader' && activePage === 'arina' ? (
           <>
             <label
@@ -2069,12 +2443,12 @@ export default function App() {
         </tr>
       );
     return paginatedProducts.map((product) => (
-      <tr key={product.id || product.product_ref}>
+      <tr key={`${product.catalog_source || 'products'}:${product.id || product.product_ref}`}>
         {showCodeColumn && <td style={styles.td}><strong>{product.product_ref}</strong></td>}
         <td style={styles.td}>
           <span style={{display:'inline-flex',alignItems:'center',gap:8}}>
-            {activePage === 'textiles' && photoFor(product.id) ? <img src={photoFor(product.id)} alt="" onClick={()=>setPhotoPreview({url:photoFor(product.id),name:product.name})} style={{width:38,height:38,objectFit:'cover',borderRadius:6,cursor:'zoom-in'}}/> : null}
-            <span>{product.name}{activePage === 'arina' && normalizeName(product.name).includes('AFRICHA') ? <small style={{display:'block',color:'#64748b'}}>Africha Shop</small> : activePage === 'arina' ? <small style={{display:'block',color:'#64748b'}}>Europ Arina</small> : null}</span>
+            {activePage === 'textiles' && product.catalog_source !== 'tapis_products' && photoFor(product.id) ? <img src={photoFor(product.id)} alt="" onClick={()=>setPhotoPreview({url:photoFor(product.id),name:product.name})} style={{width:38,height:38,objectFit:'cover',borderRadius:6,cursor:'zoom-in'}}/> : null}
+            <span>{product.name}{activePage === 'products' && product.catalog_source === 'tapis_products' ? <small style={{display:'inline-block',marginInlineStart:8,padding:'2px 7px',borderRadius:6,background:'#eef2ff',color:'#475569',fontSize:11,fontWeight:700}}>Tapis</small> : null}{activePage === 'arina' && normalizeName(product.name).includes('AFRICHA') ? <small style={{display:'block',color:'#64748b'}}>Africha Shop</small> : activePage === 'arina' ? <small style={{display:'block',color:'#64748b'}}>Europ Arina</small> : null}</span>
           </span>
         </td>
         <td
@@ -2111,12 +2485,12 @@ export default function App() {
     return (
       <div className="ls-product-cards">
         {paginatedProducts.map((product) => (
-          <article key={product.id || product.product_ref} style={styles.card}>
+          <article key={`${product.catalog_source || 'products'}:${product.id || product.product_ref}`} style={styles.card}>
             <div style={{ minWidth: 0 }}>
               <div style={{ color: '#64748b', fontSize: 12 }}>
                 Réf. {product.product_ref}
               </div>
-              <strong style={{display:'flex',alignItems:'center',gap:8}}>{activePage === 'textiles' && photoFor(product.id) ? <img src={photoFor(product.id)} alt="" onClick={()=>setPhotoPreview({url:photoFor(product.id),name:product.name})} style={{width:42,height:42,objectFit:'cover',borderRadius:6,cursor:'zoom-in'}}/> : null}{product.name}</strong>
+              <strong style={{display:'flex',alignItems:'center',gap:8}}>{activePage === 'textiles' && product.catalog_source !== 'tapis_products' && photoFor(product.id) ? <img src={photoFor(product.id)} alt="" onClick={()=>setPhotoPreview({url:photoFor(product.id),name:product.name})} style={{width:42,height:42,objectFit:'cover',borderRadius:6,cursor:'zoom-in'}}/> : null}{product.name}{activePage === 'products' && product.catalog_source === 'tapis_products' ? <small style={{marginInlineStart:8,padding:'2px 7px',borderRadius:6,background:'#eef2ff',color:'#475569',fontSize:11}}>Tapis</small> : null}</strong>
             </div>
             <div className="ls-card-metrics">
               <div>
@@ -2167,6 +2541,100 @@ export default function App() {
         .ls-app .ls-muted{color:#526477}.ls-app h1,.ls-app h2,.ls-app h3,.ls-app strong{color:inherit}.ls-app section,.ls-app article{color:#102b46}.ls-app .ls-panel strong{color:inherit}.ls-app .ls-panel h2,.ls-app .ls-panel h3{color:#102b46}.ls-app .ls-panel .ls-muted{color:#475569}.ls-import-panel{background:#ffffff!important;color:#102b46!important}.ls-import-panel h2,.ls-import-panel strong,.ls-import-panel .ls-muted{color:#243b53!important}.ls-dark .ls-import-panel{background:#182431!important;color:#e7edf4!important}.ls-dark .ls-import-panel h2,.ls-dark .ls-import-panel strong,.ls-dark .ls-import-panel .ls-muted{color:#e7edf4!important}.ls-dark{background:#101820!important;color:#e7edf4!important}.ls-dark .ls-panel h2,.ls-dark .ls-panel h3{color:#e7edf4!important}.ls-dark .ls-panel,.ls-dark .ls-panel strong,.ls-dark .ls-panel label{color:#e7edf4!important}.ls-dark .ls-panel [style*='background: rgb(245, 248, 251)'],.ls-dark .ls-panel [style*='background: rgb(245, 248, 251)']{background:#223242!important;color:#e7edf4!important}.ls-dark .ls-app .ls-muted{color:#bdc9d6!important}.ls-dark .ls-main,.ls-dark .ls-panel,.ls-dark .ls-stat,.ls-dark .ls-table,.ls-dark .ls-login{background:#182431!important;color:#e7edf4!important;border-color:#334456!important}.ls-dark .ls-table-wrap{border-color:#334456!important}.ls-dark .ls-app,.ls-dark .ls-panel,.ls-dark .ls-stat,.ls-dark .ls-table,.ls-dark .ls-login{color:#e7edf4!important}.ls-dark .ls-panel [style*='background: rgb(245, 248, 251)'],.ls-dark .ls-panel [style*='background: rgb(255, 255, 255)'],.ls-dark .ls-panel [style*='background: white']{background:#223242!important;color:#e7edf4!important}.ls-dark .ls-panel .ls-muted{color:#bdc9d6!important}.ls-dark [style*='background: rgb(245, 248, 251)'],.ls-dark [style*='background: rgb(255, 255, 255)'],.ls-dark [style*='background: white']{background:#182431!important;color:#e7edf4!important}.ls-dark .ls-alert{background:#3b2b19!important;color:#ffd7a8!important}.ls-dark .ls-table td,.ls-dark .ls-table th,.ls-dark article{border-color:#334456!important;color:#e7edf4}.ls-dark .ls-table td[style*='#102b46']{color:#e7edf4!important}.ls-dark .ls-table td[style*='color: rgb(16, 43, 70)'],.ls-dark .ls-table td[style*='color: #102b46']{color:#e7edf4!important}.ls-dark .ls-table td[style*='color: rgb(180, 35, 24)'],.ls-dark .ls-table td[style*='color: #b42318']{color:#ff9b9b!important}.ls-dark .ls-card-metrics strong[style*='#102b46']{color:#e7edf4!important}.ls-dark input,.ls-dark select,.ls-dark textarea{background:#111b25!important;color:#e7edf4!important;border-color:#405266!important}.ls-dark .ls-card-metrics>div,.ls-dark [style*="background: rgb(245, 248, 251)"],.ls-dark [style*="background: rgb(245, 248, 251)"]{background:#223242!important;color:#e7edf4!important}.ls-dark .ls-muted{color:#a9b8c8!important}.ls-dark .ls-message{background:#20344a!important;color:#e7edf4!important;border-color:#405266!important}
         @media(max-width:1050px){.ls-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.ls-layout{grid-template-columns:215px minmax(0,1fr)}}
         @media(max-width:760px){.ls-layout{display:block}.ls-sidebar{position:sticky;top:0;z-index:10;padding:10px 12px;gap:10px}.ls-sidebar-head{display:flex;justify-content:space-between;align-items:center}.ls-nav{flex-direction:row;overflow-x:auto;gap:6px;padding-bottom:2px;scrollbar-width:thin}.ls-nav button{white-space:nowrap;width:auto;flex-shrink:0;padding:10px 12px;font-size:12px}.ls-nav button .ls-nav-text{display:inline}.ls-footer-note{display:none}.ls-main{padding:16px 12px 38px}.ls-topbar{align-items:flex-start;flex-direction:column;margin-bottom:16px}.ls-topbar-actions{width:100%;display:flex;gap:8px;flex-wrap:wrap}.ls-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.ls-stat{padding:13px}.ls-stat strong{font-size:21px}.ls-table-wrap:not(.ls-force-table){display:none}.ls-product-cards{display:grid;grid-template-columns:1fr;gap:12px}.ls-panel{padding:13px}.ls-input-row{grid-template-columns:1fr}.ls-request{grid-template-columns:1fr}.ls-actions button{flex:1}.ls-login{margin:5vh 14px;padding:22px}.ls-card-metrics{gap:6px}.ls-card-metrics>div{padding:8px}.ls-card-metrics strong{font-size:12px}}
+
+        /* Soft Editorial refresh — isolated to the preview branch */
+        .ls-app{background:#f7f6f2;color:#2a2f38;font-family:Inter,Arial,sans-serif}
+        .ls-layout{background:#f7f6f2;grid-template-columns:252px minmax(0,1fr)}
+        .ls-sidebar{background:#fff;color:#2a2f38;border:1px solid #ebe9e3;border-radius:22px;margin:16px 0 16px 16px;padding:22px 14px;box-shadow:0 8px 28px rgba(43,48,58,.045)}
+        .ls-brand-mark{background:#e8e2f4;color:#3e6fd8;border-radius:14px}
+        .ls-sidebar .ls-brand strong{color:#2a2f38}
+        .ls-sidebar .ls-brand div div{color:#81858d!important}
+        .ls-nav button{color:#5f6570;border-radius:12px;padding:12px 11px}
+        .ls-nav button.active,.ls-nav button:hover{background:#e8e2f4;color:#345fc0}
+        .ls-nav .ls-count{background:#e6854c;color:#fff}
+        .ls-main{padding:28px clamp(18px,3vw,42px) 52px}
+        .ls-topbar{margin-bottom:28px}
+        .ls-topbar h1{color:#2a2f38;letter-spacing:-.6px}
+        .ls-panel,.ls-stat,.ls-login{background:#fff;border:1px solid #ebe9e3;border-radius:18px;box-shadow:0 7px 24px rgba(43,48,58,.035)}
+        .ls-dashboard-stats{grid-template-columns:repeat(4,minmax(0,1fr));gap:16px;margin-bottom:26px}
+        .ls-stat-clickable{appearance:none;text-align:left;font:inherit;color:inherit;cursor:pointer;min-height:178px;aspect-ratio:1.08/1;padding:20px;display:flex;flex-direction:column;align-items:flex-start;justify-content:space-between;transition:transform .18s ease,box-shadow .18s ease,border-color .18s ease}
+        .ls-stat-clickable:hover{transform:translateY(-3px);box-shadow:0 12px 28px rgba(43,48,58,.09);border-color:#d8d1e8}
+        .ls-stat-icon,.ls-shortcut-icon{width:42px;height:42px;border-radius:14px;display:grid;place-items:center;font-size:21px;font-weight:800}
+        .ls-icon-lavender{background:#e8e2f4;color:#3e6fd8}
+        .ls-icon-peach{background:#f9e7da;color:#d87943}
+        .ls-icon-sage{background:#e0ebe2;color:#568c69}
+        .ls-icon-blue{background:#e7ecf7;color:#3e6fd8}
+        .ls-stat-label{font-size:14px;font-weight:650;color:#727783;margin-top:8px}
+        .ls-stat-clickable strong{font-size:clamp(32px,3vw,42px);line-height:1.05;letter-spacing:-1.2px;color:#D97706}
+        .ls-dashboard-shortcuts{margin:8px 0 24px}
+        .ls-section-heading{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:0 0 15px}
+        .ls-section-heading h2{margin:0;color:#2a2f38;font-size:21px}
+        .ls-section-heading span{color:#858994;font-size:13px}
+        .ls-shortcut-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:13px}
+        .ls-shortcut-card{min-height:112px;display:flex;align-items:center;gap:12px;text-align:left;padding:16px;background:#fff;border:1px solid #ebe9e3;border-radius:16px;color:#343943;font-size:14px;font-weight:700;cursor:pointer;box-shadow:0 5px 18px rgba(43,48,58,.025);transition:transform .18s ease,border-color .18s ease}
+        .ls-shortcut-card:hover{transform:translateY(-2px);border-color:#cfc6e4}
+        .ls-shortcut-icon{width:38px;height:38px;flex:0 0 38px;font-size:18px}
+        .ls-shortcut-arrow{margin-left:auto;color:#9296a0;font-size:18px}
+        .ls-stat-heading{display:flex;align-items:center;gap:12px;width:100%}
+        .ls-stat-primary{justify-content:space-between;min-height:178px}
+        .ls-stat-primary .ls-stat-label{margin:0;text-align:left;line-height:1.35;font-size:15px}
+        .ls-stat-primary strong{font-size:clamp(42px,4vw,54px);line-height:1;letter-spacing:-1.8px;margin-top:auto}
+        .ls-stat-icon,.ls-shortcut-icon{background:#e5eff0;color:#607A9B}
+        .ls-stat-icon svg,.ls-shortcut-icon svg{width:23px;height:23px;display:block}
+        .ls-shortcut-icon{width:42px;height:42px;flex:0 0 42px;border-radius:12px;display:grid;place-items:center}
+        .ls-stat-primary .ls-stat-icon{width:46px;height:46px;flex:0 0 46px;border-radius:13px}
+        .ls-stat-primary .ls-stat-icon svg{width:25px;height:25px}
+        .ls-shortcut-card{color:#454b55}
+        .ls-shortcut-card>span:nth-child(2){flex:1}
+        .ls-dark .ls-stat-icon,.ls-dark .ls-shortcut-icon{background:#263f4a!important;color:#607A9B!important}
+        .ls-dark .ls-stat-primary .ls-stat-label{color:#c4cad4!important}
+        .ls-dark .ls-stat-primary strong{color:#ffad55!important}
+        @media(max-width:760px){
+          .ls-stat-primary{min-height:150px;aspect-ratio:1/1;padding:13px}
+          .ls-stat-primary .ls-stat-label{font-size:12px}
+          .ls-stat-primary strong{font-size:clamp(34px,9vw,43px)}
+          .ls-stat-heading{gap:8px}
+          .ls-stat-primary .ls-stat-icon{width:38px;height:38px;flex-basis:38px}
+          .ls-stat-primary .ls-stat-icon svg{width:21px;height:21px}
+          .ls-shortcut-icon{width:36px;height:36px;flex-basis:36px}
+          .ls-shortcut-icon svg{width:21px;height:21px}
+        }
+        .ls-message{background:#eaf0ff;border-color:#d6e0fb;color:#345fc0}
+        .ls-app .ls-muted{color:#7d828d}
+        .ls-app input,.ls-app select,.ls-app textarea{border-color:#e3e1dc;border-radius:10px}
+        .ls-app button{transition:background-color .15s ease,border-color .15s ease}
+        .ls-app .ls-panel h2,.ls-app .ls-panel h3{color:#2a2f38}
+        .ls-table-wrap{border-color:#ebe9e3;border-radius:14px}
+        .ls-table{background:#fff}
+        @media(max-width:1120px){.ls-dashboard-stats{grid-template-columns:repeat(2,minmax(0,1fr))}.ls-shortcut-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+        @media(max-width:760px){
+          .ls-layout{display:block}
+          .ls-sidebar{margin:8px 8px 0;border-radius:16px;padding:10px;background:#fff}
+          .ls-nav button.active,.ls-nav button:hover{background:#e8e2f4;color:#345fc0}
+          .ls-main{padding:18px 12px 36px}
+          .ls-dashboard-stats{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+          .ls-stat-clickable{min-height:150px;aspect-ratio:1/1;padding:14px}
+          .ls-stat-clickable strong{font-size:32px}
+          .ls-stat-label{font-size:12px}
+          .ls-shortcut-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+          .ls-shortcut-card{min-height:100px;padding:11px;gap:8px;font-size:12px}
+          .ls-shortcut-icon{width:34px;height:34px;flex-basis:34px}
+          .ls-section-heading{align-items:flex-start;flex-direction:column;gap:4px}
+        }
+        .ls-dark{background:#222731!important;color:#edf0f5!important}
+        .ls-dark .ls-sidebar{background:#2f3541!important;border-color:#414957!important;color:#edf0f5!important}
+        .ls-dark .ls-sidebar .ls-brand strong,.ls-dark .ls-topbar h1{color:#edf0f5!important}
+        .ls-dark .ls-nav button{color:#c4cad4}
+        .ls-dark .ls-nav button.active,.ls-dark .ls-nav button:hover{background:#414b60;color:#fff}
+        .ls-dark .ls-stat-clickable,.ls-dark .ls-shortcut-card{background:#2f3541!important;border-color:#414957!important;color:#edf0f5!important}
+        .ls-dark .ls-stat-clickable strong,.ls-dark .ls-shortcut-card{color:#edf0f5!important}
+        .ls-dark .ls-stat-label,.ls-dark .ls-section-heading span{color:#b7bfcb!important}
+        .ls-dark .ls-section-heading h2{color:#edf0f5!important}
+        .ls-dark .ls-dashboard-shortcuts .ls-shortcut-arrow{color:#b7bfcb}
+        .ls-dark .ls-icon-lavender,.ls-dark .ls-icon-blue{background:#414b60;color:#a9bcff}
+        .ls-dark .ls-icon-peach{background:#594334;color:#ffbd91}
+        .ls-dark .ls-icon-sage{background:#354b40;color:#a4d2b2}
+
       `}</style>
 
       {!user ? (
@@ -2339,199 +2807,172 @@ export default function App() {
 
             {activePage === 'dashboard' && canViewPage('dashboard') && (
               <>
-                <div className="ls-grid">
-                  <div className="ls-stat">
-                    <small>Produits visibles</small>
+                <div className="ls-grid ls-dashboard-stats">
+                  <button type="button" className="ls-stat ls-stat-clickable ls-stat-primary" onClick={() => navigateTo('products')}>
+                    <span className="ls-stat-heading"><span className="ls-stat-icon"><DashboardIcon name="products" /></span><span className="ls-stat-label">Produits<br />visibles</span></span>
                     <strong>{products.length.toLocaleString('fr-FR')}</strong>
-                  </div>
-                  <div className="ls-stat">
-                    <small>Quantités négatives</small>
-                    <strong
-                      style={{
-                        color: negativeProducts.length ? '#b42318' : '#102b46',
-                      }}
-                    >
-                      {negativeProducts.length}
-                    </strong>
-                  </div>
-                  <div className="ls-stat">
-                    <small>Nouvelles demandes</small>
+                  </button>
+                  <button type="button" className="ls-stat ls-stat-clickable ls-stat-primary" onClick={() => navigateTo('analysis')}>
+                    <span className="ls-stat-heading"><span className="ls-stat-icon"><DashboardIcon name="analysis" /></span><span className="ls-stat-label">Quantités<br />négatives</span></span>
+                    <strong>{negativeProducts.length}</strong>
+                  </button>
+                  <button type="button" className="ls-stat ls-stat-clickable ls-stat-primary" onClick={() => navigateTo('requests')}>
+                    <span className="ls-stat-heading"><span className="ls-stat-icon"><DashboardIcon name="requests" /></span><span className="ls-stat-label">Nouvelles<br />demandes</span></span>
                     <strong>{newRequestsCount}</strong>
-                  </div>
-                  <div className="ls-stat">
-                    <small>Photos enregistrées</small>
+                  </button>
+                  <button type="button" className="ls-stat ls-stat-clickable ls-stat-primary" onClick={() => navigateTo('photos')}>
+                    <span className="ls-stat-heading"><span className="ls-stat-icon"><DashboardIcon name="photos" /></span><span className="ls-stat-label">Photos<br />enregistrées</span></span>
                     <strong>{productPhotos.length}</strong>
-                  </div>
+                  </button>
                 </div>
+                <section className="ls-dashboard-shortcuts">
+                  <div className="ls-section-heading">
+                    <h2>Accès rapide</h2>
+                    <span>Choisissez une section pour ouvrir son tableau</span>
+                  </div>
+                  <div className="ls-shortcut-grid">
+                    {[
+                      { id: 'products', label: 'Liste des produits', icon: 'products' },
+                      { id: 'analysis', label: 'Analyse des produits', icon: 'analysis' },
+                      { id: 'arina', label: 'Matelas Europ Arina', icon: 'arina' },
+                      { id: 'textiles', label: 'Chora / Voilage / Rideau', icon: 'textiles' },
+                      { id: 'sales', label: 'Bon de vente', icon: 'sales' },
+                      { id: 'labels', label: 'Étiquettes prix', icon: 'labels' },
+                      { id: 'photos', label: 'Photos des produits', icon: 'photos' },
+                      { id: 'requests', label: 'Demandes clients', icon: 'requests' },
+                    ].filter((item) => visibleNavItems.some((nav) => nav.id === item.id)).map((item) => (
+                      <button key={item.id} type="button" className="ls-shortcut-card" onClick={() => navigateTo(item.id)}>
+                        <span className="ls-shortcut-icon"><DashboardIcon name={item.icon} /></span>
+                        <span>{item.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                </section>
+              </>
+            )}
+
+            {activePage === 'imports' && isAdmin && (
+              <>
                 {isAdmin && (
                   <section className="ls-panel ls-import-panel">
                     <h2 style={{ marginTop: 0 }}>Dernier import historique</h2>
-                    <div className="ls-muted">
-                      Fichier :{' '}
-                      <strong>
-                        {lastImportBatch?.file_name ||
-                          lastImportBatch?.filename ||
-                          lastImportBatch?.source_file_name ||
-                          'Information non disponible'}
-                      </strong>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 16 }}>
+                      <div style={{ border: '1px solid #dbe3ec', borderRadius: 14, padding: 16, background: '#f8fafc' }}>
+                        <h3 style={{ margin: '0 0 10px', color: '#183b5b' }}>Linge</h3>
+                        <div className="ls-muted">Dernier fichier : <strong>{latestImportRecord(lastImportBatch, lastLingePdfImport)?.file_name || latestImportRecord(lastImportBatch, lastLingePdfImport)?.filename || 'Aucun fichier importé'}</strong></div>
+                        <div className="ls-muted" style={{ marginTop: 6 }}>Date : <strong>{displayImportDate(latestImportRecord(lastImportBatch, lastLingePdfImport))}</strong></div>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 14 }}>
+                          <button type="button" style={styles.button} onClick={() => document.getElementById('linge-csv-upload')?.click()}>Importer CSV</button>
+                          <input id="linge-csv-upload" type="file" accept=".csv,text/csv" onChange={handleCsvFile} style={{display:'none'}} />
+                          <button type="button" style={styles.secondary} onClick={() => document.getElementById('linge-pdf-upload')?.click()}>Importer PDF</button>
+                          <input id="linge-pdf-upload" type="file" accept=".pdf,application/pdf" onChange={handlePdfFile} style={{display:'none'}} />
+                        </div>
+                      </div>
+                      <div style={{ border: '1px solid #dbe3ec', borderRadius: 14, padding: 16, background: '#f8fafc' }}>
+                        <h3 style={{ margin: '0 0 10px', color: '#183b5b' }}>Tapis</h3>
+                        <div className="ls-muted">Dernier fichier : <strong>{latestImportRecord(lastTapisImportBatch, lastTapisPdfImport)?.file_name || latestImportRecord(lastTapisImportBatch, lastTapisPdfImport)?.filename || 'Aucun fichier importé'}</strong></div>
+                        <div className="ls-muted" style={{ marginTop: 6 }}>Date : <strong>{displayImportDate(latestImportRecord(lastTapisImportBatch, lastTapisPdfImport))}</strong></div>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 14 }}>
+                          <button type="button" style={styles.button} onClick={() => document.getElementById('tapis-csv-upload')?.click()}>Importer CSV</button>
+                          <input id="tapis-csv-upload" type="file" accept=".csv,text/csv" onChange={handleTapisCsvFile} style={{display:'none'}} />
+                          <button type="button" style={styles.secondary} onClick={() => document.getElementById('tapis-pdf-upload')?.click()}>Importer PDF</button>
+                          <input id="tapis-pdf-upload" type="file" accept=".pdf,application/pdf" onChange={handleTapisPdfFile} style={{display:'none'}} />
+                        </div>
+                      </div>
                     </div>
-                    <div className="ls-muted" style={{ marginTop: 5 }}>
-                      Date :{' '}
-                      <strong>
-                        {lastImportBatch?.snapshot_date ||
-                          lastImportBatch?.import_date ||
-                          (lastImportBatch?.created_at
-                            ? new Date(
-                                lastImportBatch.created_at
-                              ).toLocaleString('fr-FR')
-                            : 'Aucun import trouvé')}
-                      </strong>
-                    </div>
-                    <div className="ls-muted" style={{ marginTop: 5 }}>
-                      Dernière correction manuelle :{' '}
-                      <strong>
-                        {lastStockUpdate
-                          ? new Date(lastStockUpdate).toLocaleString('fr-FR')
-                          : 'Aucune correction enregistrée'}
-                      </strong>
-                    </div>
+                    <p className="ls-muted" style={{ marginBottom: 0, marginTop: 12 }}>Chaque bouton ouvre directement le sélecteur du fichier correspondant. Les aperçus et confirmations restent dans leurs sections respectives ci-dessous.</p>
                   </section>
                 )}
                 {isAdmin && (
-                  <section
-                    className="ls-panel"
+                  <div
                     style={{
-                      borderColor: urgentNewRequests.length
-                        ? '#f2b84b'
-                        : '#e2e8f0',
-                      borderWidth: urgentNewRequests.length ? 2 : 1,
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 340px), 1fr))',
+                      gap: 16,
+                      alignItems: 'stretch',
                     }}
                   >
-                    <h2
+                    <section
+                      className="ls-panel"
                       style={{
-                        marginTop: 0,
-                        color: urgentNewRequests.length ? '#9a4b00' : '#102b46',
+                        height: '100%',
+                        boxSizing: 'border-box',
+                        borderColor: urgentNewRequests.length ? '#f2b84b' : '#e2e8f0',
+                        borderWidth: urgentNewRequests.length ? 2 : 1,
                       }}
                     >
-                      🚨 Demandes urgentes — Matelas Europ Arina (
-                      {urgentNewRequests.length})
-                    </h2>
-                    {urgentNewRequests.length === 0 ? (
-                      <p className="ls-muted">
-                        Aucune demande urgente pour le moment.
-                      </p>
-                    ) : (
-                      urgentNewRequests.map((request) => (
-                        <div
-                          key={request.id}
-                          style={{
-                            padding: '10px 0',
-                            borderTop: '1px solid #f3d5a0',
-                            display: 'flex',
-                            justifyContent: 'space-between',
-                            gap: 10,
-                            flexWrap: 'wrap',
-                          }}
-                        >
-                          <div>
-                            <strong>
-                              {request.products?.name || 'Matelas Europ Arina'}
-                            </strong>
-                            <div className="ls-muted">
-                              {request.trader_name || 'Client'} ·{' '}
-                              {new Date(request.created_at).toLocaleString(
-                                'fr-FR'
-                              )}
-                            </div>
-                          </div>
-                          <strong>
-                            Quantité :{' '}
-                            {request.requested_quantity ?? 'À confirmer'}
-                          </strong>
-                          <button
-                            style={styles.secondary}
-                            onClick={() => navigateTo('requests')}
-                          >
-                            Ouvrir
-                          </button>
-                        </div>
-                      ))
-                    )}
-                  </section>
-                )}
-                {isAdmin && (
-                  <section className="ls-panel">
-                    <h2 style={{ marginTop: 0 }}>
-                      🔔 Demandes de réapprovisionnement
-                    </h2>
-                    <p className="ls-muted">
-                      Les nouvelles demandes sont affichées en premier.
-                    </p>
-                    {newRequests.length === 0 ? (
-                      <p>Aucune nouvelle demande.</p>
-                    ) : (
-                      <>
-                        <p>
-                          <strong>
-                            {newRequests.length} nouvelle(s) demande(s)
-                          </strong>
-                        </p>
-                        {newRequests.slice(0, 3).map((request) => (
+                      <h2 style={{ marginTop: 0, color: urgentNewRequests.length ? '#9a4b00' : '#102b46' }}>
+                        🚨 Demandes urgentes — Matelas Europ Arina ({urgentNewRequests.length})
+                      </h2>
+                      {urgentNewRequests.length === 0 ? (
+                        <p className="ls-muted">Aucune demande urgente pour le moment.</p>
+                      ) : (
+                        urgentNewRequests.map((request) => (
                           <div
                             key={request.id}
                             style={{
-                              padding: '9px 0',
-                              borderTop: '1px solid #edf1f5',
+                              padding: '10px 0',
+                              borderTop: '1px solid #f3d5a0',
                               display: 'flex',
                               justifyContent: 'space-between',
                               gap: 10,
                               flexWrap: 'wrap',
                             }}
                           >
-                            <span>
-                              {request.products?.name || 'Produit'}{' '}
-                              <span className="ls-muted">
-                                — {request.trader_name || 'Trader'}
-                              </span>
-                            </span>
-                            <strong>
-                              {request.request_type === 'need_item' ||
-                              request.requested_quantity == null
-                                ? 'Quantité à confirmer'
-                                : `Qté : ${request.requested_quantity}`}
-                            </strong>
+                            <div>
+                              <strong>{request.products?.name || 'Matelas Europ Arina'}</strong>
+                              <div className="ls-muted">
+                                {request.trader_name || 'Client'} · {new Date(request.created_at).toLocaleString('fr-FR')}
+                              </div>
+                            </div>
+                            <strong>Quantité : {request.requested_quantity ?? 'À confirmer'}</strong>
+                            <button style={styles.secondary} onClick={() => navigateTo('requests')}>Ouvrir</button>
                           </div>
-                        ))}
-                        <button
-                          style={styles.button}
-                          onClick={() => navigateTo('requests')}
-                        >
-                          Ouvrir les demandes
-                        </button>
-                        <button
-                          style={{ ...styles.secondary, marginLeft: 8 }}
-                          onClick={copyNewRequests}
-                        >
-                          Copier toutes les nouvelles demandes
-                        </button>
-                      </>
-                    )}
-                  </section>
+                        ))
+                      )}
+                    </section>
+                    <section className="ls-panel" style={{ height: '100%', boxSizing: 'border-box' }}>
+                      <h2 style={{ marginTop: 0 }}>🔔 Demandes de réapprovisionnement</h2>
+                      <p className="ls-muted">Les nouvelles demandes sont affichées en premier.</p>
+                      {newRequests.length === 0 ? (
+                        <p>Aucune nouvelle demande.</p>
+                      ) : (
+                        <>
+                          <p><strong>{newRequests.length} nouvelle(s) demande(s)</strong></p>
+                          {newRequests.slice(0, 3).map((request) => (
+                            <div
+                              key={request.id}
+                              style={{
+                                padding: '9px 0',
+                                borderTop: '1px solid #edf1f5',
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                gap: 10,
+                                flexWrap: 'wrap',
+                              }}
+                            >
+                              <span>
+                                {request.products?.name || 'Produit'}{' '}
+                                <span className="ls-muted">— {request.trader_name || 'Trader'}</span>
+                              </span>
+                              <strong>
+                                {request.request_type === 'need_item' || request.requested_quantity == null
+                                  ? 'Quantité à confirmer'
+                                  : `Qté : ${request.requested_quantity}`}
+                              </strong>
+                            </div>
+                          ))}
+                          <button style={styles.button} onClick={() => navigateTo('requests')}>Ouvrir les demandes</button>
+                          <button style={{ ...styles.secondary, marginLeft: 8 }} onClick={copyNewRequests}>
+                            Copier toutes les nouvelles demandes
+                          </button>
+                        </>
+                      )}
+                    </section>
+                  </div>
                 )}
-                {isAdmin && (
+                {isAdmin && (csvFileName || csvPreview.length > 0) && (
                   <section className="ls-panel">
-                    <h2 style={{ marginTop: 0 }}>
-                      Importer un fichier CSV
-                    </h2>
-                    <p className="ls-muted">
-                      CSV : met à jour les prix et l’historique uniquement. Le stock actuel provient exclusivement du PDF magasin. Les quantités négatives sont conservées.
-                    </p>
-                    <input
-                      style={styles.field}
-                      type="file"
-                      accept=".csv,text/csv"
-                      onChange={handleCsvFile}
-                    />
                     {csvFileName && (
                       <p>
                         <strong>Fichier :</strong> {csvFileName}
@@ -2586,10 +3027,34 @@ export default function App() {
                     )}
                   </section>
                 )}
+                    {isAdmin && (tapisCsvFileName || tapisCsvPreview.length > 0) && (
+                      <section className="ls-panel" style={{ marginTop: 18 }}>
+                        {tapisCsvFileName && <p><strong>Fichier Tapis :</strong> {tapisCsvFileName}</p>}
+                        {tapisCsvPreview.length > 0 && <>
+                          <p><strong>{tapisCsvPreview.length} lignes détectées.</strong> Aperçu des 5 premières lignes :</p>
+                          <div className="ls-table-wrap">
+                            <table className="ls-table">
+                              <thead><tr>{Object.keys(tapisCsvPreview[0]).map((header) => <th style={styles.th} key={header}>{header}</th>)}</tr></thead>
+                              <tbody>{tapisCsvPreview.slice(0, 5).map((row, index) => (
+                                <tr key={index}>{Object.keys(tapisCsvPreview[0]).map((header) => <td style={styles.td} key={header}>{String(row[header] ?? '')}</td>)}</tr>
+                              ))}</tbody>
+                            </table>
+                          </div>
+                          <div className="ls-toolbar">
+                            <button style={styles.button} onClick={importTapisCsvToSupabase}>
+                              Importer CSV Tapis — prix + historique
+                            </button>
+                            <button style={styles.secondary} onClick={() => {
+                              setTapisCsvPreview([]);
+                              setTapisCsvFileName('');
+                              setMessage('Aperçu CSV Tapis annulé.');
+                            }}>Annuler</button>
+                          </div>
+                        </>}
+                      </section>
+                    )}
+                    {(pdfFileName || pdfPreview.length > 0) && (
                     <div style={{ marginTop: 18, paddingTop: 16, borderTop: '1px solid #d7dee7' }}>
-                      <h3>Importer le stock actuel depuis un PDF</h3>
-                      <p className="ls-muted">Le PDF du magasin principal met à jour les quantités actuelles : les produits absents du PDF passent à zéro. Les prix et l’historique CSV restent inchangés. L’aperçu affiche au maximum 10 produits à la fois.</p>
-                      <input style={styles.field} type="file" accept=".pdf,application/pdf" onChange={handlePdfFile} />
                       {pdfFileName && <p><strong>Fichier PDF :</strong> {pdfFileName}</p>}
                       {pdfPreview.length > 0 && <>
                         <p><strong>{pdfPreview.length} lignes reconnues.</strong> Recherchez une référence ou une désignation pour vérifier la quantité avant confirmation.</p>
@@ -2618,16 +3083,79 @@ export default function App() {
                           </>;
                         })()}
                       </>}
-                      <div className="ls-toolbar" style={{ marginTop: 12 }}>
-                        <button style={styles.button} onClick={importPdfCurrentStock} disabled={!pdfPreview.length}>
-                          Confirmer l’import PDF — quantités uniquement
-                        </button>
-                        <button style={styles.secondary} onClick={() => { setPdfPreview([]); setPdfSearch(''); setPdfFileName(''); setMessage('Aperçu PDF annulé.'); }}>
-                          Annuler
-                        </button>
-                      </div>
-                      {!pdfPreview.length && pdfFileName && <p className="ls-muted">Le bouton de confirmation s’activera après la lecture correcte des lignes du PDF.</p>}
+                      {pdfPreview.length > 0 && (
+                        <div className="ls-toolbar" style={{ marginTop: 12 }}>
+                          <button style={styles.button} onClick={importPdfCurrentStock}>
+                            Confirmer l’import PDF — quantités uniquement
+                          </button>
+                          <button style={styles.secondary} onClick={() => { setPdfPreview([]); setPdfSearch(''); setPdfFileName(''); setMessage('Aperçu PDF annulé.'); }}>
+                            Annuler
+                          </button>
+                        </div>
+                      )}
                     </div>
+                    )}
+                    {(tapisPdfFileName || tapisPdfPreview.length > 0) && (
+                    <section className="ls-panel" style={{ marginTop: 18 }}>
+                      {tapisPdfFileName && <p><strong>Fichier Tapis :</strong> {tapisPdfFileName}</p>}
+                      {tapisPdfPreview.length > 0 && <>
+                        <p><strong>{tapisPdfPreview.length} références reconnues.</strong> Vérifiez le code, la désignation et la quantité avant confirmation.</p>
+                        <ClearableSearchInput
+                          type="search"
+                          value={tapisPdfSearch}
+                          onChange={(event) => setTapisPdfSearch(event.target.value)}
+                          placeholder="Rechercher une référence ou une désignation Tapis…"
+                          aria-label="Rechercher dans l’aperçu PDF Tapis"
+                          style={{ ...styles.input, width: '100%', marginBottom: 12 }}
+                        />
+                        {(() => {
+                          const query = tapisPdfSearch.trim().toLocaleLowerCase();
+                          const filteredRows = tapisPdfPreview.filter((row) =>
+                            !query ||
+                            String(row.product_ref || '').toLocaleLowerCase().includes(query) ||
+                            String(row.name || '').toLocaleLowerCase().includes(query)
+                          );
+                          const visibleRows = filteredRows.slice(0, 10);
+                          return <>
+                            <p>Affichage de {visibleRows.length} produit(s) sur {filteredRows.length} résultat(s). L’aperçu est limité à 10 produits.</p>
+                            <div className="ls-table-wrap">
+                              <table className="ls-table">
+                                <thead><tr>
+                                  <th style={styles.th}>Référence</th>
+                                  <th style={styles.th}>Désignation</th>
+                                  <th style={styles.th}>Quantité PDF</th>
+                                </tr></thead>
+                                <tbody>{visibleRows.map((row, index) => (
+                                  <tr key={row.product_ref + index}>
+                                    <td style={styles.td}>{row.product_ref}</td>
+                                    <td style={styles.td}>{row.name}</td>
+                                    <td style={{ ...styles.td, color: Number(row.quantity) < 0 ? '#b42318' : undefined }}>{row.quantity}</td>
+                                  </tr>
+                                ))}</tbody>
+                              </table>
+                            </div>
+                            {filteredRows.length === 0 && <p className="ls-muted">Aucun résultat pour cette recherche.</p>}
+                          </>;
+                        })()}
+                      </>}
+                      {tapisPdfPreview.length > 0 && (
+                        <div className="ls-toolbar" style={{ marginTop: 12 }}>
+                          <button style={styles.button} onClick={importTapisPdfCurrentStock}>
+                            Confirmer l’import PDF Tapis
+                          </button>
+                          <button
+                            style={styles.secondary}
+                            onClick={() => {
+                              setTapisPdfPreview([]);
+                              setTapisPdfSearch('');
+                              setTapisPdfFileName('');
+                              setMessage('Aperçu PDF Tapis annulé.');
+                            }}
+                          >Annuler</button>
+                        </div>
+                      )}
+                    </section>
+                    )}
                 {negativeProducts.filter((product)=>matchesTableSearch(tableSearch, product.name, product.product_ref)).length > 0 && (
                   <section className="ls-panel">
                     <div className="ls-alert">
@@ -2679,27 +3207,35 @@ export default function App() {
                     </button>
                   </section>
                 )}
-                <section className="ls-panel">
-                  <h2 style={{ marginTop: 0 }}>Accès rapide</h2>
-                  <div className="ls-toolbar">
-                    {[
-                      { id: 'products', label: 'Tous les produits' },
-                      { id: 'arina', label: 'Matelas Europ Arina' },
-                      { id: 'textiles', label: 'Chora / Voilage / Rideau' },
-                      { id: 'photos', label: 'Photos des produits' },
-                      { id: 'requests', label: 'Demandes clients' },
-                      { id: 'notes', label: 'Notes clients' },
-                    ].map((item) => (
-                      <button
-                        key={item.id}
-                        style={styles.secondary}
-                        onClick={() => navigateTo(item.id)}
-                      >
-                        {item.label}
-                      </button>
-                    ))}
-                  </div>
-                </section>
+                {negativeTapisProducts.filter((product)=>matchesTableSearch(tableSearch, product.name, product.product_ref)).length > 0 && (
+                  <section className="ls-panel" style={{ marginTop: 16 }}>
+                    <div className="ls-alert">
+                      ⚠️ {negativeTapisProducts.length} produit(s) Tapis ont une quantité négative. Les quantités sont conservées telles qu’importées et doivent être vérifiées.
+                    </div>
+                    <div className="ls-table-wrap ls-force-table">
+                      <table className="ls-table">
+                        <thead><tr>
+                          <th style={styles.th}>Référence</th>
+                          <th style={styles.th}>Désignation</th>
+                          <th style={styles.th}>Quantité</th>
+                          <th style={styles.th}>Prix de gros</th>
+                          <th style={styles.th}>Prix de détail</th>
+                        </tr></thead>
+                        <tbody>
+                          {negativeTapisProducts.filter((product)=>matchesTableSearch(tableSearch, product.name, product.product_ref)).map((product) => (
+                            <tr key={product.id}>
+                              <td style={styles.td}>{product.product_ref}</td>
+                              <td style={styles.td}>{product.name}</td>
+                              <td style={{...styles.td,color:'#b42318',fontWeight:800}}>{product.current_quantity}</td>
+                              <td style={styles.td}>{product.wholesale_price ?? '—'} DA</td>
+                              <td style={styles.td}>{product.retail_price ?? '—'} DA</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </section>
+                )}
               </>
             )}
 
@@ -2752,10 +3288,6 @@ export default function App() {
                       Afficher les Matelas à quantité 0 ou négative
                     </label>
                   )}
-                  <label className="ls-muted" style={{display:'flex',alignItems:'center',gap:6}}>
-                    <input type="checkbox" checked={showCodeColumn} onChange={(event)=>setShowCodeColumn(event.target.checked)} />
-                    {language === 'ar' ? 'إظهار المرجع' : 'Afficher référence'}
-                  </label>
                   <ClearableSearchInput
                     className="ls-search"
                     style={styles.field}
@@ -2770,75 +3302,29 @@ export default function App() {
                         : 'Rechercher par désignation…'
                     }
                   />
-                  <label className="ls-muted">
-                    {language === 'ar' ? 'ترتيب حسب' : 'Trier par'}{' '}
-                    <select
-                      style={{ ...styles.field, width: 'auto', marginLeft: 6 }}
-                      value={sortKey}
-                      onChange={(event) => changeSort(event.target.value)}
-                      aria-label={
-                        language === 'ar'
-                          ? 'ترتيب المنتجات حسب'
-                          : 'Trier les produits par'
-                      }
-                    >
-                      <option value="current_quantity">
-                        {language === 'ar' ? 'الكمية' : 'Quantité'}
-                      </option>
-                      <option value="wholesale_price">
-                        {language === 'ar' ? 'سعر الجملة' : 'Prix de gros'}
-                      </option>
-                      <option value="retail_price">
-                        {language === 'ar' ? 'سعر التجزئة' : 'Prix de détail'}
-                      </option>
-                      <option value="name">
-                        {language === 'ar' ? 'اسم المنتج' : 'Désignation'}
-                      </option>
-                      <option value="product_ref">
-                        {language === 'ar' ? 'المرجع' : 'Référence'}
-                      </option>
-                    </select>
-                  </label>
-                  <button
-                    type="button"
-                    style={styles.secondary}
-                    onClick={() => {
-                      setSortDirection((direction) =>
-                        direction === 'asc' ? 'desc' : 'asc'
-                      );
-                      setCurrentPage(1);
-                    }}
-                    aria-label={
-                      language === 'ar'
-                        ? 'تغيير اتجاه الترتيب'
-                        : 'Inverser le sens du tri'
-                    }
-                  >
-                    {sortDirection === 'asc'
-                      ? language === 'ar'
-                        ? 'تصاعدي ▲'
-                        : 'Croissant ▲'
-                      : language === 'ar'
-                      ? 'تنازلي ▼'
-                      : 'Décroissant ▼'}
-                  </button>
-                  <label className="ls-muted">
-                    {language === 'ar' ? 'عدد الأسطر' : 'Lignes par page'}{' '}
-                    <select
-                      style={{ ...styles.field, width: 'auto', marginLeft: 6 }}
-                      value={pageSize}
-                      onChange={(event) => {
-                        setPageSize(Number(event.target.value));
-                        setCurrentPage(1);
-                      }}
-                    >
-                      {[10, 20, 100].map((size) => (
-                        <option key={size} value={size}>
-                          {size}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
+                                    <div style={{display:'flex',alignItems:'center',gap:14,flexWrap:'wrap'}}>
+                    <label className="ls-muted">
+                      {language === 'ar' ? 'عدد الأسطر' : 'Lignes par page'}{' '}
+                      <select
+                        style={{ ...styles.field, width: 'auto', marginLeft: 6 }}
+                        value={pageSize}
+                        onChange={(event) => {
+                          setPageSize(Number(event.target.value));
+                          setCurrentPage(1);
+                        }}
+                      >
+                        {[10, 20, 100].map((size) => (
+                          <option key={size} value={size}>
+                            {size}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="ls-muted" style={{display:'flex',alignItems:'center',gap:6}}>
+                      <input type="checkbox" checked={showCodeColumn} onChange={(event)=>setShowCodeColumn(event.target.checked)} />
+                      {language === 'ar' ? 'إظهار المرجع' : 'Afficher référence'}
+                    </label>
+                  </div>
                 </div>
                 <div className="ls-table-wrap">
                   <table className="ls-table">
@@ -3556,31 +4042,208 @@ export default function App() {
               </section>
             )}
 
+
+            {activePage === 'tapis-analysis' && canViewPage('tapis-analysis') && (
+              <section className="ls-panel">
+                <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:12,flexWrap:'wrap'}}>
+                  <div>
+                    <h2 style={{marginTop:0,marginBottom:6}}>Suggestions de réapprovisionnement Tapis</h2>
+                    <p className="ls-muted" style={{marginTop:0}}>
+                      Analyse indépendante basée sur le stock du dernier PDF Tapis et l’historique mensuel Tapis. Les stocks négatifs, les stocks nuls avec sorties et les produits estimés à moins de 2 jours sont affichés.
+                    </p>
+                  </div>
+                </div>
+                {(() => {
+                  const negativeCount = tapisSuggestedProducts.filter(p => Number(p.current_quantity) < 0).length;
+                  const zeroCount = tapisSuggestedProducts.filter(p => Number(p.current_quantity) === 0).length;
+                  const positiveCount = tapisSuggestedProducts.filter(p => Number(p.current_quantity) > 0).length;
+                  return (
+                    <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(145px,1fr))',gap:12,margin:'12px 0 18px'}}>
+                      <div style={{padding:14,border:'1px solid #e2e8f0',borderRadius:12,background:'var(--ls-card, #fff)'}}><div className="ls-muted">Total suggestions</div><strong style={{fontSize:28}}>{tapisSuggestedProducts.length}</strong></div>
+                      <div style={{padding:14,border:'1px solid #e2e8f0',borderRadius:12,background:'var(--ls-card, #fff)'}}><div className="ls-muted">Stock négatif</div><strong style={{fontSize:28,color:'#b42318'}}>{negativeCount}</strong></div>
+                      <div style={{padding:14,border:'1px solid #e2e8f0',borderRadius:12,background:'var(--ls-card, #fff)'}}><div className="ls-muted">Stock zéro avec mouvement</div><strong style={{fontSize:28}}>{zeroCount}</strong></div>
+                      <div style={{padding:14,border:'1px solid #e2e8f0',borderRadius:12,background:'var(--ls-card, #fff)'}}><div className="ls-muted">Stock positif urgent</div><strong style={{fontSize:28}}>{positiveCount}</strong></div>
+                    </div>
+                  );
+                })()}
+                <div className="ls-toolbar" style={{flexWrap:'wrap',gap:8}}>
+                  <button style={{...styles.secondary,padding:'6px 11px',fontSize:12}} onClick={loadTapisSuggestedProducts} disabled={tapisSuggestionsLoading}>Actualiser</button>
+                  <button style={{...styles.secondary,padding:'6px 11px',fontSize:12}} onClick={hideSelectedTapisSuggestions}>Masquer</button>
+                  <button style={{...styles.secondary,padding:'6px 11px',fontSize:12}} onClick={async()=>{const names=tapisSuggestedProducts.filter(p=>selectedTapisSuggestions.includes(p.id)).map(p=>p.name).filter(Boolean);if(!names.length){window.alert('Sélectionnez au moins un produit.');return;}const copied=names.join('\n');try{await navigator.clipboard.writeText(copied);window.alert(names.length+' désignation(s) copiée(s).');}catch(error){window.prompt('Copiez les désignations :',copied);}}}>Copier ({selectedTapisSuggestions.length})</button>
+                  <button style={{...styles.secondary,padding:'6px 11px',fontSize:12}} onClick={()=>setSelectedTapisSuggestions([])}>Désélectionner</button>
+                  <label className="ls-muted"><input type="checkbox" checked={tapisAnalysisShowCode} onChange={event=>setTapisAnalysisShowCode(event.target.checked)} /> Afficher référence</label>
+                  <label className="ls-muted">Lignes par page <select style={styles.field} value={tapisAnalysisPageSize} onChange={event=>{setTapisAnalysisPageSize(Number(event.target.value));setTapisAnalysisPage(1);}}>{[10,20,100].map(n=><option key={n} value={n}>{n}</option>)}</select></label>
+                </div>
+                <div className="ls-toolbar" style={{marginTop:6}}><ClearableSearchInput className="ls-search" style={styles.field} value={tapisAnalysisSearch} onChange={event=>{setTapisAnalysisSearch(event.target.value);setTapisAnalysisPage(1);}} placeholder="Rechercher une référence ou désignation Tapis…" /></div>
+                {(() => {
+                  const filtered=tapisSuggestedProducts.filter(p=>matchesTableSearch(tapisAnalysisSearch,p.name,p.product_ref));
+                  const numericKeys=['current_quantity','average_daily_decrease','days_remaining','suggested_order_quantity'];
+                  const sorted=[...filtered].sort((a,b)=>{
+                    const av=a[tapisAnalysisSortKey],bv=b[tapisAnalysisSortKey];
+                    const c=numericKeys.includes(tapisAnalysisSortKey)
+                      ? (av==null?Number.POSITIVE_INFINITY:Number(av))-(bv==null?Number.POSITIVE_INFINITY:Number(bv))
+                      : String(av??'').localeCompare(String(bv??''),'fr',{numeric:true,sensitivity:'base'});
+                    return tapisAnalysisSortDirection==='asc'?c:-c;
+                  });
+                  const pages=Math.max(1,Math.ceil(sorted.length/tapisAnalysisPageSize));
+                  const safe=Math.min(tapisAnalysisPage,pages);
+                  const rows=sorted.slice((safe-1)*tapisAnalysisPageSize,safe*tapisAnalysisPageSize);
+                  return <>
+                    {tapisSuggestionsLoading ? <p>Chargement des suggestions Tapis…</p> : filtered.length===0 ? (
+                      <p>Aucune suggestion Tapis à afficher. Cliquez sur Actualiser.</p>
+                    ) : (
+                      <div className="ls-table-wrap">
+                        <table className="ls-table">
+                          <thead><tr>
+                            <th style={styles.th}>Sélection</th>
+                            {tapisAnalysisShowCode && <th style={styles.th}><button style={tableSortButtonStyle} onClick={()=>{setTapisAnalysisSortKey('product_ref');setTapisAnalysisSortDirection(d=>tapisAnalysisSortKey==='product_ref'?(d==='asc'?'desc':'asc'):'asc');setTapisAnalysisPage(1);}}>Référence {tapisAnalysisSortKey==='product_ref'?(tapisAnalysisSortDirection==='asc'?'▲':'▼'):''}</button></th>}
+                            <th style={styles.th}><button style={tableSortButtonStyle} onClick={()=>{setTapisAnalysisSortKey('name');setTapisAnalysisSortDirection(d=>tapisAnalysisSortKey==='name'?(d==='asc'?'desc':'asc'):'asc');setTapisAnalysisPage(1);}}>Désignation {tapisAnalysisSortKey==='name'?(tapisAnalysisSortDirection==='asc'?'▲':'▼'):''}</button></th>
+                            <th style={styles.th}><button style={tableSortButtonStyle} onClick={()=>{setTapisAnalysisSortKey('current_quantity');setTapisAnalysisSortDirection(d=>tapisAnalysisSortKey==='current_quantity'?(d==='asc'?'desc':'asc'):'asc');setTapisAnalysisPage(1);}}>Quantité PDF actuelle {tapisAnalysisSortKey==='current_quantity'?(tapisAnalysisSortDirection==='asc'?'▲':'▼'):''}</button></th>
+                            <th style={styles.th}><button style={tableSortButtonStyle} onClick={()=>{setTapisAnalysisSortKey('average_daily_decrease');setTapisAnalysisSortDirection(d=>tapisAnalysisSortKey==='average_daily_decrease'?(d==='asc'?'desc':'asc'):'asc');setTapisAnalysisPage(1);}}>Sortie moyenne / jour {tapisAnalysisSortKey==='average_daily_decrease'?(tapisAnalysisSortDirection==='asc'?'▲':'▼'):''}</button></th>
+                            <th style={styles.th}><button style={tableSortButtonStyle} onClick={()=>{setTapisAnalysisSortKey('days_remaining');setTapisAnalysisSortDirection(d=>tapisAnalysisSortKey==='days_remaining'?(d==='asc'?'desc':'asc'):'asc');setTapisAnalysisPage(1);}}>Jours restants estimés {tapisAnalysisSortKey==='days_remaining'?(tapisAnalysisSortDirection==='asc'?'▲':'▼'):''}</button></th>
+                            <th style={styles.th}><button style={tableSortButtonStyle} onClick={()=>{setTapisAnalysisSortKey('suggested_order_quantity');setTapisAnalysisSortDirection(d=>tapisAnalysisSortKey==='suggested_order_quantity'?(d==='asc'?'desc':'asc'):'asc');setTapisAnalysisPage(1);}}>Quantité à commander {tapisAnalysisSortKey==='suggested_order_quantity'?(tapisAnalysisSortDirection==='asc'?'▲':'▼'):''}</button></th>
+                            <th style={styles.th}><button style={tableSortButtonStyle} onClick={()=>{setTapisAnalysisSortKey('last_snapshot_date');setTapisAnalysisSortDirection(d=>tapisAnalysisSortKey==='last_snapshot_date'?(d==='asc'?'desc':'asc'):'asc');setTapisAnalysisPage(1);}}>Date du dernier relevé {tapisAnalysisSortKey==='last_snapshot_date'?(tapisAnalysisSortDirection==='asc'?'▲':'▼'):''}</button></th>
+                          </tr></thead>
+                          <tbody>{rows.map(product=>(
+                            <tr key={product.id || product.product_ref}>
+                              <td style={styles.td}><input type="checkbox" checked={selectedTapisSuggestions.includes(product.id)} onChange={event=>setSelectedTapisSuggestions(current=>event.target.checked?[...current,product.id]:current.filter(id=>id!==product.id))}/></td>
+                              {tapisAnalysisShowCode && <td style={styles.td}>{product.product_ref || '—'}</td>}
+                              <td style={styles.td}>{product.name || '—'}</td>
+                              <td style={{...styles.td,fontWeight:700,color:Number(product.current_quantity)<0?'#b42318':undefined}}>{product.current_quantity ?? '—'}</td>
+                              <td style={styles.td}>{product.average_daily_decrease ?? '—'}</td>
+                              <td style={{...styles.td,color:Number(product.current_quantity)<=0?'#b42318':undefined}}>{Number(product.current_quantity)<=0?'Stock négatif / nul':product.days_remaining==null?'Non estimé':product.days_remaining+' jours'}</td>
+                              <td style={styles.td}>{product.suggested_order_quantity ?? '—'}</td>
+                              <td style={styles.td}>{product.last_snapshot_date || '—'}</td>
+                            </tr>
+                          ))}</tbody>
+                        </table>
+                      </div>
+                    )}
+                    <div className="ls-pagination">
+                      <span className="ls-muted">Page {safe} sur {pages} · {filtered.length} produit(s)</span>
+                      <div className="ls-toolbar" style={{margin:0}}>
+                        <button style={styles.secondary} disabled={safe<=1} onClick={()=>setTapisAnalysisPage(p=>Math.max(1,p-1))}>← Précédent</button>
+                        <button style={styles.secondary} disabled={safe>=pages} onClick={()=>setTapisAnalysisPage(p=>Math.min(pages,p+1))}>Suivant →</button>
+                      </div>
+                    </div>
+                  </>;
+                })()}
+                <div
+                  style={{
+                    marginTop: 28,
+                    paddingTop: 22,
+                    borderTop: '2px solid #e2e8f0',
+                  }}
+                >
+                  <h2 style={{ marginTop: 0 }}>
+                    Produits Tapis dont le stock a diminué
+                  </h2>
+                  <p className="ls-muted">
+                    Comparaison du dernier PDF Tapis importé avec le PDF de référence
+                    selon la période choisie. Seuls les produits dont la quantité a baissé sont affichés.
+                  </p>
+                  <div className="ls-toolbar" style={{flexWrap:'wrap',gap:8}}>
+                    <button style={{...styles.secondary,padding:'6px 11px',fontSize:12}} onClick={loadTapisStockDecreaseAnalysis} disabled={tapisStockDecreaseLoading}>Actualiser</button>
+                    <button style={{...styles.secondary,padding:'6px 11px',fontSize:12}} onClick={hideSelectedTapisStockDecrease}>Masquer</button>
+                    <button style={{...styles.secondary,padding:'6px 11px',fontSize:12}} onClick={async()=>{const names=tapisStockDecreaseProducts.filter(p=>selectedTapisStockDecrease.includes(p.product_id)).map(p=>p.product_name).filter(Boolean);if(!names.length){window.alert('Sélectionnez au moins un produit.');return;}const copied=names.join('\n');try{await navigator.clipboard.writeText(copied);window.alert(names.length+' désignation(s) copiée(s).');}catch(error){window.prompt('Copiez les désignations :',copied);}}}>Copier ({selectedTapisStockDecrease.length})</button>
+                    <button style={{...styles.secondary,padding:'6px 11px',fontSize:12}} onClick={()=>setSelectedTapisStockDecrease([])}>Désélectionner</button>
+                    <label className="ls-muted"><input type="checkbox" checked={tapisDecreaseShowCode} onChange={event=>setTapisDecreaseShowCode(event.target.checked)} /> Afficher référence</label>
+                    <label className="ls-muted">Lignes par page <select style={styles.field} value={tapisDecreasePageSize} onChange={event=>{setTapisDecreasePageSize(Number(event.target.value));setTapisDecreasePage(1);}}>{[10,20,100].map(n=><option key={n} value={n}>{n}</option>)}</select></label>
+                    <label className="ls-muted">Comparer avec le PDF d’il y a (jours) <input type="number" min="1" max="3650" step="1" value={tapisDecreaseDays} onChange={event=>{setTapisDecreaseDays(Math.max(1,Math.min(3650,Number(event.target.value)||1)));setTapisDecreasePage(1);}} style={{...styles.field,width:90,marginLeft:6}} /></label>
+                    <span className="ls-muted">{tapisStockDecreaseProducts.length} produit(s) en baisse</span>
+                  </div>
+                  <div className="ls-toolbar" style={{marginTop:6}}><ClearableSearchInput className="ls-search" style={styles.field} value={tapisDecreaseSearch} onChange={event=>{setTapisDecreaseSearch(event.target.value);setTapisDecreasePage(1);}} placeholder="Rechercher référence ou désignation…" /></div>
+                  {tapisStockDecreaseLoading ? (
+                    <p>Chargement de l’analyse des baisses Tapis…</p>
+                  ) : tapisStockDecreaseProducts.length === 0 ? (
+                    <p>
+                      Aucune baisse trouvée entre le dernier PDF Tapis et le PDF de référence choisi, ou cliquez sur « Actualiser les baisses PDF Tapis ».
+                    </p>
+                  ) : (
+                    <>
+                    {(() => { const filtered=tapisStockDecreaseProducts.filter(product=>matchesTableSearch(tapisDecreaseSearch,product.product_name,product.product_ref)); const sorted=[...filtered].sort((a,b)=>{const av=a[tapisDecreaseSortKey],bv=b[tapisDecreaseSortKey];const numeric=['previous_quantity','current_quantity','quantity_decreased','days_between'].includes(tapisDecreaseSortKey);const c=numeric?(Number(av)||0)-(Number(bv)||0):String(av??'').localeCompare(String(bv??''),'fr',{numeric:true,sensitivity:'base'});return tapisDecreaseSortDirection==='asc'?c:-c;});const pages=Math.max(1,Math.ceil(sorted.length/tapisDecreasePageSize));const safePage=Math.min(tapisDecreasePage,pages);const rows=sorted.slice((safePage-1)*tapisDecreasePageSize,safePage*tapisDecreasePageSize);return <>
+                    <div className="ls-table-wrap">
+                      <table className="ls-table">
+                        <thead>
+                          <tr>
+                            <th style={styles.th}>Sélection</th>
+                            {tapisDecreaseShowCode && <th style={styles.th}><button style={tableSortButtonStyle} onClick={()=>{setTapisDecreaseSortKey('product_ref');setTapisDecreaseSortDirection(d=>tapisDecreaseSortKey==='product_ref'?(d==='asc'?'desc':'asc'):'asc');setTapisDecreasePage(1);}}>Référence {tapisDecreaseSortKey==='product_ref'?(tapisDecreaseSortDirection==='asc'?'▲':'▼'):''}</button></th>}
+                            <th style={styles.th}><button style={tableSortButtonStyle} onClick={()=>{setTapisDecreaseSortKey('product_name');setTapisDecreaseSortDirection(d=>tapisDecreaseSortKey==='product_name'?(d==='asc'?'desc':'asc'):'asc');setTapisDecreasePage(1);}}>Désignation {tapisDecreaseSortKey==='product_name'?(tapisDecreaseSortDirection==='asc'?'▲':'▼'):''}</button></th>
+                            <th style={styles.th}><button style={tableSortButtonStyle} onClick={()=>{setTapisDecreaseSortKey('previous_quantity');setTapisDecreaseSortDirection(d=>tapisDecreaseSortKey==='previous_quantity'?(d==='asc'?'desc':'asc'):'asc');setTapisDecreasePage(1);}}>Quantité précédente {tapisDecreaseSortKey==='previous_quantity'?(tapisDecreaseSortDirection==='asc'?'▲':'▼'):''}</button></th>
+                            <th style={styles.th}><button style={tableSortButtonStyle} onClick={()=>{setTapisDecreaseSortKey('current_quantity');setTapisDecreaseSortDirection(d=>tapisDecreaseSortKey==='current_quantity'?(d==='asc'?'desc':'asc'):'asc');setTapisDecreasePage(1);}}>Quantité actuelle {tapisDecreaseSortKey==='current_quantity'?(tapisDecreaseSortDirection==='asc'?'▲':'▼'):''}</button></th>
+                            <th style={styles.th}><button style={tableSortButtonStyle} onClick={()=>{setTapisDecreaseSortKey('quantity_decreased');setTapisDecreaseSortDirection(d=>tapisDecreaseSortKey==='quantity_decreased'?(d==='asc'?'desc':'asc'):'asc');setTapisDecreasePage(1);}}>Baisse de quantité {tapisDecreaseSortKey==='quantity_decreased'?(tapisDecreaseSortDirection==='asc'?'▲':'▼'):''}</button></th>
+                            <th style={styles.th}><button style={tableSortButtonStyle} onClick={()=>{setTapisDecreaseSortKey('previous_date');setTapisDecreaseSortDirection(d=>tapisDecreaseSortKey==='previous_date'?(d==='asc'?'desc':'asc'):'asc');setTapisDecreasePage(1);}}>Date précédente {tapisDecreaseSortKey==='previous_date'?(tapisDecreaseSortDirection==='asc'?'▲':'▼'):''}</button></th>
+                            <th style={styles.th}><button style={tableSortButtonStyle} onClick={()=>{setTapisDecreaseSortKey('latest_snapshot_date');setTapisDecreaseSortDirection(d=>tapisDecreaseSortKey==='latest_snapshot_date'?(d==='asc'?'desc':'asc'):'asc');setTapisDecreasePage(1);}}>Dernière date {tapisDecreaseSortKey==='latest_snapshot_date'?(tapisDecreaseSortDirection==='asc'?'▲':'▼'):''}</button></th>
+                            <th style={styles.th}><button style={tableSortButtonStyle} onClick={()=>{setTapisDecreaseSortKey('days_between');setTapisDecreaseSortDirection(d=>tapisDecreaseSortKey==='days_between'?(d==='asc'?'desc':'asc'):'asc');setTapisDecreasePage(1);}}>Jours entre les fichiers {tapisDecreaseSortKey==='days_between'?(tapisDecreaseSortDirection==='asc'?'▲':'▼'):''}</button></th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {rows.map((product) => (
+                            <tr
+                              key={`${product.product_id}-${product.previous_date}-${product.latest_snapshot_date}`}
+                            >
+                              <td style={styles.td}>
+                                <input
+                                  type="checkbox"
+                                  checked={selectedTapisStockDecrease.includes(product.product_id)}
+                                  onChange={(event) =>
+                                    setSelectedTapisStockDecrease((current) =>
+                                      event.target.checked
+                                        ? [...current, product.product_id]
+                                        : current.filter((id) => id !== product.product_id)
+                                    )
+                                  }
+                                />
+                              </td>
+                              {tapisDecreaseShowCode && <td style={styles.td}>{product.product_ref || '—'}</td>}
+                              <td style={styles.td}>{product.product_name || '—'}</td>
+                              <td style={styles.td}>
+                                {product.previous_quantity ?? '—'}
+                              </td>
+                              <td style={styles.td}>
+                                {product.current_quantity ?? '—'}
+                              </td>
+                              <td
+                                style={{
+                                  ...styles.td,
+                                  color: '#b42318',
+                                  fontWeight: 800,
+                                }}
+                              >
+                                −{product.quantity_decreased}
+                              </td>
+                              <td style={styles.td}>
+                                {product.previous_date || '—'}
+                              </td>
+                              <td style={styles.td}>
+                                {product.latest_snapshot_date || '—'}
+                              </td>
+                              <td style={styles.td}>
+                                {product.days_between ?? '—'}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                    <div className="ls-pagination"><span className="ls-muted">Page {safePage} sur {pages} · {filtered.length} produit(s)</span><div className="ls-toolbar" style={{margin:0}}><button style={styles.secondary} disabled={safePage<=1} onClick={()=>setTapisDecreasePage(p=>Math.max(1,p-1))}>← Précédent</button><button style={styles.secondary} disabled={safePage>=pages} onClick={()=>setTapisDecreasePage(p=>Math.min(pages,p+1))}>Suivant →</button></div></div>
+                    </>; })()}
+                    </>
+                  )}
+                </div>
+              </section>
+            )}
+
             {activePage === 'analysis' && canViewPage('analysis') && (
               <section className="ls-panel">
                 <h2 style={{ marginTop: 0 }}>
                   Suggestions de réapprovisionnement urgent
                 </h2>
-                <p className="ls-muted">
-                  Estimation basée sur le dernier CSV et l’historique du stock.
-                  Les produits dont le stock estimé dure moins de 7 jours sont
-                  affichés en priorité.
-                </p>
-                <div className="ls-toolbar">
+                <div className="ls-toolbar" style={{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap'}}>
+                  <button style={{...styles.secondary,padding:'6px 11px',fontSize:12}} onClick={loadSuggestedProducts}>Actualiser</button>
+                  <button style={{...styles.button,padding:'6px 11px',fontSize:12}} onClick={hideSelectedSuggestions}>Masquer</button>
                   <button
-                    style={styles.secondary}
-                    onClick={loadSuggestedProducts}
-                  >
-                    Actualiser les suggestions
-                  </button>
-                  <button
-                    style={styles.button}
-                    onClick={hideSelectedSuggestions}
-                  >
-                    Masquer les produits sélectionnés
-                  </button>
-                  <button
-                    style={styles.secondary}
+                    style={{...styles.secondary,padding:'6px 11px',fontSize:12}}
                     onClick={async () => {
                       const names = suggestedProducts
                         .filter((product) => selectedSuggestions.includes(product.id))
@@ -3598,22 +4261,21 @@ export default function App() {
                         window.prompt('Copiez les désignations :', textToCopy);
                       }
                     }}
-                  >
-                    Copier la sélection ({selectedSuggestions.length})
-                  </button>
-                  <button
-                    style={styles.secondary}
-                    onClick={() => setSelectedSuggestions([])}
-                  >
-                    Désélectionner tout
-                  </button>
+                  >Copier ({selectedSuggestions.length})</button>
+                  <button style={{...styles.secondary,padding:'6px 11px',fontSize:12}} onClick={() => setSelectedSuggestions([])}>Désélectionner</button>
+                  <label className="ls-muted" style={{display:'flex',alignItems:'center',gap:6,marginLeft:6}}>
+                    <input type="checkbox" checked={analysisShowCode} onChange={(event)=>setAnalysisShowCode(event.target.checked)} />
+                    Afficher référence
+                  </label>
+                  <label className="ls-muted" style={{display:'flex',alignItems:'center',gap:6}}>
+                    Lignes par page
+                    <select style={{...styles.field,width:'auto'}} value={analysisPageSize} onChange={(event)=>{setAnalysisPageSize(Number(event.target.value));setAnalysisPage(1);}}>
+                      {[10,20,100].map(n=><option key={n} value={n}>{n}</option>)}
+                    </select>
+                  </label>
                 </div>
                 <div className="ls-toolbar" style={{flexWrap:'wrap'}}>
                   <ClearableSearchInput className="ls-search" style={styles.field} value={analysisSearch} onChange={(event)=>{setAnalysisSearch(event.target.value);setAnalysisPage(1);}} placeholder="Rechercher dans les suggestions…" />
-                  <label className="ls-muted"><input type="checkbox" checked={analysisShowCode} onChange={(event)=>setAnalysisShowCode(event.target.checked)} /> Afficher référence</label>
-                  <label className="ls-muted">Lignes par page <select style={styles.field} value={analysisPageSize} onChange={(event)=>{setAnalysisPageSize(Number(event.target.value));setAnalysisPage(1);}}>{[10,20,100].map(n=><option key={n} value={n}>{n}</option>)}</select></label>
-                  <label className="ls-muted">Trier par <select style={styles.field} value={analysisSortKey} onChange={(event)=>{setAnalysisSortKey(event.target.value);setAnalysisPage(1);}}><option value="name">Désignation</option><option value="product_ref">Référence</option><option value="current_quantity">Dernière quantité CSV</option><option value="average_daily_decrease">Baisse moyenne / jour</option><option value="days_remaining">Jours restants estimés</option><option value="suggested_order_quantity">Quantité à commander</option><option value="last_snapshot_date">Date du dernier relevé</option></select></label>
-                  <button style={styles.secondary} onClick={()=>{setAnalysisSortDirection(d=>d==='asc'?'desc':'asc');setAnalysisPage(1);}}>{analysisSortDirection==='asc'?'Croissant ▲':'Décroissant ▼'}</button>
                 </div>
                 {(() => { const filtered = suggestedProducts.filter(p=>matchesTableSearch(analysisSearch,p.name,p.product_ref)); const sorted = [...filtered].sort((a,b)=>{const av=a[analysisSortKey],bv=b[analysisSortKey]; const numeric=['current_quantity','average_daily_decrease','days_remaining','suggested_order_quantity'].includes(analysisSortKey); let c=numeric?(av==null?Number.POSITIVE_INFINITY:Number(av))-(bv==null?Number.POSITIVE_INFINITY:Number(bv)):String(av??'').localeCompare(String(bv??''),'fr',{numeric:true,sensitivity:'base'}); return analysisSortDirection==='asc'?c:-c;}); const pages=Math.max(1,Math.ceil(sorted.length/analysisPageSize)); const safe=Math.min(analysisPage,pages); const rows=sorted.slice((safe-1)*analysisPageSize,safe*analysisPageSize); return <>
                 {filtered.length === 0 ? (
@@ -3627,13 +4289,13 @@ export default function App() {
                       <thead>
                         <tr>
                           <th style={styles.th}>Sélection</th>
-                          {analysisShowCode && <th style={styles.th}>Référence</th>}
-                          <th style={styles.th}>Désignation</th>
-                          <th style={styles.th}>Dernière quantité CSV</th>
-                          <th style={styles.th}>Baisse moyenne / jour</th>
-                          <th style={styles.th}>Jours restants estimés</th>
-                          <th style={styles.th}>Quantité à commander</th>
-                          <th style={styles.th}>Date du dernier relevé</th>
+                          {analysisShowCode && <th style={styles.th}><button onClick={()=>{setAnalysisSortDirection(analysisSortKey==='product_ref'&&analysisSortDirection==='asc'?'desc':'asc');setAnalysisSortKey('product_ref');setAnalysisPage(1);}}>Référence {analysisSortKey==='product_ref'?(analysisSortDirection==='asc'?'▲':'▼'):''}</button></th>}
+                          <th style={styles.th}><button onClick={()=>{setAnalysisSortDirection(analysisSortKey==='name'&&analysisSortDirection==='asc'?'desc':'asc');setAnalysisSortKey('name');setAnalysisPage(1);}}>Désignation {analysisSortKey==='name'?(analysisSortDirection==='asc'?'▲':'▼'):''}</button></th>
+                          <th style={styles.th}><button onClick={()=>{setAnalysisSortDirection(analysisSortKey==='current_quantity'&&analysisSortDirection==='asc'?'desc':'asc');setAnalysisSortKey('current_quantity');setAnalysisPage(1);}}>Dernière quantité CSV {analysisSortKey==='current_quantity'?(analysisSortDirection==='asc'?'▲':'▼'):''}</button></th>
+                          <th style={styles.th}><button onClick={()=>{setAnalysisSortDirection(analysisSortKey==='average_daily_decrease'&&analysisSortDirection==='asc'?'desc':'asc');setAnalysisSortKey('average_daily_decrease');setAnalysisPage(1);}}>Baisse moyenne / jour {analysisSortKey==='average_daily_decrease'?(analysisSortDirection==='asc'?'▲':'▼'):''}</button></th>
+                          <th style={styles.th}><button onClick={()=>{setAnalysisSortDirection(analysisSortKey==='days_remaining'&&analysisSortDirection==='asc'?'desc':'asc');setAnalysisSortKey('days_remaining');setAnalysisPage(1);}}>Jours restants estimés {analysisSortKey==='days_remaining'?(analysisSortDirection==='asc'?'▲':'▼'):''}</button></th>
+                          <th style={styles.th}><button onClick={()=>{setAnalysisSortDirection(analysisSortKey==='suggested_order_quantity'&&analysisSortDirection==='asc'?'desc':'asc');setAnalysisSortKey('suggested_order_quantity');setAnalysisPage(1);}}>Quantité à commander {analysisSortKey==='suggested_order_quantity'?(analysisSortDirection==='asc'?'▲':'▼'):''}</button></th>
+                          <th style={styles.th}><button onClick={()=>{setAnalysisSortDirection(analysisSortKey==='last_snapshot_date'&&analysisSortDirection==='asc'?'desc':'asc');setAnalysisSortKey('last_snapshot_date');setAnalysisPage(1);}}>Date du dernier relevé {analysisSortKey==='last_snapshot_date'?(analysisSortDirection==='asc'?'▲':'▼'):''}</button></th>
                         </tr>
                       </thead>
                       <tbody>
@@ -3698,66 +4360,43 @@ export default function App() {
                     Comparaison du dernier PDF importé avec le PDF de référence
                     selon la période choisie. Seuls les produits dont la quantité a baissé sont affichés.
                   </p>
-                  <div className="ls-toolbar" style={{flexWrap:'wrap'}}>
+                  <div className="ls-toolbar" style={{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap'}}>
                     <label className="ls-muted">Comparer avec le PDF d’il y a (jours)
-                      <input
-                        type="number"
-                        min="1"
-                        max="3650"
-                        step="1"
-                        value={decreaseDays}
+                      <input type="number" min="1" max="3650" step="1" value={decreaseDays}
                         onChange={(event)=>{setDecreaseDays(Math.max(1, Math.min(3650, Number(event.target.value) || 1)));setDecreasePage(1);}}
-                        style={{...styles.field, width: 90, marginLeft: 6}}
-                      />
+                        style={{...styles.field,width:90,marginLeft:6}} />
                     </label>
-                    <ClearableSearchInput className="ls-search" style={styles.field} value={decreaseSearch} onChange={(event)=>{setDecreaseSearch(event.target.value);setDecreasePage(1);}} placeholder="Rechercher référence ou désignation…" />
-                    <label className="ls-muted"><input type="checkbox" checked={decreaseShowCode} onChange={(event)=>setDecreaseShowCode(event.target.checked)} /> Afficher référence</label>
-                    <label className="ls-muted">Lignes par page <select style={styles.field} value={decreasePageSize} onChange={(event)=>{setDecreasePageSize(Number(event.target.value));setDecreasePage(1);}}>{[10,20,100].map(n=><option key={n} value={n}>{n}</option>)}</select></label>
-                    <label className="ls-muted">Trier par <select style={styles.field} value={decreaseSortKey} onChange={(event)=>{setDecreaseSortKey(event.target.value);setDecreasePage(1);}}><option value="product_name">Désignation</option><option value="product_ref">Référence</option><option value="previous_quantity">Quantité précédente</option><option value="current_quantity">Quantité actuelle</option><option value="quantity_decreased">Baisse de quantité</option><option value="previous_date">Date précédente</option><option value="latest_snapshot_date">Dernière date</option><option value="days_between">Jours entre les fichiers</option></select></label>
-                    <button style={styles.secondary} onClick={()=>setDecreaseSortDirection(d=>d==='asc'?'desc':'asc')}>{decreaseSortDirection==='asc'?'Croissant ▲':'Décroissant ▼'}</button>
-                    <button
-                      style={styles.secondary}
-                      onClick={loadStockDecreaseAnalysis}
-                      disabled={stockDecreaseLoading}
-                    >
-                      {stockDecreaseLoading
-                        ? 'Actualisation…'
-                        : 'Actualiser les baisses PDF'}
+                    <button style={{...styles.secondary,padding:'6px 11px',fontSize:12}} onClick={loadStockDecreaseAnalysis} disabled={stockDecreaseLoading}>
+                      {stockDecreaseLoading ? 'Actualisation…' : 'Actualiser'}
                     </button>
-                    <button
-                      style={styles.secondary}
-                      onClick={async () => {
-                        const names = stockDecreaseProducts
-                          .filter((product) => selectedStockDecrease.includes(product.product_id))
-                          .map((product) => product.product_name)
-                          .filter(Boolean);
-                        if (!names.length) {
-                          window.alert('Sélectionnez au moins un produit.');
-                          return;
-                        }
-                        const textToCopy = names.join('\n');
-                        try {
-                          await navigator.clipboard.writeText(textToCopy);
-                          window.alert(`${names.length} désignation(s) copiée(s).`);
-                        } catch (error) {
-                          window.prompt('Copiez les désignations :', textToCopy);
-                        }
-                      }}
-                    >
-                      Copier la sélection ({selectedStockDecrease.length})
-                    </button>
-                    <button
-                      style={styles.secondary}
-                      onClick={() => setSelectedStockDecrease([])}
-                    >
-                      Désélectionner tout
-                    </button>
+                    <button style={{...styles.button,padding:'6px 11px',fontSize:12}} onClick={hideSelectedStockDecrease}>Masquer</button>
+                    <button style={{...styles.secondary,padding:'6px 11px',fontSize:12}} onClick={async () => {
+                      const names = stockDecreaseProducts
+                        .filter((product) => selectedStockDecrease.includes(product.product_id))
+                        .map((product) => product.product_name).filter(Boolean);
+                      if (!names.length) { window.alert('Sélectionnez au moins un produit.'); return; }
+                      const textToCopy = names.join('\n');
+                      try { await navigator.clipboard.writeText(textToCopy); window.alert(`${names.length} désignation(s) copiée(s).`); }
+                      catch (error) { window.prompt('Copiez les désignations :', textToCopy); }
+                    }}>Copier ({selectedStockDecrease.length})</button>
+                    <button style={{...styles.secondary,padding:'6px 11px',fontSize:12}} onClick={() => setSelectedStockDecrease([])}>Désélectionner</button>
+                    <label className="ls-muted" style={{display:'flex',alignItems:'center',gap:6,marginLeft:6}}>
+                      <input type="checkbox" checked={decreaseShowCode} onChange={(event)=>setDecreaseShowCode(event.target.checked)} />
+                      Afficher référence
+                    </label>
+                    <label className="ls-muted" style={{display:'flex',alignItems:'center',gap:6}}>
+                      Lignes par page
+                      <select style={{...styles.field,width:'auto'}} value={decreasePageSize} onChange={(event)=>{setDecreasePageSize(Number(event.target.value));setDecreasePage(1);}}>
+                        {[10,20,100].map(n=><option key={n} value={n}>{n}</option>)}
+                      </select>
+                    </label>
                     <span className="ls-muted">
                       {stockDecreaseProducts.length} produit(s) en baisse
-                      {stockDecreaseProducts.length > 0
-                        ? ` — période : ${stockDecreaseProducts[0].previous_date} → ${stockDecreaseProducts[0].latest_snapshot_date} (${stockDecreaseProducts[0].days_between} jour(s))`
-                        : ''}
+                      {stockDecreaseProducts.length > 0 ? ` — période : ${stockDecreaseProducts[0].previous_date} → ${stockDecreaseProducts[0].latest_snapshot_date} (${stockDecreaseProducts[0].days_between} jour(s))` : ''}
                     </span>
+                  </div>
+                  <div className="ls-toolbar" style={{flexWrap:'wrap'}}>
+                    <ClearableSearchInput className="ls-search" style={styles.field} value={decreaseSearch} onChange={(event)=>{setDecreaseSearch(event.target.value);setDecreasePage(1);}} placeholder="Rechercher référence ou désignation…" />
                   </div>
 
                   {stockDecreaseLoading ? (
@@ -3774,14 +4413,14 @@ export default function App() {
                         <thead>
                           <tr>
                             <th style={styles.th}>Sélection</th>
-                            {decreaseShowCode && <th style={styles.th}>Référence</th>}
-                            <th style={styles.th}>Désignation</th>
-                            <th style={styles.th}>Quantité précédente</th>
-                            <th style={styles.th}>Quantité actuelle</th>
-                            <th style={styles.th}>Baisse de quantité</th>
-                            <th style={styles.th}>Date précédente</th>
-                            <th style={styles.th}>Dernière date</th>
-                            <th style={styles.th}>Jours entre les fichiers</th>
+                            {decreaseShowCode && <th style={styles.th}><button onClick={()=>{setDecreaseSortDirection(decreaseSortKey==='product_ref'&&decreaseSortDirection==='asc'?'desc':'asc');setDecreaseSortKey('product_ref');setDecreasePage(1);}}>Référence {decreaseSortKey==='product_ref'?(decreaseSortDirection==='asc'?'▲':'▼'):''}</button></th>}
+                            <th style={styles.th}><button onClick={()=>{setDecreaseSortDirection(decreaseSortKey==='product_name'&&decreaseSortDirection==='asc'?'desc':'asc');setDecreaseSortKey('product_name');setDecreasePage(1);}}>Désignation {decreaseSortKey==='product_name'?(decreaseSortDirection==='asc'?'▲':'▼'):''}</button></th>
+                            <th style={styles.th}><button onClick={()=>{setDecreaseSortDirection(decreaseSortKey==='previous_quantity'&&decreaseSortDirection==='asc'?'desc':'asc');setDecreaseSortKey('previous_quantity');setDecreasePage(1);}}>Quantité précédente {decreaseSortKey==='previous_quantity'?(decreaseSortDirection==='asc'?'▲':'▼'):''}</button></th>
+                            <th style={styles.th}><button onClick={()=>{setDecreaseSortDirection(decreaseSortKey==='current_quantity'&&decreaseSortDirection==='asc'?'desc':'asc');setDecreaseSortKey('current_quantity');setDecreasePage(1);}}>Quantité actuelle {decreaseSortKey==='current_quantity'?(decreaseSortDirection==='asc'?'▲':'▼'):''}</button></th>
+                            <th style={styles.th}><button onClick={()=>{setDecreaseSortDirection(decreaseSortKey==='quantity_decreased'&&decreaseSortDirection==='asc'?'desc':'asc');setDecreaseSortKey('quantity_decreased');setDecreasePage(1);}}>Baisse de quantité {decreaseSortKey==='quantity_decreased'?(decreaseSortDirection==='asc'?'▲':'▼'):''}</button></th>
+                            <th style={styles.th}><button onClick={()=>{setDecreaseSortDirection(decreaseSortKey==='previous_date'&&decreaseSortDirection==='asc'?'desc':'asc');setDecreaseSortKey('previous_date');setDecreasePage(1);}}>Date précédente {decreaseSortKey==='previous_date'?(decreaseSortDirection==='asc'?'▲':'▼'):''}</button></th>
+                            <th style={styles.th}><button onClick={()=>{setDecreaseSortDirection(decreaseSortKey==='latest_snapshot_date'&&decreaseSortDirection==='asc'?'desc':'asc');setDecreaseSortKey('latest_snapshot_date');setDecreasePage(1);}}>Dernière date {decreaseSortKey==='latest_snapshot_date'?(decreaseSortDirection==='asc'?'▲':'▼'):''}</button></th>
+                            <th style={styles.th}><button onClick={()=>{setDecreaseSortDirection(decreaseSortKey==='days_between'&&decreaseSortDirection==='asc'?'desc':'asc');setDecreaseSortKey('days_between');setDecreasePage(1);}}>Jours entre les fichiers {decreaseSortKey==='days_between'?(decreaseSortDirection==='asc'?'▲':'▼'):''}</button></th>
                           </tr>
                         </thead>
                         <tbody>
@@ -3921,17 +4560,17 @@ export default function App() {
                 <label style={{display:'block',fontWeight:700,marginBottom:6}}>Nom du client</label>
                 <input style={styles.field} value={salesCustomer} onChange={(e)=>setSalesCustomer(e.target.value)} placeholder="Nom du client" />
                 <div style={{marginTop:14}}>
-                  <ClearableSearchInput style={styles.field} value={salesSearch} onChange={(e)=>setSalesSearch(e.target.value)} onKeyDown={(e)=>{if(e.key==='Enter'){e.preventDefault();const first=products.find(p=>productMatchesSearch(p,salesSearch));if(first)addSalesLine(first.id);}}} placeholder="Rechercher par désignation ou référence… (Entrée pour ajouter le premier résultat)" />
+                  <ClearableSearchInput style={styles.field} value={salesSearch} onChange={(e)=>setSalesSearch(e.target.value)} onKeyDown={(e)=>{if(e.key==='Enter'){e.preventDefault();const first=catalogProducts.find(p=>productMatchesSearch(p,salesSearch));if(first)addSalesLine(first);}}} placeholder="Rechercher par désignation ou référence… (Entrée pour ajouter le premier résultat)" />
                   {salesSearch.trim() && <div style={{marginTop:8,maxHeight:240,overflowY:'auto',border:'1px solid #dbe3ec',borderRadius:8}}>
-                    {products.filter(p=>productMatchesSearch(p, salesSearch)).slice(0,20).map(p=><div key={p.id} style={{display:'flex',alignItems:'center',gap:8,padding:8,borderBottom:'1px solid #edf1f5'}}>
-                      {photoFor(p.id) ? <img src={photoFor(p.id)} alt="" style={{width:42,height:42,objectFit:'cover',borderRadius:6,flexShrink:0}} /> : <div style={{width:42,height:42,background:'#f1f4f8',borderRadius:6,flexShrink:0}} />}
-                      <div style={{flex:1,minWidth:0}}><div style={{fontWeight:700}}>{p.name}</div><div className="ls-muted">{p.product_ref || ''} · Gros : {Number(p.wholesale_price||0).toFixed(2)} DA</div></div>
-                      <button style={styles.button} onClick={()=>addSalesLine(p.id)}>Ajouter</button>
+                    {catalogProducts.filter(p=>productMatchesSearch(p, salesSearch)).slice(0,20).map(p=><div key={`${p.catalog_source}:${p.id}`} style={{display:'flex',alignItems:'center',gap:8,padding:8,borderBottom:'1px solid #edf1f5'}}>
+                      {p.catalog_source !== 'tapis_products' && photoFor(p.id) ? <img src={photoFor(p.id)} alt="" style={{width:42,height:42,objectFit:'cover',borderRadius:6,flexShrink:0}} /> : <div style={{width:42,height:42,background:'#f1f4f8',borderRadius:6,flexShrink:0}} />}
+                      <div style={{flex:1,minWidth:0}}><div style={{fontWeight:700}}>{p.name}{p.catalog_source === 'tapis_products' ? <small style={{marginInlineStart:7,color:'#64748b'}}>Tapis</small> : null}</div><div className="ls-muted">{p.product_ref || ''} · Gros : {Number(p.wholesale_price||0).toFixed(2)} DA</div></div>
+                      <button style={styles.button} onClick={()=>addSalesLine(p)}>Ajouter</button>
                     </div>)}
-                    {!products.some(p=>productMatchesSearch(p, salesSearch)) && <p style={{padding:10}} className="ls-muted">Aucun produit trouvé.</p>}
+                    {!catalogProducts.some(p=>productMatchesSearch(p, salesSearch)) && <p style={{padding:10}} className="ls-muted">Aucun produit trouvé.</p>}
                   </div>}
                 </div>
-                {salesLines.length > 0 ? <div className="ls-table-wrap ls-force-table" style={{marginTop:16}}><table className="ls-table"><thead><tr><th style={styles.th}>Désignation</th><th style={styles.th}>Quantité</th><th style={styles.th}>Prix de gros</th><th style={styles.th}>Total</th><th style={styles.th}>Action</th></tr></thead><tbody>{salesLines.map(line=><tr key={line.id}><td style={styles.td}><div style={{display:'flex',alignItems:'center',gap:8}}>{photoFor(line.id) ? <img src={photoFor(line.id)} alt="" style={{width:38,height:38,objectFit:'cover',borderRadius:6,flexShrink:0}} /> : null}<span>{line.name}</span></div></td><td style={styles.td}><input type="number" min="0.01" step="any" style={{...styles.field,width:100}} value={line.quantity} onChange={(e)=>setSalesLines(cur=>cur.map(x=>x.id===line.id?{...x,quantity:Math.max(0,Number(e.target.value)||0)}:x))}/></td><td style={styles.td}>{Number(line.wholesale_price||0).toFixed(2)} DA</td><td style={styles.td}>{(Number(line.quantity||0)*Number(line.wholesale_price||0)).toFixed(2)} DA</td><td style={styles.td}><button style={styles.secondary} onClick={()=>setSalesLines(cur=>cur.filter(x=>x.id!==line.id))}>Retirer</button></td></tr>)}</tbody></table></div> : <p className="ls-muted">Aucun produit ajouté.</p>}
+                {salesLines.length > 0 ? <div className="ls-table-wrap ls-force-table" style={{marginTop:16}}><table className="ls-table"><thead><tr><th style={styles.th}>Désignation</th><th style={styles.th}>Quantité</th><th style={styles.th}>Prix de gros</th><th style={styles.th}>Total</th><th style={styles.th}>Action</th></tr></thead><tbody>{salesLines.map(line=><tr key={`${line.catalog_source}:${line.id}`}><td style={styles.td}><div style={{display:'flex',alignItems:'center',gap:8}}>{line.catalog_source !== 'tapis_products' && photoFor(line.id) ? <img src={photoFor(line.id)} alt="" style={{width:38,height:38,objectFit:'cover',borderRadius:6,flexShrink:0}} /> : null}<span>{line.name}{line.catalog_source === 'tapis_products' ? <small style={{marginInlineStart:7,color:'#64748b'}}>Tapis</small> : null}</span></div></td><td style={styles.td}><input type="number" min="0.01" step="any" style={{...styles.field,width:100}} value={line.quantity} onChange={(e)=>setSalesLines(cur=>cur.map(x=>x.id===line.id && x.catalog_source===line.catalog_source?{...x,quantity:Math.max(0,Number(e.target.value)||0)}:x))}/></td><td style={styles.td}>{Number(line.wholesale_price||0).toFixed(2)} DA</td><td style={styles.td}>{(Number(line.quantity||0)*Number(line.wholesale_price||0)).toFixed(2)} DA</td><td style={styles.td}><button style={styles.secondary} onClick={()=>setSalesLines(cur=>cur.filter(x=>!(x.id===line.id && x.catalog_source===line.catalog_source)))}>Retirer</button></td></tr>)}</tbody></table></div> : <p className="ls-muted">Aucun produit ajouté.</p>}
                 <h3 style={{textAlign:'right'}}>Total : {salesTotal.toFixed(2)} DA</h3>
                 <button style={styles.button} disabled={pdfBusy || salesLines.length===0} onClick={()=>makePdf('invoice','download')}>{pdfBusy?'Enregistrement…':'Enregistrer et télécharger PDF'}</button>
                 <button style={{...styles.secondary,marginLeft:8}} disabled={pdfBusy || salesLines.length===0} onClick={()=>makePdf('invoice','share')}>{pdfBusy?'Préparation…':'Enregistrer et partager PDF'}</button>
@@ -3948,20 +4587,20 @@ export default function App() {
                 <label style={{display:'block',fontWeight:700,marginBottom:6}}>Nom du document (facultatif)</label>
                 <input style={styles.field} value={labelDocumentTitle} onChange={(e)=>setLabelDocumentTitle(e.target.value)} placeholder="Ex. Étiquettes nouvelle collection" />
                 <h3 style={{marginTop:22}}>1. Ajouter des produits</h3>
-                <ClearableSearchInput style={{...styles.field,marginTop:4}} value={labelSearch} onChange={(e)=>setLabelSearch(e.target.value)} onKeyDown={(e)=>{if(e.key==='Enter'){e.preventDefault();const first=products.find(p=>productMatchesSearch(p,labelSearch));if(first)addLabelLine(first);}}} placeholder="Rechercher par désignation ou référence… (Entrée pour ajouter le premier résultat)" />
+                <ClearableSearchInput style={{...styles.field,marginTop:4}} value={labelSearch} onChange={(e)=>setLabelSearch(e.target.value)} onKeyDown={(e)=>{if(e.key==='Enter'){e.preventDefault();const first=catalogProducts.find(p=>productMatchesSearch(p,labelSearch));if(first)addLabelLine(first);}}} placeholder="Rechercher par désignation ou référence… (Entrée pour ajouter le premier résultat)" />
                 {labelSearch.trim() && (
                   <div className="ls-table-wrap" style={{marginTop:10}}>
                     <table className="ls-table">
                       <thead><tr><th style={styles.th}>Désignation</th><th style={styles.th}>Prix détail</th><th style={styles.th}>Action</th></tr></thead>
                       <tbody>
-                        {products.filter(p=>productMatchesSearch(p, labelSearch)).slice(0,30).map(p=>(
-                          <tr key={p.id}>
-                            <td style={styles.td}><strong>{p.name}</strong><div className="ls-muted">{p.product_ref}</div></td>
+                        {catalogProducts.filter(p=>productMatchesSearch(p, labelSearch)).slice(0,30).map(p=>(
+                          <tr key={`${p.catalog_source}:${p.id}`}>
+                            <td style={styles.td}><strong>{p.name}{p.catalog_source === 'tapis_products' ? <small style={{marginInlineStart:7,color:'#64748b'}}>Tapis</small> : null}</strong><div className="ls-muted">{p.product_ref}</div></td>
                             <td style={styles.td}>{Number(p.retail_price||0).toFixed(2)} DA</td>
                             <td style={styles.td}><button type="button" style={styles.button} onClick={()=>addLabelLine(p)}>Ajouter</button></td>
                           </tr>
                         ))}
-                        {products.filter(p=>productMatchesSearch(p, labelSearch)).length===0 && <tr><td style={styles.td} colSpan={3}>Aucun produit trouvé.</td></tr>}
+                        {catalogProducts.filter(p=>productMatchesSearch(p, labelSearch)).length===0 && <tr><td style={styles.td} colSpan={3}>Aucun produit trouvé.</td></tr>}
                       </tbody>
                     </table>
                   </div>
@@ -3972,11 +4611,11 @@ export default function App() {
                     <table className="ls-table">
                       <thead><tr><th style={styles.th}>Désignation</th><th style={styles.th}>Prix détail</th><th style={styles.th}>Nombre d’étiquettes</th><th style={styles.th}>Action</th></tr></thead>
                       <tbody>{labelLines.map(line=>(
-                        <tr key={line.id}>
-                          <td style={styles.td}><strong>{line.name}</strong><div className="ls-muted">{line.product_ref}</div></td>
+                        <tr key={`${line.catalog_source}:${line.id}`}>
+                          <td style={styles.td}><strong>{line.name}{line.catalog_source === 'tapis_products' ? <small style={{marginInlineStart:7,color:'#64748b'}}>Tapis</small> : null}</strong><div className="ls-muted">{line.product_ref}</div></td>
                           <td style={styles.td}>{Number(line.retail_price||0).toFixed(2)} DA</td>
-                          <td style={styles.td}><input aria-label={'Nombre d’étiquettes pour '+line.name} type="number" min="1" max="500" step="1" style={{...styles.field,width:120}} value={line.quantity} onChange={(e)=>updateLabelLineQuantity(line.id,e.target.value)} /></td>
-                          <td style={styles.td}><button type="button" style={styles.secondary} onClick={()=>setLabelLines(current=>current.filter(item=>String(item.id)!==String(line.id)))}>Retirer</button></td>
+                          <td style={styles.td}><input aria-label={'Nombre d’étiquettes pour '+line.name} type="number" min="1" max="500" step="1" style={{...styles.field,width:120}} value={line.quantity} onChange={(e)=>updateLabelLineQuantity(line,e.target.value)} /></td>
+                          <td style={styles.td}><button type="button" style={styles.secondary} onClick={()=>setLabelLines(current=>current.filter(item=>!(String(item.id)===String(line.id) && item.catalog_source===line.catalog_source)))}>Retirer</button></td>
                         </tr>
                       ))}</tbody>
                     </table>
