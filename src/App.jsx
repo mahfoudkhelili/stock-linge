@@ -3111,7 +3111,6 @@ export default function App() {
                       )}
                     </section>
                     )}
-                )}
                 {negativeProducts.filter((product)=>matchesTableSearch(tableSearch, product.name, product.product_ref)).length > 0 && (
                   <section className="ls-panel">
                     <div className="ls-alert">
