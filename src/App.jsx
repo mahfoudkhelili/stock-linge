@@ -2236,6 +2236,10 @@ export default function App() {
       );
     });
 
+  const negativeTapisProducts = (catalogProducts || [])
+    .filter((product) => product.catalog_source === 'tapis_products' && Number(product.current_quantity) < 0)
+    .sort((a, b) => String(a.product_ref || '').localeCompare(String(b.product_ref || ''), 'fr', { numeric: true }));
+
   const activeRequests = replenishmentRequests.filter(
     (request) => !request.archived_at
   );
@@ -2814,7 +2818,9 @@ export default function App() {
                         <div className="ls-muted" style={{ marginTop: 6 }}>Date : <strong>{displayImportDate(latestImportRecord(lastImportBatch, lastLingePdfImport))}</strong></div>
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 14 }}>
                           <button type="button" style={styles.button} onClick={() => document.getElementById('linge-csv-upload')?.click()}>Importer CSV</button>
+                          <input id="linge-csv-upload" type="file" accept=".csv,text/csv" onChange={handleCsvFile} style={{display:'none'}} />
                           <button type="button" style={styles.secondary} onClick={() => document.getElementById('linge-pdf-upload')?.click()}>Importer PDF</button>
+                          <input id="linge-pdf-upload" type="file" accept=".pdf,application/pdf" onChange={handlePdfFile} style={{display:'none'}} />
                         </div>
                       </div>
                       <div style={{ border: '1px solid #dbe3ec', borderRadius: 14, padding: 16, background: '#f8fafc' }}>
@@ -2823,7 +2829,9 @@ export default function App() {
                         <div className="ls-muted" style={{ marginTop: 6 }}>Date : <strong>{displayImportDate(latestImportRecord(lastTapisImportBatch, lastTapisPdfImport))}</strong></div>
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 14 }}>
                           <button type="button" style={styles.button} onClick={() => document.getElementById('tapis-csv-upload')?.click()}>Importer CSV</button>
+                          <input id="tapis-csv-upload" type="file" accept=".csv,text/csv" onChange={handleTapisCsvFile} style={{display:'none'}} />
                           <button type="button" style={styles.secondary} onClick={() => document.getElementById('tapis-pdf-upload')?.click()}>Importer PDF</button>
+                          <input id="tapis-pdf-upload" type="file" accept=".pdf,application/pdf" onChange={handleTapisPdfFile} style={{display:'none'}} />
                         </div>
                       </div>
                     </div>
@@ -2962,19 +2970,7 @@ export default function App() {
                 )}
                 {isAdmin && (
                   <section className="ls-panel">
-                    <h2 style={{ marginTop: 0 }}>
-                      Importer un fichier CSV
-                    </h2>
-                    <p className="ls-muted">
-                      CSV : met à jour les prix et l’historique uniquement. Le stock actuel provient exclusivement du PDF magasin. Les quantités négatives sont conservées.
-                    </p>
-                    <input
-                      style={styles.field}
-                      type="file"
-                      accept=".csv,text/csv"
-                      id="linge-csv-upload"
-                      onChange={handleCsvFile}
-                    />
+                    {null}
                     {csvFileName && (
                       <p>
                         <strong>Fichier :</strong> {csvFileName}
@@ -3031,12 +3027,7 @@ export default function App() {
                 )}
                     {isAdmin && (
                       <section className="ls-panel" style={{ marginTop: 18 }}>
-                        <h2 style={{ marginTop: 0 }}>Importer un fichier CSV Tapis</h2>
-                        <p className="ls-muted">
-                          CSV Tapis indépendant de Linge : met à jour les prix et l’historique mensuel Tapis uniquement.
-                          Le stock actuel Tapis provient exclusivement du PDF magasin et ne sera pas modifié.
-                        </p>
-                        <input id="tapis-csv-upload" style={styles.field} type="file" accept=".csv,text/csv" onChange={handleTapisCsvFile} />
+                        {null}
                         {tapisCsvFileName && <p><strong>Fichier Tapis :</strong> {tapisCsvFileName}</p>}
                         {tapisCsvPreview.length > 0 && <>
                           <p><strong>{tapisCsvPreview.length} lignes détectées.</strong> Aperçu des 5 premières lignes :</p>
@@ -3062,9 +3053,7 @@ export default function App() {
                       </section>
                     )}
                     <div style={{ marginTop: 18, paddingTop: 16, borderTop: '1px solid #d7dee7' }}>
-                      <h3>Importer le stock actuel depuis un PDF</h3>
-                      <p className="ls-muted">Le PDF du magasin principal met à jour les quantités actuelles : les produits absents du PDF passent à zéro. Les prix et l’historique CSV restent inchangés. L’aperçu affiche au maximum 10 produits à la fois.</p>
-                      <input id="linge-pdf-upload" style={styles.field} type="file" accept=".pdf,application/pdf" onChange={handlePdfFile} />
+                      {null}
                       {pdfFileName && <p><strong>Fichier PDF :</strong> {pdfFileName}</p>}
                       {pdfPreview.length > 0 && <>
                         <p><strong>{pdfPreview.length} lignes reconnues.</strong> Recherchez une référence ou une désignation pour vérifier la quantité avant confirmation.</p>
@@ -3104,19 +3093,7 @@ export default function App() {
                       {!pdfPreview.length && pdfFileName && <p className="ls-muted">Le bouton de confirmation s’activera après la lecture correcte des lignes du PDF.</p>}
                     </div>
                     <section className="ls-panel" style={{ marginTop: 18 }}>
-                      <h2 style={{ marginTop: 0 }}>Importer le stock actuel Tapis depuis un PDF</h2>
-                      <p className="ls-muted">
-                        Cet import est indépendant de Linge. Il crée les produits Tapis manquants, actualise leurs noms et quantités,
-                        puis archive le stock PDF dans les tables Tapis. Les prix et l’historique mensuel restent inchangés.
-                        Les produits absents du PDF passent à zéro.
-                      </p>
-                      <input
-                        style={styles.field}
-                        type="file"
-                        accept=".pdf,application/pdf"
-                        id="tapis-pdf-upload"
-                        onChange={handleTapisPdfFile}
-                      />
+                      {null}
                       {tapisPdfFileName && <p><strong>Fichier Tapis :</strong> {tapisPdfFileName}</p>}
                       {tapisPdfPreview.length > 0 && <>
                         <p><strong>{tapisPdfPreview.length} références reconnues.</strong> Vérifiez le code, la désignation et la quantité avant confirmation.</p>
@@ -3225,6 +3202,35 @@ export default function App() {
                     >
                       Afficher tous les produits
                     </button>
+                  </section>
+                )}
+                {negativeTapisProducts.filter((product)=>matchesTableSearch(tableSearch, product.name, product.product_ref)).length > 0 && (
+                  <section className="ls-panel" style={{ marginTop: 16 }}>
+                    <div className="ls-alert">
+                      ⚠️ {negativeTapisProducts.length} produit(s) Tapis ont une quantité négative. Les quantités sont conservées telles qu’importées et doivent être vérifiées.
+                    </div>
+                    <div className="ls-table-wrap ls-force-table">
+                      <table className="ls-table">
+                        <thead><tr>
+                          <th style={styles.th}>Référence</th>
+                          <th style={styles.th}>Désignation</th>
+                          <th style={styles.th}>Quantité</th>
+                          <th style={styles.th}>Prix de gros</th>
+                          <th style={styles.th}>Prix de détail</th>
+                        </tr></thead>
+                        <tbody>
+                          {negativeTapisProducts.filter((product)=>matchesTableSearch(tableSearch, product.name, product.product_ref)).map((product) => (
+                            <tr key={product.id}>
+                              <td style={styles.td}>{product.product_ref}</td>
+                              <td style={styles.td}>{product.name}</td>
+                              <td style={{...styles.td,color:'#b42318',fontWeight:800}}>{product.current_quantity}</td>
+                              <td style={styles.td}>{product.wholesale_price ?? '—'} DA</td>
+                              <td style={styles.td}>{product.retail_price ?? '—'} DA</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
                   </section>
                 )}
               </>
