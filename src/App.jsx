@@ -2831,9 +2831,6 @@ export default function App() {
                   </section>
                 )}
                 {isAdmin && (
-                  <section                  </section>
-                )}
-                {isAdmin && (
                   <section
                     className="ls-panel"
                     style={{
