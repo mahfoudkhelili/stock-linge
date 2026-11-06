@@ -3076,7 +3076,7 @@ export default function App() {
                           return <>
                             <p>Affichage de {visibleRows.length} produit(s) sur {filteredRows.length} résultat(s) filtré(s), parmi {pdfPreview.length} références reconnues. L’aperçu est limité à 10 produits.</p>
                             <div className="ls-table-wrap"><table className="ls-table">
-                              <thead><tr><th style={styles.th}>Référence</th><th style={styles.th}><button style={tableSortButtonStyle} onClick={()=>{setTapisAnalysisSortKey('name');tapisAnalysisSortDirection(d=>tapisAnalysisSortKey==='name'?(d==='asc'?'desc':'asc'):'asc');tapisAnalysisSortPage(1);}}>Désignation {tapisAnalysisSortKey==='name'?(tapisAnalysisSortDirection==='asc'?'▲':'▼'):''}</button></th><th style={styles.th}>Quantité PDF</th></tr></thead>
+                              <thead><tr><th style={styles.th}>Référence</th><th style={styles.th}>Désignation</th><th style={styles.th}>Quantité PDF</th></tr></thead>
                               <tbody>{visibleRows.map((row, index) => <tr key={row.product_ref + index}><td style={styles.td}>{row.product_ref}</td><td style={styles.td}>{row.name}</td><td style={{...styles.td, color: Number(row.quantity) < 0 ? '#b42318' : undefined}}>{row.quantity}</td></tr>)}</tbody>
                             </table></div>
                             {filteredRows.length === 0 && <p className="ls-muted">Aucun résultat. Vérifiez l’orthographe ou la référence.</p>}
@@ -3122,7 +3122,7 @@ export default function App() {
                               <table className="ls-table">
                                 <thead><tr>
                                   <th style={styles.th}>Référence</th>
-                                  <th style={styles.th}><button style={tableSortButtonStyle} onClick={()=>{setTapisDecreaseSortKey('product_name');tapisDecreaseSortDirection(d=>tapisDecreaseSortKey==='product_name'?(d==='asc'?'desc':'asc'):'asc');tapisDecreaseSortPage(1);}}>Désignation {tapisDecreaseSortKey==='product_name'?(tapisDecreaseSortDirection==='asc'?'▲':'▼'):''}</button></th>
+                                  <th style={styles.th}>Désignation</th>
                                   <th style={styles.th}>Quantité PDF</th>
                                 </tr></thead>
                                 <tbody>{visibleRows.map((row, index) => (
@@ -4099,12 +4099,12 @@ export default function App() {
                         <table className="ls-table">
                           <thead><tr>
                             <th style={styles.th}>Sélection</th>
-                            {tapisAnalysisShowCode && <th style={styles.th}><button style={tableSortButtonStyle} onClick={()=>{setTapisAnalysisSortKey('product_ref');tapisAnalysisSortDirection(d=>tapisAnalysisSortKey==='product_ref'?(d==='asc'?'desc':'asc'):'asc');tapisAnalysisSortPage(1);}}>Référence {tapisAnalysisSortKey==='product_ref'?(tapisAnalysisSortDirection==='asc'?'▲':'▼'):''}</button></th>}
-                            <th style={styles.th}>Désignation</th>
-                            <th style={styles.th}><button style={tableSortButtonStyle} onClick={()=>{setTapisAnalysisSortKey('current_quantity');tapisAnalysisSortDirection(d=>tapisAnalysisSortKey==='current_quantity'?(d==='asc'?'desc':'asc'):'asc');tapisAnalysisSortPage(1);}}>Quantité PDF actuelle {tapisAnalysisSortKey==='current_quantity'?(tapisAnalysisSortDirection==='asc'?'▲':'▼'):''}</button></th>
-                            <th style={styles.th}><button style={tableSortButtonStyle} onClick={()=>{setTapisAnalysisSortKey('average_daily_decrease');tapisAnalysisSortDirection(d=>tapisAnalysisSortKey==='average_daily_decrease'?(d==='asc'?'desc':'asc'):'asc');tapisAnalysisSortPage(1);}}>Sortie moyenne / jour {tapisAnalysisSortKey==='average_daily_decrease'?(tapisAnalysisSortDirection==='asc'?'▲':'▼'):''}</button></th>
-                            <th style={styles.th}><button style={tableSortButtonStyle} onClick={()=>{setTapisAnalysisSortKey('days_remaining');tapisAnalysisSortDirection(d=>tapisAnalysisSortKey==='days_remaining'?(d==='asc'?'desc':'asc'):'asc');tapisAnalysisSortPage(1);}}>Jours restants estimés {tapisAnalysisSortKey==='days_remaining'?(tapisAnalysisSortDirection==='asc'?'▲':'▼'):''}</button></th>
-                            <th style={styles.th}><button style={tableSortButtonStyle} onClick={()=>{setTapisAnalysisSortKey('suggested_order_quantity');tapisAnalysisSortDirection(d=>tapisAnalysisSortKey==='suggested_order_quantity'?(d==='asc'?'desc':'asc'):'asc');tapisAnalysisSortPage(1);}}>Quantité à commander {tapisAnalysisSortKey==='suggested_order_quantity'?(tapisAnalysisSortDirection==='asc'?'▲':'▼'):''}</button></th>
+                            {tapisAnalysisShowCode && <th style={styles.th}><button style={tableSortButtonStyle} onClick={()=>{setTapisAnalysisSortKey('product_ref');setTapisAnalysisSortDirection(d=>tapisAnalysisSortKey==='product_ref'?(d==='asc'?'desc':'asc'):'asc');setTapisAnalysisPage(1);}}>Référence {tapisAnalysisSortKey==='product_ref'?(tapisAnalysisSortDirection==='asc'?'▲':'▼'):''}</button></th>}
+                            <th style={styles.th}><button style={tableSortButtonStyle} onClick={()=>{setTapisAnalysisSortKey('name');setTapisAnalysisSortDirection(d=>tapisAnalysisSortKey==='name'?(d==='asc'?'desc':'asc'):'asc');setTapisAnalysisPage(1);}}>Désignation {tapisAnalysisSortKey==='name'?(tapisAnalysisSortDirection==='asc'?'▲':'▼'):''}</button></th>
+                            <th style={styles.th}><button style={tableSortButtonStyle} onClick={()=>{setTapisAnalysisSortKey('current_quantity');setTapisAnalysisSortDirection(d=>tapisAnalysisSortKey==='current_quantity'?(d==='asc'?'desc':'asc'):'asc');setTapisAnalysisPage(1);}}>Quantité PDF actuelle {tapisAnalysisSortKey==='current_quantity'?(tapisAnalysisSortDirection==='asc'?'▲':'▼'):''}</button></th>
+                            <th style={styles.th}><button style={tableSortButtonStyle} onClick={()=>{setTapisAnalysisSortKey('average_daily_decrease');setTapisAnalysisSortDirection(d=>tapisAnalysisSortKey==='average_daily_decrease'?(d==='asc'?'desc':'asc'):'asc');setTapisAnalysisPage(1);}}>Sortie moyenne / jour {tapisAnalysisSortKey==='average_daily_decrease'?(tapisAnalysisSortDirection==='asc'?'▲':'▼'):''}</button></th>
+                            <th style={styles.th}><button style={tableSortButtonStyle} onClick={()=>{setTapisAnalysisSortKey('days_remaining');setTapisAnalysisSortDirection(d=>tapisAnalysisSortKey==='days_remaining'?(d==='asc'?'desc':'asc'):'asc');setTapisAnalysisPage(1);}}>Jours restants estimés {tapisAnalysisSortKey==='days_remaining'?(tapisAnalysisSortDirection==='asc'?'▲':'▼'):''}</button></th>
+                            <th style={styles.th}><button style={tableSortButtonStyle} onClick={()=>{setTapisAnalysisSortKey('suggested_order_quantity');setTapisAnalysisSortDirection(d=>tapisAnalysisSortKey==='suggested_order_quantity'?(d==='asc'?'desc':'asc'):'asc');setTapisAnalysisPage(1);}}>Quantité à commander {tapisAnalysisSortKey==='suggested_order_quantity'?(tapisAnalysisSortDirection==='asc'?'▲':'▼'):''}</button></th>
                             <th style={styles.th}>Date du dernier relevé</th>
                           </tr></thead>
                           <tbody>{rows.map(product=>(
@@ -4148,7 +4148,7 @@ export default function App() {
                   <div className="ls-toolbar" style={{flexWrap:'wrap',gap:8}}>
                     <button style={{...styles.secondary,padding:'6px 11px',fontSize:12}} onClick={loadTapisStockDecreaseAnalysis} disabled={tapisStockDecreaseLoading}>Actualiser</button>
                     <button style={{...styles.secondary,padding:'6px 11px',fontSize:12}} onClick={hideSelectedTapisStockDecrease}>Masquer</button>
-                    <button style={{...styles.secondary,padding:'6px 11px',fontSize:12}} onClick={async()=>{const names=tapisStockDecreaseProducts.filter(p=>selectedTapisStockDecrease.includes(p.product_id)).map(p=>p.product_name).filter(Boolean);if(!names.length){window.alert('Sélectionnez au moins un produit.');return;}const copied=names.join('\\n');try{await navigator.clipboard.writeText(copied);window.alert(names.length+' désignation(s) copiée(s).');}catch(error){window.prompt('Copiez les désignations :',copied);}}}>Copier ({selectedTapisStockDecrease.length})</button>
+                    <button style={{...styles.secondary,padding:'6px 11px',fontSize:12}} onClick={async()=>{const names=tapisStockDecreaseProducts.filter(p=>selectedTapisStockDecrease.includes(p.product_id)).map(p=>p.product_name).filter(Boolean);if(!names.length){window.alert('Sélectionnez au moins un produit.');return;}const copied=names.join('\n');try{await navigator.clipboard.writeText(copied);window.alert(names.length+' désignation(s) copiée(s).');}catch(error){window.prompt('Copiez les désignations :',copied);}}}>Copier ({selectedTapisStockDecrease.length})</button>
                     <button style={{...styles.secondary,padding:'6px 11px',fontSize:12}} onClick={()=>setSelectedTapisStockDecrease([])}>Désélectionner</button>
                     <label className="ls-muted"><input type="checkbox" checked={tapisDecreaseShowCode} onChange={event=>setTapisDecreaseShowCode(event.target.checked)} /> Afficher référence</label>
                     <label className="ls-muted">Lignes par page <select style={styles.field} value={tapisDecreasePageSize} onChange={event=>{setTapisDecreasePageSize(Number(event.target.value));setTapisDecreasePage(1);}}>{[10,20,100].map(n=><option key={n} value={n}>{n}</option>)}</select></label>
@@ -4156,46 +4156,6 @@ export default function App() {
                     <span className="ls-muted">{tapisStockDecreaseProducts.length} produit(s) en baisse</span>
                   </div>
                   <div className="ls-toolbar" style={{marginTop:6}}><ClearableSearchInput className="ls-search" style={styles.field} value={tapisDecreaseSearch} onChange={event=>{setTapisDecreaseSearch(event.target.value);setTapisDecreasePage(1);}} placeholder="Rechercher référence ou désignation…" /></div>
-                  {tapisStockDecreaseLoading
-                        ? 'Actualisation…'
-                        : 'Actualiser les baisses PDF Tapis'}
-                    </button>
-                    <button
-                      style={styles.secondary}
-                      onClick={async () => {
-                        const names = tapisStockDecreaseProducts
-                          .filter((product) => selectedTapisStockDecrease.includes(product.product_id))
-                          .map((product) => product.product_name)
-                          .filter(Boolean);
-                        if (!names.length) {
-                          window.alert('Sélectionnez au moins un produit.');
-                          return;
-                        }
-                        const textToCopy = names.join('\n');
-                        try {
-                          await navigator.clipboard.writeText(textToCopy);
-                          window.alert(`${names.length} désignation(s) copiée(s).`);
-                        } catch (error) {
-                          window.prompt('Copiez les désignations :', textToCopy);
-                        }
-                      }}
-                    >
-                      Copier la sélection ({selectedTapisStockDecrease.length})
-                    </button>
-                    <button
-                      style={styles.secondary}
-                      onClick={() => setSelectedTapisStockDecrease([])}
-                    >
-                      Désélectionner tout
-                    </button>
-                    <span className="ls-muted">
-                      {tapisStockDecreaseProducts.length} produit(s) en baisse
-                      {tapisStockDecreaseProducts.length > 0
-                        ? ` — période : ${tapisStockDecreaseProducts[0].previous_date} → ${tapisStockDecreaseProducts[0].latest_snapshot_date} (${tapisStockDecreaseProducts[0].days_between} jour(s))`
-                        : ''}
-                    </span>
-                  </div>
-
                   {tapisStockDecreaseLoading ? (
                     <p>Chargement de l’analyse des baisses Tapis…</p>
                   ) : tapisStockDecreaseProducts.length === 0 ? (
@@ -4210,14 +4170,14 @@ export default function App() {
                         <thead>
                           <tr>
                             <th style={styles.th}>Sélection</th>
-                            {tapisDecreaseShowCode && <th style={styles.th}><button style={tableSortButtonStyle} onClick={()=>{setTapisDecreaseSortKey('product_ref');tapisDecreaseSortDirection(d=>tapisDecreaseSortKey==='product_ref'?(d==='asc'?'desc':'asc'):'asc');tapisDecreaseSortPage(1);}}>Référence {tapisDecreaseSortKey==='product_ref'?(tapisDecreaseSortDirection==='asc'?'▲':'▼'):''}</button></th>}
-                            <th style={styles.th}>Désignation</th>
-                            <th style={styles.th}><button style={tableSortButtonStyle} onClick={()=>{setTapisDecreaseSortKey('previous_quantity');tapisDecreaseSortDirection(d=>tapisDecreaseSortKey==='previous_quantity'?(d==='asc'?'desc':'asc'):'asc');tapisDecreaseSortPage(1);}}>Quantité précédente {tapisDecreaseSortKey==='previous_quantity'?(tapisDecreaseSortDirection==='asc'?'▲':'▼'):''}</button></th>
-                            <th style={styles.th}><button style={tableSortButtonStyle} onClick={()=>{setTapisDecreaseSortKey('current_quantity');tapisDecreaseSortDirection(d=>tapisDecreaseSortKey==='current_quantity'?(d==='asc'?'desc':'asc'):'asc');tapisDecreaseSortPage(1);}}>Quantité actuelle {tapisDecreaseSortKey==='current_quantity'?(tapisDecreaseSortDirection==='asc'?'▲':'▼'):''}</button></th>
-                            <th style={styles.th}><button style={tableSortButtonStyle} onClick={()=>{setTapisDecreaseSortKey('quantity_decreased');tapisDecreaseSortDirection(d=>tapisDecreaseSortKey==='quantity_decreased'?(d==='asc'?'desc':'asc'):'asc');tapisDecreaseSortPage(1);}}>Baisse de quantité {tapisDecreaseSortKey==='quantity_decreased'?(tapisDecreaseSortDirection==='asc'?'▲':'▼'):''}</button></th>
-                            <th style={styles.th}><button style={tableSortButtonStyle} onClick={()=>{setTapisDecreaseSortKey('previous_date');tapisDecreaseSortDirection(d=>tapisDecreaseSortKey==='previous_date'?(d==='asc'?'desc':'asc'):'asc');tapisDecreaseSortPage(1);}}>Date précédente {tapisDecreaseSortKey==='previous_date'?(tapisDecreaseSortDirection==='asc'?'▲':'▼'):''}</button></th>
-                            <th style={styles.th}><button style={tableSortButtonStyle} onClick={()=>{setTapisDecreaseSortKey('latest_snapshot_date');tapisDecreaseSortDirection(d=>tapisDecreaseSortKey==='latest_snapshot_date'?(d==='asc'?'desc':'asc'):'asc');tapisDecreaseSortPage(1);}}>Dernière date {tapisDecreaseSortKey==='latest_snapshot_date'?(tapisDecreaseSortDirection==='asc'?'▲':'▼'):''}</button></th>
-                            <th style={styles.th}><button style={tableSortButtonStyle} onClick={()=>{setTapisDecreaseSortKey('days_between');tapisDecreaseSortDirection(d=>tapisDecreaseSortKey==='days_between'?(d==='asc'?'desc':'asc'):'asc');tapisDecreaseSortPage(1);}}>Jours entre les fichiers {tapisDecreaseSortKey==='days_between'?(tapisDecreaseSortDirection==='asc'?'▲':'▼'):''}</button></th>
+                            {tapisDecreaseShowCode && <th style={styles.th}><button style={tableSortButtonStyle} onClick={()=>{setTapisDecreaseSortKey('product_ref');setTapisDecreaseSortDirection(d=>tapisDecreaseSortKey==='product_ref'?(d==='asc'?'desc':'asc'):'asc');setTapisDecreasePage(1);}}>Référence {tapisDecreaseSortKey==='product_ref'?(tapisDecreaseSortDirection==='asc'?'▲':'▼'):''}</button></th>}
+                            <th style={styles.th}><button style={tableSortButtonStyle} onClick={()=>{setTapisDecreaseSortKey('product_name');setTapisDecreaseSortDirection(d=>tapisDecreaseSortKey==='product_name'?(d==='asc'?'desc':'asc'):'asc');setTapisDecreasePage(1);}}>Désignation {tapisDecreaseSortKey==='product_name'?(tapisDecreaseSortDirection==='asc'?'▲':'▼'):''}</button></th>
+                            <th style={styles.th}><button style={tableSortButtonStyle} onClick={()=>{setTapisDecreaseSortKey('previous_quantity');setTapisDecreaseSortDirection(d=>tapisDecreaseSortKey==='previous_quantity'?(d==='asc'?'desc':'asc'):'asc');setTapisDecreasePage(1);}}>Quantité précédente {tapisDecreaseSortKey==='previous_quantity'?(tapisDecreaseSortDirection==='asc'?'▲':'▼'):''}</button></th>
+                            <th style={styles.th}><button style={tableSortButtonStyle} onClick={()=>{setTapisDecreaseSortKey('current_quantity');setTapisDecreaseSortDirection(d=>tapisDecreaseSortKey==='current_quantity'?(d==='asc'?'desc':'asc'):'asc');setTapisDecreasePage(1);}}>Quantité actuelle {tapisDecreaseSortKey==='current_quantity'?(tapisDecreaseSortDirection==='asc'?'▲':'▼'):''}</button></th>
+                            <th style={styles.th}><button style={tableSortButtonStyle} onClick={()=>{setTapisDecreaseSortKey('quantity_decreased');setTapisDecreaseSortDirection(d=>tapisDecreaseSortKey==='quantity_decreased'?(d==='asc'?'desc':'asc'):'asc');setTapisDecreasePage(1);}}>Baisse de quantité {tapisDecreaseSortKey==='quantity_decreased'?(tapisDecreaseSortDirection==='asc'?'▲':'▼'):''}</button></th>
+                            <th style={styles.th}><button style={tableSortButtonStyle} onClick={()=>{setTapisDecreaseSortKey('previous_date');setTapisDecreaseSortDirection(d=>tapisDecreaseSortKey==='previous_date'?(d==='asc'?'desc':'asc'):'asc');setTapisDecreasePage(1);}}>Date précédente {tapisDecreaseSortKey==='previous_date'?(tapisDecreaseSortDirection==='asc'?'▲':'▼'):''}</button></th>
+                            <th style={styles.th}><button style={tableSortButtonStyle} onClick={()=>{setTapisDecreaseSortKey('latest_snapshot_date');setTapisDecreaseSortDirection(d=>tapisDecreaseSortKey==='latest_snapshot_date'?(d==='asc'?'desc':'asc'):'asc');setTapisDecreasePage(1);}}>Dernière date {tapisDecreaseSortKey==='latest_snapshot_date'?(tapisDecreaseSortDirection==='asc'?'▲':'▼'):''}</button></th>
+                            <th style={styles.th}><button style={tableSortButtonStyle} onClick={()=>{setTapisDecreaseSortKey('days_between');setTapisDecreaseSortDirection(d=>tapisDecreaseSortKey==='days_between'?(d==='asc'?'desc':'asc'):'asc');setTapisDecreasePage(1);}}>Jours entre les fichiers {tapisDecreaseSortKey==='days_between'?(tapisDecreaseSortDirection==='asc'?'▲':'▼'):''}</button></th>
                           </tr>
                         </thead>
                         <tbody>
