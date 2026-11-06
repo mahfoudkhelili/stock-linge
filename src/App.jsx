@@ -2212,7 +2212,6 @@ export default function App() {
         .ls-icon-blue{background:#e7ecf7;color:#3e6fd8}
         .ls-stat-label{font-size:14px;font-weight:650;color:#727783;margin-top:8px}
         .ls-stat-clickable strong{font-size:clamp(32px,3vw,42px);line-height:1.05;letter-spacing:-1.2px;color:#2a2f38}
-        .ls-stat-clickable strong.ls-number-alert{color:#d56e42}
         .ls-dashboard-shortcuts{margin:8px 0 24px}
         .ls-section-heading{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:0 0 15px}
         .ls-section-heading h2{margin:0;color:#2a2f38;font-size:21px}
@@ -2461,16 +2460,14 @@ export default function App() {
                   </button>
                   <button type="button" className="ls-stat ls-stat-clickable ls-stat-primary" onClick={() => navigateTo('analysis')}>
                     <span className="ls-stat-heading"><span className="ls-stat-icon"><DashboardIcon name="analysis" /></span><span className="ls-stat-label">Quantités<br />négatives</span></span>
-                    <strong className={negativeProducts.length ? 'ls-number-alert' : ''}>{negativeProducts.length}</strong>
+                    <strong>{negativeProducts.length}</strong>
                   </button>
-                  <button type="button" className="ls-stat ls-stat-clickable" onClick={() => navigateTo('requests')}>
-                    <span className="ls-stat-icon"><DashboardIcon name="requests" /></span>
-                    <span className="ls-stat-label">Nouvelles demandes</span>
+                  <button type="button" className="ls-stat ls-stat-clickable ls-stat-primary" onClick={() => navigateTo('requests')}>
+                    <span className="ls-stat-heading"><span className="ls-stat-icon"><DashboardIcon name="requests" /></span><span className="ls-stat-label">Nouvelles<br />demandes</span></span>
                     <strong>{newRequestsCount}</strong>
                   </button>
-                  <button type="button" className="ls-stat ls-stat-clickable" onClick={() => navigateTo('photos')}>
-                    <span className="ls-stat-icon"><DashboardIcon name="photos" /></span>
-                    <span className="ls-stat-label">Photos enregistrées</span>
+                  <button type="button" className="ls-stat ls-stat-clickable ls-stat-primary" onClick={() => navigateTo('photos')}>
+                    <span className="ls-stat-heading"><span className="ls-stat-icon"><DashboardIcon name="photos" /></span><span className="ls-stat-label">Photos<br />enregistrées</span></span>
                     <strong>{productPhotos.length}</strong>
                   </button>
                 </div>
