@@ -130,12 +130,12 @@ begin
     end loop;
 
     -- Rediriger aussi les noms non qualifiés de tables.
-    v_definition := regexp_replace(v_definition, '\\mmonthly_stock_history\\M', 'tapis_monthly_stock_history', 'g');
-    v_definition := regexp_replace(v_definition, '\\mproducts\\M', 'tapis_products', 'g');
-    v_definition := regexp_replace(v_definition, '\\mimport_batches\\M', 'tapis_import_batches', 'g');
-    v_definition := regexp_replace(v_definition, '\\mstock_snapshots\\M', 'tapis_stock_snapshots', 'g');
-    v_definition := regexp_replace(v_definition, '\\mpdf_stock_imports\\M', 'tapis_pdf_stock_imports', 'g');
-    v_definition := regexp_replace(v_definition, '\\mpdf_stock_snapshot_rows\\M', 'tapis_pdf_stock_snapshot_rows', 'g');
+    v_definition := regexp_replace(v_definition, '\mmonthly_stock_history\M', 'tapis_monthly_stock_history', 'g');
+    v_definition := regexp_replace(v_definition, '\mproducts\M', 'tapis_products', 'g');
+    v_definition := regexp_replace(v_definition, '\mimport_batches\M', 'tapis_import_batches', 'g');
+    v_definition := regexp_replace(v_definition, '\mstock_snapshots\M', 'tapis_stock_snapshots', 'g');
+    v_definition := regexp_replace(v_definition, '\mpdf_stock_imports\M', 'tapis_pdf_stock_imports', 'g');
+    v_definition := regexp_replace(v_definition, '\mpdf_stock_snapshot_rows\M', 'tapis_pdf_stock_snapshot_rows', 'g');
 
     execute v_definition;
   end loop;
