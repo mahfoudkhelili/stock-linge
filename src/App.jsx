@@ -2926,7 +2926,7 @@ export default function App() {
                     </section>
                   </div>
                 )}
-                {isAdmin && (
+                {isAdmin && (csvFileName || csvPreview.length > 0) && (
                   <section className="ls-panel">
                     {csvFileName && (
                       <p>
@@ -2982,7 +2982,7 @@ export default function App() {
                     )}
                   </section>
                 )}
-                    {isAdmin && (
+                    {isAdmin && (tapisCsvFileName || tapisCsvPreview.length > 0) && (
                       <section className="ls-panel" style={{ marginTop: 18 }}>
                         {tapisCsvFileName && <p><strong>Fichier Tapis :</strong> {tapisCsvFileName}</p>}
                         {tapisCsvPreview.length > 0 && <>
@@ -3008,6 +3008,7 @@ export default function App() {
                         </>}
                       </section>
                     )}
+                    {(pdfFileName || pdfPreview.length > 0) && (
                     <div style={{ marginTop: 18, paddingTop: 16, borderTop: '1px solid #d7dee7' }}>
                       {pdfFileName && <p><strong>Fichier PDF :</strong> {pdfFileName}</p>}
                       {pdfPreview.length > 0 && <>
@@ -3048,6 +3049,8 @@ export default function App() {
                         </div>
                       )}
                     </div>
+                    )}
+                    {(tapisPdfFileName || tapisPdfPreview.length > 0) && (
                     <section className="ls-panel" style={{ marginTop: 18 }}>
                       {tapisPdfFileName && <p><strong>Fichier Tapis :</strong> {tapisPdfFileName}</p>}
                       {tapisPdfPreview.length > 0 && <>
@@ -3107,6 +3110,8 @@ export default function App() {
                         </div>
                       )}
                     </section>
+                    )}
+                )}
                 {negativeProducts.filter((product)=>matchesTableSearch(tableSearch, product.name, product.product_ref)).length > 0 && (
                   <section className="ls-panel">
                     <div className="ls-alert">
