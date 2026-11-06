@@ -2167,6 +2167,77 @@ export default function App() {
         .ls-app .ls-muted{color:#526477}.ls-app h1,.ls-app h2,.ls-app h3,.ls-app strong{color:inherit}.ls-app section,.ls-app article{color:#102b46}.ls-app .ls-panel strong{color:inherit}.ls-app .ls-panel h2,.ls-app .ls-panel h3{color:#102b46}.ls-app .ls-panel .ls-muted{color:#475569}.ls-import-panel{background:#ffffff!important;color:#102b46!important}.ls-import-panel h2,.ls-import-panel strong,.ls-import-panel .ls-muted{color:#243b53!important}.ls-dark .ls-import-panel{background:#182431!important;color:#e7edf4!important}.ls-dark .ls-import-panel h2,.ls-dark .ls-import-panel strong,.ls-dark .ls-import-panel .ls-muted{color:#e7edf4!important}.ls-dark{background:#101820!important;color:#e7edf4!important}.ls-dark .ls-panel h2,.ls-dark .ls-panel h3{color:#e7edf4!important}.ls-dark .ls-panel,.ls-dark .ls-panel strong,.ls-dark .ls-panel label{color:#e7edf4!important}.ls-dark .ls-panel [style*='background: rgb(245, 248, 251)'],.ls-dark .ls-panel [style*='background: rgb(245, 248, 251)']{background:#223242!important;color:#e7edf4!important}.ls-dark .ls-app .ls-muted{color:#bdc9d6!important}.ls-dark .ls-main,.ls-dark .ls-panel,.ls-dark .ls-stat,.ls-dark .ls-table,.ls-dark .ls-login{background:#182431!important;color:#e7edf4!important;border-color:#334456!important}.ls-dark .ls-table-wrap{border-color:#334456!important}.ls-dark .ls-app,.ls-dark .ls-panel,.ls-dark .ls-stat,.ls-dark .ls-table,.ls-dark .ls-login{color:#e7edf4!important}.ls-dark .ls-panel [style*='background: rgb(245, 248, 251)'],.ls-dark .ls-panel [style*='background: rgb(255, 255, 255)'],.ls-dark .ls-panel [style*='background: white']{background:#223242!important;color:#e7edf4!important}.ls-dark .ls-panel .ls-muted{color:#bdc9d6!important}.ls-dark [style*='background: rgb(245, 248, 251)'],.ls-dark [style*='background: rgb(255, 255, 255)'],.ls-dark [style*='background: white']{background:#182431!important;color:#e7edf4!important}.ls-dark .ls-alert{background:#3b2b19!important;color:#ffd7a8!important}.ls-dark .ls-table td,.ls-dark .ls-table th,.ls-dark article{border-color:#334456!important;color:#e7edf4}.ls-dark .ls-table td[style*='#102b46']{color:#e7edf4!important}.ls-dark .ls-table td[style*='color: rgb(16, 43, 70)'],.ls-dark .ls-table td[style*='color: #102b46']{color:#e7edf4!important}.ls-dark .ls-table td[style*='color: rgb(180, 35, 24)'],.ls-dark .ls-table td[style*='color: #b42318']{color:#ff9b9b!important}.ls-dark .ls-card-metrics strong[style*='#102b46']{color:#e7edf4!important}.ls-dark input,.ls-dark select,.ls-dark textarea{background:#111b25!important;color:#e7edf4!important;border-color:#405266!important}.ls-dark .ls-card-metrics>div,.ls-dark [style*="background: rgb(245, 248, 251)"],.ls-dark [style*="background: rgb(245, 248, 251)"]{background:#223242!important;color:#e7edf4!important}.ls-dark .ls-muted{color:#a9b8c8!important}.ls-dark .ls-message{background:#20344a!important;color:#e7edf4!important;border-color:#405266!important}
         @media(max-width:1050px){.ls-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.ls-layout{grid-template-columns:215px minmax(0,1fr)}}
         @media(max-width:760px){.ls-layout{display:block}.ls-sidebar{position:sticky;top:0;z-index:10;padding:10px 12px;gap:10px}.ls-sidebar-head{display:flex;justify-content:space-between;align-items:center}.ls-nav{flex-direction:row;overflow-x:auto;gap:6px;padding-bottom:2px;scrollbar-width:thin}.ls-nav button{white-space:nowrap;width:auto;flex-shrink:0;padding:10px 12px;font-size:12px}.ls-nav button .ls-nav-text{display:inline}.ls-footer-note{display:none}.ls-main{padding:16px 12px 38px}.ls-topbar{align-items:flex-start;flex-direction:column;margin-bottom:16px}.ls-topbar-actions{width:100%;display:flex;gap:8px;flex-wrap:wrap}.ls-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.ls-stat{padding:13px}.ls-stat strong{font-size:21px}.ls-table-wrap:not(.ls-force-table){display:none}.ls-product-cards{display:grid;grid-template-columns:1fr;gap:12px}.ls-panel{padding:13px}.ls-input-row{grid-template-columns:1fr}.ls-request{grid-template-columns:1fr}.ls-actions button{flex:1}.ls-login{margin:5vh 14px;padding:22px}.ls-card-metrics{gap:6px}.ls-card-metrics>div{padding:8px}.ls-card-metrics strong{font-size:12px}}
+
+        /* Soft Editorial refresh — isolated to the preview branch */
+        .ls-app{background:#f7f6f2;color:#2a2f38;font-family:Inter,Arial,sans-serif}
+        .ls-layout{background:#f7f6f2;grid-template-columns:252px minmax(0,1fr)}
+        .ls-sidebar{background:#fff;color:#2a2f38;border:1px solid #ebe9e3;border-radius:22px;margin:16px 0 16px 16px;padding:22px 14px;box-shadow:0 8px 28px rgba(43,48,58,.045)}
+        .ls-brand-mark{background:#e8e2f4;color:#3e6fd8;border-radius:14px}
+        .ls-sidebar .ls-brand strong{color:#2a2f38}
+        .ls-sidebar .ls-brand div div{color:#81858d!important}
+        .ls-nav button{color:#5f6570;border-radius:12px;padding:12px 11px}
+        .ls-nav button.active,.ls-nav button:hover{background:#e8e2f4;color:#345fc0}
+        .ls-nav .ls-count{background:#e6854c;color:#fff}
+        .ls-main{padding:28px clamp(18px,3vw,42px) 52px}
+        .ls-topbar{margin-bottom:28px}
+        .ls-topbar h1{color:#2a2f38;letter-spacing:-.6px}
+        .ls-panel,.ls-stat,.ls-login{background:#fff;border:1px solid #ebe9e3;border-radius:18px;box-shadow:0 7px 24px rgba(43,48,58,.035)}
+        .ls-dashboard-stats{grid-template-columns:repeat(4,minmax(0,1fr));gap:16px;margin-bottom:26px}
+        .ls-stat-clickable{appearance:none;text-align:left;font:inherit;color:inherit;cursor:pointer;min-height:178px;aspect-ratio:1.08/1;padding:20px;display:flex;flex-direction:column;align-items:flex-start;justify-content:space-between;transition:transform .18s ease,box-shadow .18s ease,border-color .18s ease}
+        .ls-stat-clickable:hover{transform:translateY(-3px);box-shadow:0 12px 28px rgba(43,48,58,.09);border-color:#d8d1e8}
+        .ls-stat-icon,.ls-shortcut-icon{width:42px;height:42px;border-radius:14px;display:grid;place-items:center;font-size:21px;font-weight:800}
+        .ls-icon-lavender{background:#e8e2f4;color:#3e6fd8}
+        .ls-icon-peach{background:#f9e7da;color:#d87943}
+        .ls-icon-sage{background:#e0ebe2;color:#568c69}
+        .ls-icon-blue{background:#e7ecf7;color:#3e6fd8}
+        .ls-stat-label{font-size:14px;font-weight:650;color:#727783;margin-top:8px}
+        .ls-stat-clickable strong{font-size:clamp(32px,3vw,42px);line-height:1.05;letter-spacing:-1.2px;color:#2a2f38}
+        .ls-stat-clickable strong.ls-number-alert{color:#d56e42}
+        .ls-dashboard-shortcuts{margin:8px 0 24px}
+        .ls-section-heading{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:0 0 15px}
+        .ls-section-heading h2{margin:0;color:#2a2f38;font-size:21px}
+        .ls-section-heading span{color:#858994;font-size:13px}
+        .ls-shortcut-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:13px}
+        .ls-shortcut-card{min-height:112px;display:flex;align-items:center;gap:12px;text-align:left;padding:16px;background:#fff;border:1px solid #ebe9e3;border-radius:16px;color:#343943;font-size:14px;font-weight:700;cursor:pointer;box-shadow:0 5px 18px rgba(43,48,58,.025);transition:transform .18s ease,border-color .18s ease}
+        .ls-shortcut-card:hover{transform:translateY(-2px);border-color:#cfc6e4}
+        .ls-shortcut-icon{width:38px;height:38px;flex:0 0 38px;font-size:18px}
+        .ls-shortcut-arrow{margin-left:auto;color:#9296a0;font-size:18px}
+        .ls-message{background:#eaf0ff;border-color:#d6e0fb;color:#345fc0}
+        .ls-app .ls-muted{color:#7d828d}
+        .ls-app input,.ls-app select,.ls-app textarea{border-color:#e3e1dc;border-radius:10px}
+        .ls-app button{transition:background-color .15s ease,border-color .15s ease}
+        .ls-app .ls-panel h2,.ls-app .ls-panel h3{color:#2a2f38}
+        .ls-table-wrap{border-color:#ebe9e3;border-radius:14px}
+        .ls-table{background:#fff}
+        @media(max-width:1120px){.ls-dashboard-stats{grid-template-columns:repeat(2,minmax(0,1fr))}.ls-shortcut-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+        @media(max-width:760px){
+          .ls-layout{display:block}
+          .ls-sidebar{margin:8px 8px 0;border-radius:16px;padding:10px;background:#fff}
+          .ls-nav button.active,.ls-nav button:hover{background:#e8e2f4;color:#345fc0}
+          .ls-main{padding:18px 12px 36px}
+          .ls-dashboard-stats{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+          .ls-stat-clickable{min-height:150px;aspect-ratio:1/1;padding:14px}
+          .ls-stat-clickable strong{font-size:32px}
+          .ls-stat-label{font-size:12px}
+          .ls-shortcut-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+          .ls-shortcut-card{min-height:100px;padding:11px;gap:8px;font-size:12px}
+          .ls-shortcut-icon{width:34px;height:34px;flex-basis:34px}
+          .ls-section-heading{align-items:flex-start;flex-direction:column;gap:4px}
+        }
+        .ls-dark{background:#222731!important;color:#edf0f5!important}
+        .ls-dark .ls-sidebar{background:#2f3541!important;border-color:#414957!important;color:#edf0f5!important}
+        .ls-dark .ls-sidebar .ls-brand strong,.ls-dark .ls-topbar h1{color:#edf0f5!important}
+        .ls-dark .ls-nav button{color:#c4cad4}
+        .ls-dark .ls-nav button.active,.ls-dark .ls-nav button:hover{background:#414b60;color:#fff}
+        .ls-dark .ls-stat-clickable,.ls-dark .ls-shortcut-card{background:#2f3541!important;border-color:#414957!important;color:#edf0f5!important}
+        .ls-dark .ls-stat-clickable strong,.ls-dark .ls-shortcut-card{color:#edf0f5!important}
+        .ls-dark .ls-stat-label,.ls-dark .ls-section-heading span{color:#b7bfcb!important}
+        .ls-dark .ls-section-heading h2{color:#edf0f5!important}
+        .ls-dark .ls-dashboard-shortcuts .ls-shortcut-arrow{color:#b7bfcb}
+        .ls-dark .ls-icon-lavender,.ls-dark .ls-icon-blue{background:#414b60;color:#a9bcff}
+        .ls-dark .ls-icon-peach{background:#594334;color:#ffbd91}
+        .ls-dark .ls-icon-sage{background:#354b40;color:#a4d2b2}
+
       `}</style>
 
       {!user ? (
@@ -2339,29 +2410,27 @@ export default function App() {
 
             {activePage === 'dashboard' && canViewPage('dashboard') && (
               <>
-                <div className="ls-grid">
-                  <div className="ls-stat">
-                    <small>Produits visibles</small>
+                <div className="ls-grid ls-dashboard-stats">
+                  <button type="button" className="ls-stat ls-stat-clickable" onClick={() => navigateTo('products')}>
+                    <span className="ls-stat-icon ls-icon-lavender">▦</span>
+                    <span className="ls-stat-label">Produits visibles</span>
                     <strong>{products.length.toLocaleString('fr-FR')}</strong>
-                  </div>
-                  <div className="ls-stat">
-                    <small>Quantités négatives</small>
-                    <strong
-                      style={{
-                        color: negativeProducts.length ? '#b42318' : '#102b46',
-                      }}
-                    >
-                      {negativeProducts.length}
-                    </strong>
-                  </div>
-                  <div className="ls-stat">
-                    <small>Nouvelles demandes</small>
+                  </button>
+                  <button type="button" className="ls-stat ls-stat-clickable" onClick={() => navigateTo('analysis')}>
+                    <span className="ls-stat-icon ls-icon-peach">↘</span>
+                    <span className="ls-stat-label">Quantités négatives</span>
+                    <strong className={negativeProducts.length ? 'ls-number-alert' : ''}>{negativeProducts.length}</strong>
+                  </button>
+                  <button type="button" className="ls-stat ls-stat-clickable" onClick={() => navigateTo('requests')}>
+                    <span className="ls-stat-icon ls-icon-sage">♧</span>
+                    <span className="ls-stat-label">Nouvelles demandes</span>
                     <strong>{newRequestsCount}</strong>
-                  </div>
-                  <div className="ls-stat">
-                    <small>Photos enregistrées</small>
+                  </button>
+                  <button type="button" className="ls-stat ls-stat-clickable" onClick={() => navigateTo('photos')}>
+                    <span className="ls-stat-icon ls-icon-blue">▧</span>
+                    <span className="ls-stat-label">Photos enregistrées</span>
                     <strong>{productPhotos.length}</strong>
-                  </div>
+                  </button>
                 </div>
                 {isAdmin && (
                   <section className="ls-panel ls-import-panel">
@@ -2679,23 +2748,26 @@ export default function App() {
                     </button>
                   </section>
                 )}
-                <section className="ls-panel">
-                  <h2 style={{ marginTop: 0 }}>Accès rapide</h2>
-                  <div className="ls-toolbar">
+                <section className="ls-dashboard-shortcuts">
+                  <div className="ls-section-heading">
+                    <h2>Accès rapide</h2>
+                    <span>Choisissez une section pour ouvrir son tableau</span>
+                  </div>
+                  <div className="ls-shortcut-grid">
                     {[
-                      { id: 'products', label: 'Tous les produits' },
-                      { id: 'arina', label: 'Matelas Europ Arina' },
-                      { id: 'textiles', label: 'Chora / Voilage / Rideau' },
-                      { id: 'photos', label: 'Photos des produits' },
-                      { id: 'requests', label: 'Demandes clients' },
-                      { id: 'notes', label: 'Notes clients' },
-                    ].map((item) => (
-                      <button
-                        key={item.id}
-                        style={styles.secondary}
-                        onClick={() => navigateTo(item.id)}
-                      >
-                        {item.label}
+                      { id: 'products', label: 'Liste des produits', icon: '▦', tone: 'lavender' },
+                      { id: 'analysis', label: 'Analyse des produits', icon: '↘', tone: 'peach' },
+                      { id: 'arina', label: 'Matelas Europ Arina', icon: '▣', tone: 'sage' },
+                      { id: 'textiles', label: 'Chora / Voilage / Rideau', icon: '▤', tone: 'blue' },
+                      { id: 'sales', label: 'Bon de vente', icon: '▧', tone: 'peach' },
+                      { id: 'labels', label: 'Étiquettes prix', icon: '▤', tone: 'lavender' },
+                      { id: 'photos', label: 'Photos des produits', icon: '▧', tone: 'sage' },
+                      { id: 'requests', label: 'Demandes clients', icon: '☷', tone: 'blue' },
+                    ].filter((item) => visibleNavItems.some((nav) => nav.id === item.id)).map((item) => (
+                      <button key={item.id} type="button" className="ls-shortcut-card" onClick={() => navigateTo(item.id)}>
+                        <span className={`ls-shortcut-icon ls-icon-${item.tone}`}>{item.icon}</span>
+                        <span>{item.label}</span>
+                        <span className="ls-shortcut-arrow">↗</span>
                       </button>
                     ))}
                   </div>
