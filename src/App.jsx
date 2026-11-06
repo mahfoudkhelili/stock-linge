@@ -2831,9 +2831,19 @@ export default function App() {
                   </section>
                 )}
                 {isAdmin && (
+                  <div
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 340px), 1fr))',
+                      gap: 16,
+                      alignItems: 'stretch',
+                    }}
+                  >
                   <section
                     className="ls-panel"
                     style={{
+                      height: '100%',
+                      boxSizing: 'border-box',
                       borderColor: urgentNewRequests.length
                         ? '#f2b84b'
                         : '#e2e8f0',
@@ -2891,9 +2901,7 @@ export default function App() {
                       ))
                     )}
                   </section>
-                )}
-                {isAdmin && (
-                  <section className="ls-panel">
+                  <section className="ls-panel" style={{ height: '100%', boxSizing: 'border-box' }}>
                     <h2 style={{ marginTop: 0 }}>
                       🔔 Demandes de réapprovisionnement
                     </h2>
@@ -2950,6 +2958,7 @@ export default function App() {
                       </>
                     )}
                   </section>
+                  </div>
                 )}
                 {isAdmin && (
                   <section className="ls-panel">
