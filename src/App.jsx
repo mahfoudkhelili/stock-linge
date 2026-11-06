@@ -3243,10 +3243,6 @@ export default function App() {
                       Afficher les Matelas à quantité 0 ou négative
                     </label>
                   )}
-                  <label className="ls-muted" style={{display:'flex',alignItems:'center',gap:6}}>
-                    <input type="checkbox" checked={showCodeColumn} onChange={(event)=>setShowCodeColumn(event.target.checked)} />
-                    {language === 'ar' ? 'إظهار المرجع' : 'Afficher référence'}
-                  </label>
                   <ClearableSearchInput
                     className="ls-search"
                     style={styles.field}
@@ -3261,23 +3257,29 @@ export default function App() {
                         : 'Rechercher par désignation…'
                     }
                   />
-                                    <label className="ls-muted">
-                    {language === 'ar' ? 'عدد الأسطر' : 'Lignes par page'}{' '}
-                    <select
-                      style={{ ...styles.field, width: 'auto', marginLeft: 6 }}
-                      value={pageSize}
-                      onChange={(event) => {
-                        setPageSize(Number(event.target.value));
-                        setCurrentPage(1);
-                      }}
-                    >
-                      {[10, 20, 100].map((size) => (
-                        <option key={size} value={size}>
-                          {size}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
+                                    <div style={{display:'flex',alignItems:'center',gap:14,flexWrap:'wrap'}}>
+                    <label className="ls-muted">
+                      {language === 'ar' ? 'عدد الأسطر' : 'Lignes par page'}{' '}
+                      <select
+                        style={{ ...styles.field, width: 'auto', marginLeft: 6 }}
+                        value={pageSize}
+                        onChange={(event) => {
+                          setPageSize(Number(event.target.value));
+                          setCurrentPage(1);
+                        }}
+                      >
+                        {[10, 20, 100].map((size) => (
+                          <option key={size} value={size}>
+                            {size}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="ls-muted" style={{display:'flex',alignItems:'center',gap:6}}>
+                      <input type="checkbox" checked={showCodeColumn} onChange={(event)=>setShowCodeColumn(event.target.checked)} />
+                      {language === 'ar' ? 'إظهار المرجع' : 'Afficher référence'}
+                    </label>
+                  </div>
                 </div>
                 <div className="ls-table-wrap">
                   <table className="ls-table">
