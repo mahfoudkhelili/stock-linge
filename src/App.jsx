@@ -4048,15 +4048,15 @@ export default function App() {
                         max="3650"
                         step="1"
                         value={tapisDecreaseDays}
-                        onChange={(event)=>{setDecreaseDays(Math.max(1, Math.min(3650, Number(event.target.value) || 1)));setDecreasePage(1);}}
+                        onChange={(event)=>{setTapisDecreaseDays(Math.max(1, Math.min(3650, Number(event.target.value) || 1)));setTapisDecreasePage(1);}}
                         style={{...styles.field, width: 90, marginLeft: 6}}
                       />
                     </label>
-                    <ClearableSearchInput className="ls-search" style={styles.field} value={tapisDecreaseSearch} onChange={(event)=>{setDecreaseSearch(event.target.value);setDecreasePage(1);}} placeholder="Rechercher référence ou désignation…" />
-                    <label className="ls-muted"><input type="checkbox" checked={tapisDecreaseShowCode} onChange={(event)=>setDecreaseShowCode(event.target.checked)} /> Afficher référence</label>
-                    <label className="ls-muted">Lignes par page <select style={styles.field} value={tapisDecreasePageSize} onChange={(event)=>{setDecreasePageSize(Number(event.target.value));setDecreasePage(1);}}>{[10,20,100].map(n=><option key={n} value={n}>{n}</option>)}</select></label>
-                    <label className="ls-muted">Trier par <select style={styles.field} value={tapisDecreaseSortKey} onChange={(event)=>{setDecreaseSortKey(event.target.value);setDecreasePage(1);}}><option value="product_name">Désignation</option><option value="product_ref">Référence</option><option value="previous_quantity">Quantité précédente</option><option value="current_quantity">Quantité actuelle</option><option value="quantity_decreased">Baisse de quantité</option><option value="previous_date">Date précédente</option><option value="latest_snapshot_date">Dernière date</option><option value="days_between">Jours entre les fichiers</option></select></label>
-                    <button style={styles.secondary} onClick={()=>setDecreaseSortDirection(d=>d==='asc'?'desc':'asc')}>{tapisDecreaseSortDirection==='asc'?'Croissant ▲':'Décroissant ▼'}</button>
+                    <ClearableSearchInput className="ls-search" style={styles.field} value={tapisDecreaseSearch} onChange={(event)=>{setTapisDecreaseSearch(event.target.value);setTapisDecreasePage(1);}} placeholder="Rechercher référence ou désignation…" />
+                    <label className="ls-muted"><input type="checkbox" checked={tapisDecreaseShowCode} onChange={(event)=>setTapisDecreaseShowCode(event.target.checked)} /> Afficher référence</label>
+                    <label className="ls-muted">Lignes par page <select style={styles.field} value={tapisDecreasePageSize} onChange={(event)=>{setTapisDecreasePageSize(Number(event.target.value));setTapisDecreasePage(1);}}>{[10,20,100].map(n=><option key={n} value={n}>{n}</option>)}</select></label>
+                    <label className="ls-muted">Trier par <select style={styles.field} value={tapisDecreaseSortKey} onChange={(event)=>{setTapisDecreaseSortKey(event.target.value);setTapisDecreasePage(1);}}><option value="product_name">Désignation</option><option value="product_ref">Référence</option><option value="previous_quantity">Quantité précédente</option><option value="current_quantity">Quantité actuelle</option><option value="quantity_decreased">Baisse de quantité</option><option value="previous_date">Date précédente</option><option value="latest_snapshot_date">Dernière date</option><option value="days_between">Jours entre les fichiers</option></select></label>
+                    <button style={styles.secondary} onClick={()=>setTapisDecreaseSortDirection(d=>d==='asc'?'desc':'asc')}>{tapisDecreaseSortDirection==='asc'?'Croissant ▲':'Décroissant ▼'}</button>
                     <button
                       style={styles.secondary}
                       onClick={loadTapisStockDecreaseAnalysis}
@@ -4090,7 +4090,7 @@ export default function App() {
                     </button>
                     <button
                       style={styles.secondary}
-                      onClick={() => setSelectedStockDecrease([])}
+                      onClick={() => setSelectedTapisStockDecrease([])}
                     >
                       Désélectionner tout
                     </button>
@@ -4136,7 +4136,7 @@ export default function App() {
                                   type="checkbox"
                                   checked={selectedTapisStockDecrease.includes(product.product_id)}
                                   onChange={(event) =>
-                                    setSelectedStockDecrease((current) =>
+                                    setSelectedTapisStockDecrease((current) =>
                                       event.target.checked
                                         ? [...current, product.product_id]
                                         : current.filter((id) => id !== product.product_id)
@@ -4175,7 +4175,7 @@ export default function App() {
                         </tbody>
                       </table>
                     </div>
-                    <div className="ls-pagination"><span className="ls-muted">Page {safePage} sur {pages} · {filtered.length} produit(s)</span><div className="ls-toolbar" style={{margin:0}}><button style={styles.secondary} disabled={safePage<=1} onClick={()=>setDecreasePage(p=>Math.max(1,p-1))}>← Précédent</button><button style={styles.secondary} disabled={safePage>=pages} onClick={()=>setDecreasePage(p=>Math.min(pages,p+1))}>Suivant →</button></div></div>
+                    <div className="ls-pagination"><span className="ls-muted">Page {safePage} sur {pages} · {filtered.length} produit(s)</span><div className="ls-toolbar" style={{margin:0}}><button style={styles.secondary} disabled={safePage<=1} onClick={()=>setTapisDecreasePage(p=>Math.max(1,p-1))}>← Précédent</button><button style={styles.secondary} disabled={safePage>=pages} onClick={()=>setTapisDecreasePage(p=>Math.min(pages,p+1))}>Suivant →</button></div></div>
                     </>; })()}
                     </>
                   )}
