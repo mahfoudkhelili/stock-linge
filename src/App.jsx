@@ -3917,10 +3917,10 @@ export default function App() {
                   const positiveCount = tapisSuggestedProducts.filter(p => Number(p.current_quantity) > 0).length;
                   return (
                     <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(145px,1fr))',gap:12,margin:'12px 0 18px'}}>
-                      <div className="ls-stat-card"><div className="ls-muted">Total suggestions</div><strong style={{fontSize:28}}>{tapisSuggestedProducts.length}</strong></div>
-                      <div className="ls-stat-card"><div className="ls-muted">Stock négatif</div><strong style={{fontSize:28,color:'#b42318'}}>{negativeCount}</strong></div>
-                      <div className="ls-stat-card"><div className="ls-muted">Stock zéro avec mouvement</div><strong style={{fontSize:28}}>{zeroCount}</strong></div>
-                      <div className="ls-stat-card"><div className="ls-muted">Stock positif urgent</div><strong style={{fontSize:28}}>{positiveCount}</strong></div>
+                      <div style={{padding:14,border:'1px solid #e2e8f0',borderRadius:12,background:'var(--ls-card, #fff)'}}><div className="ls-muted">Total suggestions</div><strong style={{fontSize:28}}>{tapisSuggestedProducts.length}</strong></div>
+                      <div style={{padding:14,border:'1px solid #e2e8f0',borderRadius:12,background:'var(--ls-card, #fff)'}}><div className="ls-muted">Stock négatif</div><strong style={{fontSize:28,color:'#b42318'}}>{negativeCount}</strong></div>
+                      <div style={{padding:14,border:'1px solid #e2e8f0',borderRadius:12,background:'var(--ls-card, #fff)'}}><div className="ls-muted">Stock zéro avec mouvement</div><strong style={{fontSize:28}}>{zeroCount}</strong></div>
+                      <div style={{padding:14,border:'1px solid #e2e8f0',borderRadius:12,background:'var(--ls-card, #fff)'}}><div className="ls-muted">Stock positif urgent</div><strong style={{fontSize:28}}>{positiveCount}</strong></div>
                     </div>
                   );
                 })()}
