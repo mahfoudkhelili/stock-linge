@@ -91,6 +91,9 @@ export default function App() {
   const [pdfPreview, setPdfPreview] = useState([]);
   const [pdfSearch, setPdfSearch] = useState('');
   const [pdfFileName, setPdfFileName] = useState('');
+  const [tapisPdfPreview, setTapisPdfPreview] = useState([]);
+  const [tapisPdfSearch, setTapisPdfSearch] = useState('');
+  const [tapisPdfFileName, setTapisPdfFileName] = useState('');
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
@@ -894,6 +897,125 @@ export default function App() {
     await loadProducts();
     setMessage(`PDF importé : ${data?.rows_updated ?? 0} quantités mises à jour. Références introuvables : ${data?.products_not_found ?? 0}. Prix et historique CSV inchangés.`);
   }
+  async function handleTapisPdfFile(event) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    setTapisPdfFileName(file.name);
+    setTapisPdfPreview([]);
+    setTapisPdfSearch('');
+    setMessage('Lecture du PDF Tapis en cours...');
+    try {
+      const bytes = await file.arrayBuffer();
+      const pdf = await pdfjsLib.getDocument({ data: bytes }).promise;
+      const lines = [];
+      for (let pageNo = 1; pageNo <= pdf.numPages; pageNo++) {
+        const page = await pdf.getPage(pageNo);
+        const content = await page.getTextContent();
+        const items = content.items
+          .filter(item => item.str && item.str.trim() && item.transform)
+          .map(item => ({ x: item.transform[4], y: item.transform[5], text: item.str.trim() }))
+          .sort((a, b) => b.y - a.y || a.x - b.x);
+        const rowGroups = [];
+        for (const item of items) {
+          let group = rowGroups.find(row => Math.abs(row.y - item.y) <= 3);
+          if (!group) {
+            group = { y: item.y, items: [] };
+            rowGroups.push(group);
+          }
+          group.items.push(item);
+          group.y = group.items.reduce((sum, part) => sum + part.y, 0) / group.items.length;
+        }
+        for (const group of rowGroups) {
+          const sorted = group.items.sort((a, b) => a.x - b.x);
+          const first = sorted[0]?.text || '';
+          if (/^[A-Z0-9][A-Z0-9._/-]{2,}$/i.test(first) && sorted.length >= 2) {
+            lines.push({ items: sorted });
+          }
+        }
+      }
+
+      const numericPattern = /^-?\d[\d\s]*(?:[.,]\d+)?$/;
+      const parsed = [];
+      for (const line of lines) {
+        const code = line.items[0]?.text?.trim() || '';
+        if (!code) continue;
+        const numericItems = [];
+        for (let i = 1; i < line.items.length; i++) {
+          const value = line.items[i].text.replace(/\u00a0/g, ' ').trim();
+          if (numericPattern.test(value)) numericItems.push({ index: i, text: value });
+        }
+        if (!numericItems.length) continue;
+        let quantityText = numericItems[0].text.replace(/\s+/g, '');
+        if (
+          numericItems.length > 1 &&
+          /^-?\d+$/.test(quantityText) &&
+          /[.,]\d{2}$/.test(numericItems[1].text.replace(/\s+/g, '')) &&
+          numericItems[1].index === numericItems[0].index + 1
+        ) {
+          quantityText += numericItems[1].text.replace(/\s+/g, '');
+        }
+        const quantity = Number(quantityText.replace(',', '.'));
+        if (!Number.isFinite(quantity)) continue;
+        const numericIndexes = new Set(numericItems.map(item => item.index));
+        const name = line.items.slice(1)
+          .filter((item, index) => !numericIndexes.has(index + 1))
+          .map(item => item.text).join(' ').replace(/\s+/g, ' ').trim();
+        if (!name) continue;
+        parsed.push({ product_ref: code, name, quantity: String(quantity) });
+      }
+      const unique = new Map();
+      for (const row of parsed) unique.set(row.product_ref, row);
+      const rows = [...unique.values()];
+      if (!rows.length) {
+        setMessage('Aucune ligne Tapis reconnue. Vérifiez que le PDF contient du texte sélectionnable avec code, désignation et quantité.');
+        return;
+      }
+      setTapisPdfPreview(rows);
+      const negatives = rows.filter(row => Number(row.quantity) < 0).length;
+      setMessage(`PDF Tapis lu : ${rows.length} références reconnues. Quantités négatives : ${negatives}. Vérifiez l’aperçu avant import.`);
+    } catch (error) {
+      console.error('Tapis PDF parse error', error);
+      setMessage('Erreur lecture PDF Tapis : ' + error.message);
+    }
+  }
+
+  async function importTapisPdfCurrentStock() {
+    if (!tapisPdfPreview.length) {
+      window.alert('Veuillez sélectionner un PDF Tapis.');
+      return;
+    }
+    const today = new Date();
+    const defaultStockDate = [
+      today.getFullYear(),
+      String(today.getMonth() + 1).padStart(2, '0'),
+      String(today.getDate()).padStart(2, '0'),
+    ].join('-');
+    const date = window.prompt('Date du stock Tapis (AAAA-MM-JJ) :', defaultStockDate);
+    if (date === null) return;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date.trim())) {
+      window.alert('Date invalide. Utilisez le format AAAA-MM-JJ.');
+      return;
+    }
+    if (!window.confirm(
+      `Importer le stock actuel Tapis ?\n\nLes nouveaux produits seront créés dans la base Tapis. Les produits absents du PDF passeront à zéro. Aucune donnée Linge ne sera modifiée.\n\nFichier : ${tapisPdfFileName}\nDate : ${date}\nLignes : ${tapisPdfPreview.length}`
+    )) return;
+    setMessage('Import du stock Tapis et création des produits en cours...');
+    const { data, error } = await supabase.rpc('admin_import_tapis_pdf_current_stock_with_history', {
+      p_file_name: tapisPdfFileName,
+      p_snapshot_date: date.trim(),
+      p_rows: tapisPdfPreview,
+    });
+    if (error) {
+      setMessage('Erreur import PDF Tapis : ' + error.message);
+      return;
+    }
+    setMessage(
+      `PDF Tapis importé : ${data?.rows_updated ?? 0} quantités mises à jour. Produits créés/actualisés : ${data?.products_created_or_refreshed ?? 0}. Références introuvables : ${data?.products_not_found ?? 0}.`
+    );
+    setTapisPdfPreview([]);
+    setTapisPdfSearch('');
+  }
+
   async function login(event) {
     event.preventDefault();
     setLoading(true);
@@ -2764,6 +2886,78 @@ export default function App() {
                       </div>
                       {!pdfPreview.length && pdfFileName && <p className="ls-muted">Le bouton de confirmation s’activera après la lecture correcte des lignes du PDF.</p>}
                     </div>
+                    <section className="ls-panel" style={{ marginTop: 18 }}>
+                      <h2 style={{ marginTop: 0 }}>Importer le stock actuel Tapis depuis un PDF</h2>
+                      <p className="ls-muted">
+                        Cet import est indépendant de Linge. Il crée les produits Tapis manquants, actualise leurs noms et quantités,
+                        puis archive le stock PDF dans les tables Tapis. Les prix et l’historique mensuel restent inchangés.
+                        Les produits absents du PDF passent à zéro.
+                      </p>
+                      <input
+                        style={styles.field}
+                        type="file"
+                        accept=".pdf,application/pdf"
+                        onChange={handleTapisPdfFile}
+                      />
+                      {tapisPdfFileName && <p><strong>Fichier Tapis :</strong> {tapisPdfFileName}</p>}
+                      {tapisPdfPreview.length > 0 && <>
+                        <p><strong>{tapisPdfPreview.length} références reconnues.</strong> Vérifiez le code, la désignation et la quantité avant confirmation.</p>
+                        <ClearableSearchInput
+                          type="search"
+                          value={tapisPdfSearch}
+                          onChange={(event) => setTapisPdfSearch(event.target.value)}
+                          placeholder="Rechercher une référence ou une désignation Tapis…"
+                          aria-label="Rechercher dans l’aperçu PDF Tapis"
+                          style={{ ...styles.input, width: '100%', marginBottom: 12 }}
+                        />
+                        {(() => {
+                          const query = tapisPdfSearch.trim().toLocaleLowerCase();
+                          const filteredRows = tapisPdfPreview.filter((row) =>
+                            !query ||
+                            String(row.product_ref || '').toLocaleLowerCase().includes(query) ||
+                            String(row.name || '').toLocaleLowerCase().includes(query)
+                          );
+                          const visibleRows = filteredRows.slice(0, 10);
+                          return <>
+                            <p>Affichage de {visibleRows.length} produit(s) sur {filteredRows.length} résultat(s). L’aperçu est limité à 10 produits.</p>
+                            <div className="ls-table-wrap">
+                              <table className="ls-table">
+                                <thead><tr>
+                                  <th style={styles.th}>Référence</th>
+                                  <th style={styles.th}>Désignation</th>
+                                  <th style={styles.th}>Quantité PDF</th>
+                                </tr></thead>
+                                <tbody>{visibleRows.map((row, index) => (
+                                  <tr key={row.product_ref + index}>
+                                    <td style={styles.td}>{row.product_ref}</td>
+                                    <td style={styles.td}>{row.name}</td>
+                                    <td style={{ ...styles.td, color: Number(row.quantity) < 0 ? '#b42318' : undefined }}>{row.quantity}</td>
+                                  </tr>
+                                ))}</tbody>
+                              </table>
+                            </div>
+                            {filteredRows.length === 0 && <p className="ls-muted">Aucun résultat pour cette recherche.</p>}
+                          </>;
+                        })()}
+                      </>}
+                      <div className="ls-toolbar" style={{ marginTop: 12 }}>
+                        <button style={styles.button} onClick={importTapisPdfCurrentStock} disabled={!tapisPdfPreview.length}>
+                          Confirmer l’import PDF Tapis
+                        </button>
+                        <button
+                          style={styles.secondary}
+                          onClick={() => {
+                            setTapisPdfPreview([]);
+                            setTapisPdfSearch('');
+                            setTapisPdfFileName('');
+                            setMessage('Aperçu PDF Tapis annulé.');
+                          }}
+                        >Annuler</button>
+                      </div>
+                      {!tapisPdfPreview.length && tapisPdfFileName && (
+                        <p className="ls-muted">سيظهر زر التأكيد بعد قراءة أسطر PDF بنجاح.</p>
+                      )}
+                    </section>
                 {negativeProducts.filter((product)=>matchesTableSearch(tableSearch, product.name, product.product_ref)).length > 0 && (
                   <section className="ls-panel">
                     <div className="ls-alert">
