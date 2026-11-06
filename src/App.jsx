@@ -429,6 +429,25 @@ export default function App() {
     }
   }
 
+  async function hideSelectedTapisSuggestions() {
+    if (!selectedTapisSuggestions.length) { window.alert('Veuillez sélectionner au moins un produit.'); return; }
+    if (!window.confirm('Voulez-vous masquer les ' + selectedTapisSuggestions.length + ' produit(s) Tapis sélectionné(s) ?')) return;
+    const { error } = await supabase.from('tapis_products').update({ is_hidden: true }).in('id', selectedTapisSuggestions);
+    if (error) { window.alert('Erreur : ' + error.message); return; }
+    setTapisSuggestedProducts(current => current.filter(p => !selectedTapisSuggestions.includes(p.id)));
+    setSelectedTapisSuggestions([]);
+    window.alert('Produits Tapis sélectionnés masqués avec succès.');
+  }
+
+  async function hideSelectedTapisStockDecrease() {
+    if (!selectedTapisStockDecrease.length) { window.alert('Veuillez sélectionner au moins un produit.'); return; }
+    if (!window.confirm('Voulez-vous masquer les ' + selectedTapisStockDecrease.length + ' produit(s) Tapis sélectionné(s) ?')) return;
+    const { error } = await supabase.from('tapis_products').update({ is_hidden: true }).in('id', selectedTapisStockDecrease);
+    if (error) { window.alert('Erreur : ' + error.message); return; }
+    setTapisStockDecreaseProducts(current => current.filter(p => !selectedTapisStockDecrease.includes(p.product_id)));
+    setSelectedTapisStockDecrease([]);
+    window.alert('Produits Tapis sélectionnés masqués avec succès.');
+  }
   async function loadStockDecreaseAnalysis() {
     setStockDecreaseLoading(true);
 
@@ -2292,6 +2311,7 @@ export default function App() {
     (request) => request.status === 'new'
   );
   const urgentNewRequests = newRequests.filter((request) => request.is_urgent);
+  const tableSortButtonStyle = { border: 0, padding: 0, background: 'transparent', color: 'inherit', font: 'inherit', fontWeight: 700, cursor: 'pointer', textAlign: 'inherit' };
   const styles = {
     button: {
       border: 0,
@@ -4049,27 +4069,15 @@ export default function App() {
                     </div>
                   );
                 })()}
-                <div className="ls-toolbar" style={{flexWrap:'wrap'}}>
-                  <ClearableSearchInput
-                    className="ls-search"
-                    style={styles.field}
-                    value={tapisAnalysisSearch}
-                    onChange={(event)=>{setTapisAnalysisSearch(event.target.value);setTapisAnalysisPage(1);}}
-                    placeholder="Rechercher une référence ou désignation Tapis…"
-                  />
-                  <label className="ls-muted"><input type="checkbox" checked={tapisAnalysisShowCode} onChange={(event)=>setTapisAnalysisShowCode(event.target.checked)} /> Afficher référence</label>
-                  <label className="ls-muted">Lignes par page <select style={styles.field} value={tapisAnalysisPageSize} onChange={(event)=>{setTapisAnalysisPageSize(Number(event.target.value));setTapisAnalysisPage(1);}}>{[10,20,100].map(n=><option key={n} value={n}>{n}</option>)}</select></label>
-                  <label className="ls-muted">Trier par <select style={styles.field} value={tapisAnalysisSortKey} onChange={(event)=>{setTapisAnalysisSortKey(event.target.value);setTapisAnalysisPage(1);}}><option value="name">Désignation</option><option value="product_ref">Référence</option><option value="current_quantity">Quantité PDF actuelle</option><option value="average_daily_decrease">Sortie moyenne / jour</option><option value="days_remaining">Jours restants estimés</option><option value="suggested_order_quantity">Quantité à commander</option></select></label>
-                  <button style={styles.secondary} onClick={()=>{setTapisAnalysisSortDirection(d=>d==='asc'?'desc':'asc');setTapisAnalysisPage(1);}}>{tapisAnalysisSortDirection==='asc'?'Croissant ▲':'Décroissant ▼'}</button>
-                  <button style={styles.secondary} onClick={async()=>{
-                    const names=tapisSuggestedProducts.filter(p=>selectedTapisSuggestions.includes(p.id)).map(p=>p.name).filter(Boolean);
-                    if(!names.length){window.alert('Sélectionnez au moins un produit.');return;}
-                    const textToCopy=names.join('\n');
-                    try{await navigator.clipboard.writeText(textToCopy);window.alert(names.length+' désignation(s) copiée(s).');}
-                    catch(error){window.prompt('Copiez les désignations :',textToCopy);}
-                  }}>Copier la sélection ({selectedTapisSuggestions.length})</button>
-                  <button style={styles.secondary} onClick={()=>setSelectedTapisSuggestions([])}>Désélectionner</button>
+                <div className="ls-toolbar" style={{flexWrap:'wrap',gap:8}}>
+                  <button style={{...styles.secondary,padding:'6px 11px',fontSize:12}} onClick={loadTapisSuggestedProducts} disabled={tapisSuggestionsLoading}>Actualiser</button>
+                  <button style={{...styles.secondary,padding:'6px 11px',fontSize:12}} onClick={hideSelectedTapisSuggestions}>Masquer</button>
+                  <button style={{...styles.secondary,padding:'6px 11px',fontSize:12}} onClick={async()=>{const names=tapisSuggestedProducts.filter(p=>selectedTapisSuggestions.includes(p.id)).map(p=>p.name).filter(Boolean);if(!names.length){window.alert('Sélectionnez au moins un produit.');return;}const copied=names.join('\n');try{await navigator.clipboard.writeText(copied);window.alert(names.length+' désignation(s) copiée(s).');}catch(error){window.prompt('Copiez les désignations :',copied);}}}>Copier ({selectedTapisSuggestions.length})</button>
+                  <button style={{...styles.secondary,padding:'6px 11px',fontSize:12}} onClick={()=>setSelectedTapisSuggestions([])}>Désélectionner</button>
+                  <label className="ls-muted"><input type="checkbox" checked={tapisAnalysisShowCode} onChange={event=>setTapisAnalysisShowCode(event.target.checked)} /> Afficher référence</label>
+                  <label className="ls-muted">Lignes par page <select style={styles.field} value={tapisAnalysisPageSize} onChange={event=>{setTapisAnalysisPageSize(Number(event.target.value));setTapisAnalysisPage(1);}}>{[10,20,100].map(n=><option key={n} value={n}>{n}</option>)}</select></label>
                 </div>
+                <div className="ls-toolbar" style={{marginTop:6}}><ClearableSearchInput className="ls-search" style={styles.field} value={tapisAnalysisSearch} onChange={event=>{setTapisAnalysisSearch(event.target.value);setTapisAnalysisPage(1);}} placeholder="Rechercher une référence ou désignation Tapis…" /></div>
                 {(() => {
                   const filtered=tapisSuggestedProducts.filter(p=>matchesTableSearch(tapisAnalysisSearch,p.name,p.product_ref));
                   const numericKeys=['current_quantity','average_daily_decrease','days_remaining','suggested_order_quantity'];
@@ -4152,8 +4160,7 @@ export default function App() {
                     <ClearableSearchInput className="ls-search" style={styles.field} value={tapisDecreaseSearch} onChange={(event)=>{setTapisDecreaseSearch(event.target.value);setTapisDecreasePage(1);}} placeholder="Rechercher référence ou désignation…" />
                     <label className="ls-muted"><input type="checkbox" checked={tapisDecreaseShowCode} onChange={(event)=>setTapisDecreaseShowCode(event.target.checked)} /> Afficher référence</label>
                     <label className="ls-muted">Lignes par page <select style={styles.field} value={tapisDecreasePageSize} onChange={(event)=>{setTapisDecreasePageSize(Number(event.target.value));setTapisDecreasePage(1);}}>{[10,20,100].map(n=><option key={n} value={n}>{n}</option>)}</select></label>
-                    <label className="ls-muted">Trier par <select style={styles.field} value={tapisDecreaseSortKey} onChange={(event)=>{setTapisDecreaseSortKey(event.target.value);setTapisDecreasePage(1);}}><option value="product_name">Désignation</option><option value="product_ref">Référence</option><option value="previous_quantity">Quantité précédente</option><option value="current_quantity">Quantité actuelle</option><option value="quantity_decreased">Baisse de quantité</option><option value="previous_date">Date précédente</option><option value="latest_snapshot_date">Dernière date</option><option value="days_between">Jours entre les fichiers</option></select></label>
-                    <button style={styles.secondary} onClick={()=>setTapisDecreaseSortDirection(d=>d==='asc'?'desc':'asc')}>{tapisDecreaseSortDirection==='asc'?'Croissant ▲':'Décroissant ▼'}</button>
+  
                     <button
                       style={styles.secondary}
                       onClick={loadTapisStockDecreaseAnalysis}
