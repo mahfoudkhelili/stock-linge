@@ -827,7 +827,7 @@ export default function App() {
           return;
         }
         setTapisCsvPreview(results.data);
-        setMessage(\`Fichier CSV Tapis lu : \${results.data.length} lignes. Vérifiez les colonnes avant import.\`);
+        setMessage(`Fichier CSV Tapis lu : ${results.data.length} lignes. Vérifiez les colonnes avant import.`);
       },
       error: (error) => setMessage('Erreur lecture CSV Tapis : ' + error.message),
     });
@@ -840,7 +840,7 @@ export default function App() {
     }
 
     const today = new Date();
-    const defaultDate = \`\${today.getFullYear()}-\${String(today.getMonth() + 1).padStart(2, '0')}-\${String(today.getDate()).padStart(2, '0')}\`;
+    const defaultDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
     const snapshotDate = window.prompt('Date historique CSV Tapis (AAAA-MM-JJ) :', defaultDate);
     if (snapshotDate === null) return;
     if (!/^\d{4}-\d{2}-\d{2}$/.test(snapshotDate.trim())) {
@@ -861,11 +861,11 @@ export default function App() {
         (row.wholesale_price !== '' && !/^-?\d+(?:\.\d+)?$/.test(row.wholesale_price)) ||
         (row.retail_price !== '' && !/^-?\d+(?:\.\d+)?$/.test(row.retail_price)));
     if (invalidRows.length) {
-      window.alert(\`Lignes CSV Tapis invalides : \${invalidRows.length}\n\` + invalidRows.slice(0, 5).map(r => \`Ligne \${r.line}: \${r.product_ref} — quantité \${r.quantity}\`).join('\n'));
+      window.alert(`Lignes CSV Tapis invalides : ${invalidRows.length}\n` + invalidRows.slice(0, 5).map(r => `Ligne ${r.line}: ${r.product_ref} — quantité ${r.quantity}`).join('\n'));
       return;
     }
 
-    if (!window.confirm(\`Importer \${rows.length} lignes CSV Tapis pour les prix et l’historique ?\n\nLe stock actuel Tapis ne sera PAS modifié.\nFichier : \${tapisCsvFileName}\nDate : \${snapshotDate}\`)) return;
+    if (!window.confirm(`Importer ${rows.length} lignes CSV Tapis pour les prix et l’historique ?\n\nLe stock actuel Tapis ne sera PAS modifié.\nFichier : ${tapisCsvFileName}\nDate : ${snapshotDate}`)) return;
 
     setMessage('Enregistrement des prix et de l’historique Tapis en cours...');
     const { data, error } = await supabase.rpc('admin_import_tapis_csv_history_prices', {
@@ -878,7 +878,7 @@ export default function App() {
       return;
     }
     await loadProducts();
-    setMessage(\`CSV Tapis enregistré : \${data?.rows_saved ?? 0} lignes historiques. Prix Tapis actualisés. Le stock actuel n’a pas été modifié.\`);
+    setMessage(`CSV Tapis enregistré : ${data?.rows_saved ?? 0} lignes historiques. Prix Tapis actualisés. Le stock actuel n’a pas été modifié.`);
     setTapisCsvPreview([]);
     setTapisCsvFileName('');
   }
