@@ -2211,7 +2211,7 @@ export default function App() {
         .ls-icon-sage{background:#e0ebe2;color:#568c69}
         .ls-icon-blue{background:#e7ecf7;color:#3e6fd8}
         .ls-stat-label{font-size:14px;font-weight:650;color:#727783;margin-top:8px}
-        .ls-stat-clickable strong{font-size:clamp(32px,3vw,42px);line-height:1.05;letter-spacing:-1.2px;color:#2a2f38}
+        .ls-stat-clickable strong{font-size:clamp(32px,3vw,42px);line-height:1.05;letter-spacing:-1.2px;color:#D97706}
         .ls-dashboard-shortcuts{margin:8px 0 24px}
         .ls-section-heading{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:0 0 15px}
         .ls-section-heading h2{margin:0;color:#2a2f38;font-size:21px}
@@ -2225,16 +2225,16 @@ export default function App() {
         .ls-stat-primary{justify-content:space-between;min-height:178px}
         .ls-stat-primary .ls-stat-label{margin:0;text-align:left;line-height:1.35;font-size:15px}
         .ls-stat-primary strong{font-size:clamp(42px,4vw,54px);line-height:1;letter-spacing:-1.8px;margin-top:auto}
-        .ls-stat-icon,.ls-shortcut-icon{background:#f0efeb;color:#626a75}
+        .ls-stat-icon,.ls-shortcut-icon{background:#e5eff0;color:#397C91}
         .ls-stat-icon svg,.ls-shortcut-icon svg{width:23px;height:23px;display:block}
         .ls-shortcut-icon{width:42px;height:42px;flex:0 0 42px;border-radius:12px;display:grid;place-items:center}
         .ls-stat-primary .ls-stat-icon{width:46px;height:46px;flex:0 0 46px;border-radius:13px}
         .ls-stat-primary .ls-stat-icon svg{width:25px;height:25px}
         .ls-shortcut-card{color:#454b55}
         .ls-shortcut-card>span:nth-child(2){flex:1}
-        .ls-dark .ls-stat-icon,.ls-dark .ls-shortcut-icon{background:#414957!important;color:#d5dbe4!important}
+        .ls-dark .ls-stat-icon,.ls-dark .ls-shortcut-icon{background:#263f4a!important;color:#75b4c0!important}
         .ls-dark .ls-stat-primary .ls-stat-label{color:#c4cad4!important}
-        .ls-dark .ls-stat-primary strong{color:#edf0f5!important}
+        .ls-dark .ls-stat-primary strong{color:#ffad55!important}
         @media(max-width:760px){
           .ls-stat-primary{min-height:150px;aspect-ratio:1/1;padding:13px}
           .ls-stat-primary .ls-stat-label{font-size:12px}
