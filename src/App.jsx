@@ -2225,14 +2225,14 @@ export default function App() {
         .ls-stat-primary{justify-content:space-between;min-height:178px}
         .ls-stat-primary .ls-stat-label{margin:0;text-align:left;line-height:1.35;font-size:15px}
         .ls-stat-primary strong{font-size:clamp(42px,4vw,54px);line-height:1;letter-spacing:-1.8px;margin-top:auto}
-        .ls-stat-icon,.ls-shortcut-icon{background:#e5eff0;color:#397C91}
+        .ls-stat-icon,.ls-shortcut-icon{background:#e5eff0;color:#607A9B}
         .ls-stat-icon svg,.ls-shortcut-icon svg{width:23px;height:23px;display:block}
         .ls-shortcut-icon{width:42px;height:42px;flex:0 0 42px;border-radius:12px;display:grid;place-items:center}
         .ls-stat-primary .ls-stat-icon{width:46px;height:46px;flex:0 0 46px;border-radius:13px}
         .ls-stat-primary .ls-stat-icon svg{width:25px;height:25px}
         .ls-shortcut-card{color:#454b55}
         .ls-shortcut-card>span:nth-child(2){flex:1}
-        .ls-dark .ls-stat-icon,.ls-dark .ls-shortcut-icon{background:#263f4a!important;color:#75b4c0!important}
+        .ls-dark .ls-stat-icon,.ls-dark .ls-shortcut-icon{background:#263f4a!important;color:#607A9B!important}
         .ls-dark .ls-stat-primary .ls-stat-label{color:#c4cad4!important}
         .ls-dark .ls-stat-primary strong{color:#ffad55!important}
         @media(max-width:760px){
