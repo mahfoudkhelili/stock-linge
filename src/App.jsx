@@ -51,6 +51,20 @@ function ClearableSearchInput({ value, onChange, style, className, placeholder, 
   );
 }
 
+function DashboardIcon({ name, className = '' }) {
+  const paths = {
+    products: <><path d="M4 7.5 12 3l8 4.5-8 4.5-8-4.5Z"/><path d="M4 12l8 4.5 8-4.5M4 16.5 12 21l8-4.5"/></>,
+    analysis: <><path d="M4 19V5M4 19h17"/><path d="m7 15 4-4 3 2 5-6"/><path d="M16 7h3v3"/></>,
+    requests: <><path d="M7 4h10l3 3v13H4V4h3Z"/><path d="M8 10h8M8 14h8M8 18h5"/></>,
+    photos: <><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="m4 17 5-4 3 3 3-3 5 4"/></>,
+    arina: <><path d="M4 7h16M4 17h16"/><path d="M6 7v10M18 7v10M4 12h16"/></>,
+    textiles: <><path d="M4 4h16M6 4v16M18 4v16M6 8c3 2 3 2 6 0s3-2 6 0M6 13c3 2 3 2 6 0s3-2 6 0"/></>,
+    sales: <><path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5M9 13h7M9 17h7"/></>,
+    labels: <><path d="m4 11 7-7h8v8l-7 7-8-8Z"/><circle cx="15" cy="8" r="1"/></>
+  };
+  return <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{paths[name] || paths.products}</svg>;
+}
+
 export default function App() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -2208,6 +2222,30 @@ export default function App() {
         .ls-shortcut-card:hover{transform:translateY(-2px);border-color:#cfc6e4}
         .ls-shortcut-icon{width:38px;height:38px;flex:0 0 38px;font-size:18px}
         .ls-shortcut-arrow{margin-left:auto;color:#9296a0;font-size:18px}
+        .ls-stat-heading{display:flex;align-items:center;gap:12px;width:100%}
+        .ls-stat-primary{justify-content:space-between;min-height:178px}
+        .ls-stat-primary .ls-stat-label{margin:0;text-align:left;line-height:1.35;font-size:15px}
+        .ls-stat-primary strong{font-size:clamp(42px,4vw,54px);line-height:1;letter-spacing:-1.8px;margin-top:auto}
+        .ls-stat-icon,.ls-shortcut-icon{background:#f0efeb;color:#626a75}
+        .ls-stat-icon svg,.ls-shortcut-icon svg{width:23px;height:23px;display:block}
+        .ls-shortcut-icon{width:42px;height:42px;flex:0 0 42px;border-radius:12px;display:grid;place-items:center}
+        .ls-stat-primary .ls-stat-icon{width:46px;height:46px;flex:0 0 46px;border-radius:13px}
+        .ls-stat-primary .ls-stat-icon svg{width:25px;height:25px}
+        .ls-shortcut-card{color:#454b55}
+        .ls-shortcut-card>span:nth-child(2){flex:1}
+        .ls-dark .ls-stat-icon,.ls-dark .ls-shortcut-icon{background:#414957!important;color:#d5dbe4!important}
+        .ls-dark .ls-stat-primary .ls-stat-label{color:#c4cad4!important}
+        .ls-dark .ls-stat-primary strong{color:#edf0f5!important}
+        @media(max-width:760px){
+          .ls-stat-primary{min-height:150px;aspect-ratio:1/1;padding:13px}
+          .ls-stat-primary .ls-stat-label{font-size:12px}
+          .ls-stat-primary strong{font-size:clamp(34px,9vw,43px)}
+          .ls-stat-heading{gap:8px}
+          .ls-stat-primary .ls-stat-icon{width:38px;height:38px;flex-basis:38px}
+          .ls-stat-primary .ls-stat-icon svg{width:21px;height:21px}
+          .ls-shortcut-icon{width:36px;height:36px;flex-basis:36px}
+          .ls-shortcut-icon svg{width:21px;height:21px}
+        }
         .ls-message{background:#eaf0ff;border-color:#d6e0fb;color:#345fc0}
         .ls-app .ls-muted{color:#7d828d}
         .ls-app input,.ls-app select,.ls-app textarea{border-color:#e3e1dc;border-radius:10px}
@@ -2417,23 +2455,21 @@ export default function App() {
             {activePage === 'dashboard' && canViewPage('dashboard') && (
               <>
                 <div className="ls-grid ls-dashboard-stats">
-                  <button type="button" className="ls-stat ls-stat-clickable" onClick={() => navigateTo('products')}>
-                    <span className="ls-stat-icon ls-icon-lavender">▦</span>
-                    <span className="ls-stat-label">Produits visibles</span>
+                  <button type="button" className="ls-stat ls-stat-clickable ls-stat-primary" onClick={() => navigateTo('products')}>
+                    <span className="ls-stat-heading"><span className="ls-stat-icon"><DashboardIcon name="products" /></span><span className="ls-stat-label">Produits<br />visibles</span></span>
                     <strong>{products.length.toLocaleString('fr-FR')}</strong>
                   </button>
-                  <button type="button" className="ls-stat ls-stat-clickable" onClick={() => navigateTo('analysis')}>
-                    <span className="ls-stat-icon ls-icon-peach">↘</span>
-                    <span className="ls-stat-label">Quantités négatives</span>
+                  <button type="button" className="ls-stat ls-stat-clickable ls-stat-primary" onClick={() => navigateTo('analysis')}>
+                    <span className="ls-stat-heading"><span className="ls-stat-icon"><DashboardIcon name="analysis" /></span><span className="ls-stat-label">Quantités<br />négatives</span></span>
                     <strong className={negativeProducts.length ? 'ls-number-alert' : ''}>{negativeProducts.length}</strong>
                   </button>
                   <button type="button" className="ls-stat ls-stat-clickable" onClick={() => navigateTo('requests')}>
-                    <span className="ls-stat-icon ls-icon-sage">♧</span>
+                    <span className="ls-stat-icon"><DashboardIcon name="requests" /></span>
                     <span className="ls-stat-label">Nouvelles demandes</span>
                     <strong>{newRequestsCount}</strong>
                   </button>
                   <button type="button" className="ls-stat ls-stat-clickable" onClick={() => navigateTo('photos')}>
-                    <span className="ls-stat-icon ls-icon-blue">▧</span>
+                    <span className="ls-stat-icon"><DashboardIcon name="photos" /></span>
                     <span className="ls-stat-label">Photos enregistrées</span>
                     <strong>{productPhotos.length}</strong>
                   </button>
@@ -2445,19 +2481,18 @@ export default function App() {
                   </div>
                   <div className="ls-shortcut-grid">
                     {[
-                      { id: 'products', label: 'Liste des produits', icon: '▦', tone: 'lavender' },
-                      { id: 'analysis', label: 'Analyse des produits', icon: '↘', tone: 'peach' },
-                      { id: 'arina', label: 'Matelas Europ Arina', icon: '▣', tone: 'sage' },
-                      { id: 'textiles', label: 'Chora / Voilage / Rideau', icon: '▤', tone: 'blue' },
-                      { id: 'sales', label: 'Bon de vente', icon: '▧', tone: 'peach' },
-                      { id: 'labels', label: 'Étiquettes prix', icon: '▤', tone: 'lavender' },
-                      { id: 'photos', label: 'Photos des produits', icon: '▧', tone: 'sage' },
-                      { id: 'requests', label: 'Demandes clients', icon: '☷', tone: 'blue' },
+                      { id: 'products', label: 'Liste des produits', icon: 'products' },
+                      { id: 'analysis', label: 'Analyse des produits', icon: 'analysis' },
+                      { id: 'arina', label: 'Matelas Europ Arina', icon: 'arina' },
+                      { id: 'textiles', label: 'Chora / Voilage / Rideau', icon: 'textiles' },
+                      { id: 'sales', label: 'Bon de vente', icon: 'sales' },
+                      { id: 'labels', label: 'Étiquettes prix', icon: 'labels' },
+                      { id: 'photos', label: 'Photos des produits', icon: 'photos' },
+                      { id: 'requests', label: 'Demandes clients', icon: 'requests' },
                     ].filter((item) => visibleNavItems.some((nav) => nav.id === item.id)).map((item) => (
                       <button key={item.id} type="button" className="ls-shortcut-card" onClick={() => navigateTo(item.id)}>
-                        <span className={`ls-shortcut-icon ls-icon-${item.tone}`}>{item.icon}</span>
+                        <span className="ls-shortcut-icon"><DashboardIcon name={item.icon} /></span>
                         <span>{item.label}</span>
-                        <span className="ls-shortcut-arrow">↗</span>
                       </button>
                     ))}
                   </div>
