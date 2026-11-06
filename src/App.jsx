@@ -70,6 +70,7 @@ export default function App() {
   const [password, setPassword] = useState('');
   const [user, setUser] = useState(null);
   const [products, setProducts] = useState([]);
+  const [catalogProducts, setCatalogProducts] = useState([]);
   const [hiddenProducts, setHiddenProducts] = useState([]);
   const [suggestedProducts, setSuggestedProducts] = useState([]);
   const [stockDecreaseProducts, setStockDecreaseProducts] = useState([]);
@@ -230,11 +231,35 @@ export default function App() {
       (inactiveArinaProducts || []).filter((product) => !existingIds.has(product.id))
     );
 
+    // Charger le catalogue Tapis séparément, sans mélanger ses opérations avec Linge.
+    let tapisProducts = [];
+    let tapisStart = 0;
+    while (true) {
+      const { data: tapisPage, error: tapisError } = await supabase
+        .from('tapis_products')
+        .select('id, product_ref, name, current_quantity, wholesale_price, retail_price, min_stock_level, is_hidden, is_active, is_in_latest_pdf')
+        .eq('is_active', true)
+        .eq('is_hidden', false)
+        .order('name')
+        .range(tapisStart, tapisStart + pageSize - 1);
+      if (tapisError) {
+        setMessage('Erreur produits Tapis : ' + tapisError.message + '. Vérifiez la migration des droits de lecture Tapis.');
+        return;
+      }
+      tapisProducts = tapisProducts.concat(tapisPage || []);
+      if (!tapisPage || tapisPage.length < pageSize) break;
+      tapisStart += pageSize;
+    }
+
     // Sécurité temporaire : ne pas remplacer une quantité correcte par 0
     // tant que la détection des références présentes dans le PDF n'est pas fiabilisée.
     // La quantité enregistrée en base reste affichée sans modification.
 
-    setProducts(allProducts);
+    setProducts(allProducts.map((product) => ({ ...product, catalog_source: 'products' })));
+    setCatalogProducts([
+      ...allProducts.map((product) => ({ ...product, catalog_source: 'products' })),
+      ...tapisProducts.map((product) => ({ ...product, catalog_source: 'tapis_products' })),
+    ]);
     setCurrentPage(1);
     setMessage('');
   }
@@ -245,8 +270,9 @@ export default function App() {
 
     if (!confirmed) return;
 
+    const sourceTable = product.catalog_source === 'tapis_products' ? 'tapis_products' : 'products';
     const { error } = await supabase
-      .from('products')
+      .from(sourceTable)
       .update({ is_hidden: true })
       .eq('id', product.id);
 
@@ -255,7 +281,8 @@ export default function App() {
       return;
     }
 
-    setProducts((current) => current.filter((item) => item.id !== product.id));
+    setProducts((current) => current.filter((item) => !(item.id === product.id && item.catalog_source === sourceTable)));
+    setCatalogProducts((current) => current.filter((item) => !(item.id === product.id && item.catalog_source === sourceTable)));
 
     window.alert('Produit masqué avec succès.');
   }
@@ -1154,6 +1181,10 @@ export default function App() {
   }
 
   async function adjustStock(product) {
+    if (product.catalog_source === 'tapis_products') {
+      window.alert('La modification manuelle du stock Tapis sera ajoutée avec ses propres fonctions.');
+      return;
+    }
     const quantityInput = window.prompt(
       `الكمية الجديدة للمنتج ${product.name}:`,
       String(product.current_quantity)
@@ -1728,7 +1759,7 @@ export default function App() {
   }
 
   function addSalesLine(productId = salesProductId) {
-    const product = products.find((item) => String(item.id) === String(productId));
+    const product = catalogProducts.find((item) => String(item.id) === String(productId));
     if (!product) { window.alert('Choisissez un produit dans les résultats de recherche.'); return; }
     setSalesLines((current) => {
       const existing = current.find((line) => String(line.id) === String(product.id));
@@ -1990,7 +2021,7 @@ export default function App() {
     const words = values.join(' ').toLocaleUpperCase('fr').normalize('NFD').replace(/[\u0300-\u036f]/g, '').split(/[^A-Z0-9]+/).filter(Boolean);
     return tokens.every((token) => words.some((word) => word.startsWith(token) || word.includes(token)));
   };
-  const pageProducts = products.filter((product) => {
+  const pageProducts = (activePage === 'products' ? catalogProducts : products).filter((product) => {
     const normalizedName = normalizeName(product.name);
     const searchTokens = String(searchTerm || '').toLocaleUpperCase('fr').normalize('NFD').replace(/[\u0300-\u036f]/g, '').split(/[^A-Z0-9]+/).filter(Boolean);
     const nameTokens = String(product.name || '').toLocaleUpperCase('fr').normalize('NFD').replace(/[\u0300-\u036f]/g, '').split(/[^A-Z0-9]+/).filter(Boolean);
@@ -2190,19 +2221,11 @@ export default function App() {
       <div className="ls-actions">
         {isAdmin ? (
           <>
-            <button
-              style={styles.secondary}
-              onClick={() => adjustStock(product)}
-            >
-              {language === 'ar' ? 'تعديل المخزون' : 'Modifier stock'}
-            </button>
-            <button
-              style={styles.secondary}
-              onClick={() => hideProduct(product)}
-            >
-              {language === 'ar' ? 'إخفاء' : 'Masquer'}
-            </button>
+            {product.catalog_source !== 'tapis_products' && <button style={styles.secondary} onClick={() => adjustStock(product)}>{language === 'ar' ? 'تعديل المخزون' : 'Modifier stock'}</button>}
+            <button style={styles.secondary} onClick={() => hideProduct(product)}>{language === 'ar' ? 'إخفاء' : 'Masquer'}</button>
           </>
+        ) : product.catalog_source === 'tapis_products' ? (
+          <span className="ls-muted">Consultation uniquement</span>
         ) : user?.profile?.role === 'trader' && activePage === 'arina' ? (
           <>
             <label
@@ -2275,8 +2298,8 @@ export default function App() {
         {showCodeColumn && <td style={styles.td}><strong>{product.product_ref}</strong></td>}
         <td style={styles.td}>
           <span style={{display:'inline-flex',alignItems:'center',gap:8}}>
-            {activePage === 'textiles' && photoFor(product.id) ? <img src={photoFor(product.id)} alt="" onClick={()=>setPhotoPreview({url:photoFor(product.id),name:product.name})} style={{width:38,height:38,objectFit:'cover',borderRadius:6,cursor:'zoom-in'}}/> : null}
-            <span>{product.name}{activePage === 'arina' && normalizeName(product.name).includes('AFRICHA') ? <small style={{display:'block',color:'#64748b'}}>Africha Shop</small> : activePage === 'arina' ? <small style={{display:'block',color:'#64748b'}}>Europ Arina</small> : null}</span>
+            {activePage === 'textiles' && product.catalog_source !== 'tapis_products' && photoFor(product.id) ? <img src={photoFor(product.id)} alt="" onClick={()=>setPhotoPreview({url:photoFor(product.id),name:product.name})} style={{width:38,height:38,objectFit:'cover',borderRadius:6,cursor:'zoom-in'}}/> : null}
+            <span>{product.name}{activePage === 'products' && product.catalog_source === 'tapis_products' ? <small style={{display:'inline-block',marginInlineStart:8,padding:'2px 7px',borderRadius:6,background:'#eef2ff',color:'#475569',fontSize:11,fontWeight:700}}>Tapis</small> : null}{activePage === 'arina' && normalizeName(product.name).includes('AFRICHA') ? <small style={{display:'block',color:'#64748b'}}>Africha Shop</small> : activePage === 'arina' ? <small style={{display:'block',color:'#64748b'}}>Europ Arina</small> : null}</span>
           </span>
         </td>
         <td
@@ -2318,7 +2341,7 @@ export default function App() {
               <div style={{ color: '#64748b', fontSize: 12 }}>
                 Réf. {product.product_ref}
               </div>
-              <strong style={{display:'flex',alignItems:'center',gap:8}}>{activePage === 'textiles' && photoFor(product.id) ? <img src={photoFor(product.id)} alt="" onClick={()=>setPhotoPreview({url:photoFor(product.id),name:product.name})} style={{width:42,height:42,objectFit:'cover',borderRadius:6,cursor:'zoom-in'}}/> : null}{product.name}</strong>
+              <strong style={{display:'flex',alignItems:'center',gap:8}}>{activePage === 'textiles' && product.catalog_source !== 'tapis_products' && photoFor(product.id) ? <img src={photoFor(product.id)} alt="" onClick={()=>setPhotoPreview({url:photoFor(product.id),name:product.name})} style={{width:42,height:42,objectFit:'cover',borderRadius:6,cursor:'zoom-in'}}/> : null}{product.name}</strong>
             </div>
             <div className="ls-card-metrics">
               <div>
@@ -4548,14 +4571,14 @@ export default function App() {
                 <label style={{display:'block',fontWeight:700,marginBottom:6}}>Nom du client</label>
                 <input style={styles.field} value={salesCustomer} onChange={(e)=>setSalesCustomer(e.target.value)} placeholder="Nom du client" />
                 <div style={{marginTop:14}}>
-                  <ClearableSearchInput style={styles.field} value={salesSearch} onChange={(e)=>setSalesSearch(e.target.value)} onKeyDown={(e)=>{if(e.key==='Enter'){e.preventDefault();const first=products.find(p=>productMatchesSearch(p,salesSearch));if(first)addSalesLine(first.id);}}} placeholder="Rechercher par désignation ou référence… (Entrée pour ajouter le premier résultat)" />
+                  <ClearableSearchInput style={styles.field} value={salesSearch} onChange={(e)=>setSalesSearch(e.target.value)} onKeyDown={(e)=>{if(e.key==='Enter'){e.preventDefault();const first=catalogProducts.find(p=>productMatchesSearch(p,salesSearch));if(first)addSalesLine(first.id);}}} placeholder="Rechercher par désignation ou référence… (Entrée pour ajouter le premier résultat)" />
                   {salesSearch.trim() && <div style={{marginTop:8,maxHeight:240,overflowY:'auto',border:'1px solid #dbe3ec',borderRadius:8}}>
-                    {products.filter(p=>productMatchesSearch(p, salesSearch)).slice(0,20).map(p=><div key={p.id} style={{display:'flex',alignItems:'center',gap:8,padding:8,borderBottom:'1px solid #edf1f5'}}>
-                      {photoFor(p.id) ? <img src={photoFor(p.id)} alt="" style={{width:42,height:42,objectFit:'cover',borderRadius:6,flexShrink:0}} /> : <div style={{width:42,height:42,background:'#f1f4f8',borderRadius:6,flexShrink:0}} />}
+                    {catalogProducts.filter(p=>productMatchesSearch(p, salesSearch)).slice(0,20).map(p=><div key={`${p.catalog_source}:${p.id}`} style={{display:'flex',alignItems:'center',gap:8,padding:8,borderBottom:'1px solid #edf1f5'}}>
+                      {p.catalog_source !== 'tapis_products' && photoFor(p.id) ? <img src={photoFor(p.id)} alt="" style={{width:42,height:42,objectFit:'cover',borderRadius:6,flexShrink:0}} /> : <div style={{width:42,height:42,background:'#f1f4f8',borderRadius:6,flexShrink:0}} />}
                       <div style={{flex:1,minWidth:0}}><div style={{fontWeight:700}}>{p.name}</div><div className="ls-muted">{p.product_ref || ''} · Gros : {Number(p.wholesale_price||0).toFixed(2)} DA</div></div>
                       <button style={styles.button} onClick={()=>addSalesLine(p.id)}>Ajouter</button>
                     </div>)}
-                    {!products.some(p=>productMatchesSearch(p, salesSearch)) && <p style={{padding:10}} className="ls-muted">Aucun produit trouvé.</p>}
+                    {!catalogProducts.some(p=>productMatchesSearch(p, salesSearch)) && <p style={{padding:10}} className="ls-muted">Aucun produit trouvé.</p>}
                   </div>}
                 </div>
                 {salesLines.length > 0 ? <div className="ls-table-wrap ls-force-table" style={{marginTop:16}}><table className="ls-table"><thead><tr><th style={styles.th}>Désignation</th><th style={styles.th}>Quantité</th><th style={styles.th}>Prix de gros</th><th style={styles.th}>Total</th><th style={styles.th}>Action</th></tr></thead><tbody>{salesLines.map(line=><tr key={line.id}><td style={styles.td}><div style={{display:'flex',alignItems:'center',gap:8}}>{photoFor(line.id) ? <img src={photoFor(line.id)} alt="" style={{width:38,height:38,objectFit:'cover',borderRadius:6,flexShrink:0}} /> : null}<span>{line.name}</span></div></td><td style={styles.td}><input type="number" min="0.01" step="any" style={{...styles.field,width:100}} value={line.quantity} onChange={(e)=>setSalesLines(cur=>cur.map(x=>x.id===line.id?{...x,quantity:Math.max(0,Number(e.target.value)||0)}:x))}/></td><td style={styles.td}>{Number(line.wholesale_price||0).toFixed(2)} DA</td><td style={styles.td}>{(Number(line.quantity||0)*Number(line.wholesale_price||0)).toFixed(2)} DA</td><td style={styles.td}><button style={styles.secondary} onClick={()=>setSalesLines(cur=>cur.filter(x=>x.id!==line.id))}>Retirer</button></td></tr>)}</tbody></table></div> : <p className="ls-muted">Aucun produit ajouté.</p>}
@@ -4575,20 +4598,20 @@ export default function App() {
                 <label style={{display:'block',fontWeight:700,marginBottom:6}}>Nom du document (facultatif)</label>
                 <input style={styles.field} value={labelDocumentTitle} onChange={(e)=>setLabelDocumentTitle(e.target.value)} placeholder="Ex. Étiquettes nouvelle collection" />
                 <h3 style={{marginTop:22}}>1. Ajouter des produits</h3>
-                <ClearableSearchInput style={{...styles.field,marginTop:4}} value={labelSearch} onChange={(e)=>setLabelSearch(e.target.value)} onKeyDown={(e)=>{if(e.key==='Enter'){e.preventDefault();const first=products.find(p=>productMatchesSearch(p,labelSearch));if(first)addLabelLine(first);}}} placeholder="Rechercher par désignation ou référence… (Entrée pour ajouter le premier résultat)" />
+                <ClearableSearchInput style={{...styles.field,marginTop:4}} value={labelSearch} onChange={(e)=>setLabelSearch(e.target.value)} onKeyDown={(e)=>{if(e.key==='Enter'){e.preventDefault();const first=catalogProducts.find(p=>productMatchesSearch(p,labelSearch));if(first)addLabelLine(first);}}} placeholder="Rechercher par désignation ou référence… (Entrée pour ajouter le premier résultat)" />
                 {labelSearch.trim() && (
                   <div className="ls-table-wrap" style={{marginTop:10}}>
                     <table className="ls-table">
                       <thead><tr><th style={styles.th}>Désignation</th><th style={styles.th}>Prix détail</th><th style={styles.th}>Action</th></tr></thead>
                       <tbody>
-                        {products.filter(p=>productMatchesSearch(p, labelSearch)).slice(0,30).map(p=>(
+                        {catalogProducts.filter(p=>productMatchesSearch(p, labelSearch)).slice(0,30).map(p=>(
                           <tr key={p.id}>
                             <td style={styles.td}><strong>{p.name}</strong><div className="ls-muted">{p.product_ref}</div></td>
                             <td style={styles.td}>{Number(p.retail_price||0).toFixed(2)} DA</td>
                             <td style={styles.td}><button type="button" style={styles.button} onClick={()=>addLabelLine(p)}>Ajouter</button></td>
                           </tr>
                         ))}
-                        {products.filter(p=>productMatchesSearch(p, labelSearch)).length===0 && <tr><td style={styles.td} colSpan={3}>Aucun produit trouvé.</td></tr>}
+                        {catalogProducts.filter(p=>productMatchesSearch(p, labelSearch)).length===0 && <tr><td style={styles.td} colSpan={3}>Aucun produit trouvé.</td></tr>}
                       </tbody>
                     </table>
                   </div>
