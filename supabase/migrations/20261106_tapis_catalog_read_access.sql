@@ -3,7 +3,7 @@
 
 begin;
 
-grant select on table public.tapis_products to authenticated;
+grant select, update on table public.tapis_products to authenticated;
 
 drop policy if exists tapis_products_active_users_select on public.tapis_products;
 create policy tapis_products_active_users_select
