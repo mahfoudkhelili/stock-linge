@@ -2838,7 +2838,95 @@ export default function App() {
                     <p className="ls-muted" style={{ marginBottom: 0, marginTop: 12 }}>Chaque bouton ouvre directement le sélecteur du fichier correspondant. Les aperçus et confirmations restent dans leurs sections respectives ci-dessous.</p>
                   </section>
                 )}
-{isAdmin && (
+                {isAdmin && (
+                  <div
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 340px), 1fr))',
+                      gap: 16,
+                      alignItems: 'stretch',
+                    }}
+                  >
+                    <section
+                      className="ls-panel"
+                      style={{
+                        height: '100%',
+                        boxSizing: 'border-box',
+                        borderColor: urgentNewRequests.length ? '#f2b84b' : '#e2e8f0',
+                        borderWidth: urgentNewRequests.length ? 2 : 1,
+                      }}
+                    >
+                      <h2 style={{ marginTop: 0, color: urgentNewRequests.length ? '#9a4b00' : '#102b46' }}>
+                        🚨 Demandes urgentes — Matelas Europ Arina ({urgentNewRequests.length})
+                      </h2>
+                      {urgentNewRequests.length === 0 ? (
+                        <p className="ls-muted">Aucune demande urgente pour le moment.</p>
+                      ) : (
+                        urgentNewRequests.map((request) => (
+                          <div
+                            key={request.id}
+                            style={{
+                              padding: '10px 0',
+                              borderTop: '1px solid #f3d5a0',
+                              display: 'flex',
+                              justifyContent: 'space-between',
+                              gap: 10,
+                              flexWrap: 'wrap',
+                            }}
+                          >
+                            <div>
+                              <strong>{request.products?.name || 'Matelas Europ Arina'}</strong>
+                              <div className="ls-muted">
+                                {request.trader_name || 'Client'} · {new Date(request.created_at).toLocaleString('fr-FR')}
+                              </div>
+                            </div>
+                            <strong>Quantité : {request.requested_quantity ?? 'À confirmer'}</strong>
+                            <button style={styles.secondary} onClick={() => navigateTo('requests')}>Ouvrir</button>
+                          </div>
+                        ))
+                      )}
+                    </section>
+                    <section className="ls-panel" style={{ height: '100%', boxSizing: 'border-box' }}>
+                      <h2 style={{ marginTop: 0 }}>🔔 Demandes de réapprovisionnement</h2>
+                      <p className="ls-muted">Les nouvelles demandes sont affichées en premier.</p>
+                      {newRequests.length === 0 ? (
+                        <p>Aucune nouvelle demande.</p>
+                      ) : (
+                        <>
+                          <p><strong>{newRequests.length} nouvelle(s) demande(s)</strong></p>
+                          {newRequests.slice(0, 3).map((request) => (
+                            <div
+                              key={request.id}
+                              style={{
+                                padding: '9px 0',
+                                borderTop: '1px solid #edf1f5',
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                gap: 10,
+                                flexWrap: 'wrap',
+                              }}
+                            >
+                              <span>
+                                {request.products?.name || 'Produit'}{' '}
+                                <span className="ls-muted">— {request.trader_name || 'Trader'}</span>
+                              </span>
+                              <strong>
+                                {request.request_type === 'need_item' || request.requested_quantity == null
+                                  ? 'Quantité à confirmer'
+                                  : `Qté : ${request.requested_quantity}`}
+                              </strong>
+                            </div>
+                          ))}
+                          <button style={styles.button} onClick={() => navigateTo('requests')}>Ouvrir les demandes</button>
+                          <button style={{ ...styles.secondary, marginLeft: 8 }} onClick={copyNewRequests}>
+                            Copier toutes les nouvelles demandes
+                          </button>
+                        </>
+                      )}
+                    </section>
+                  </div>
+                )}
+                {isAdmin && (
                   <section className="ls-panel">
                     {csvFileName && (
                       <p>
