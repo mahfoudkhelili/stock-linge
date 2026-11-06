@@ -3261,59 +3261,7 @@ export default function App() {
                         : 'Rechercher par désignation…'
                     }
                   />
-                  <label className="ls-muted">
-                    {language === 'ar' ? 'ترتيب حسب' : 'Trier par'}{' '}
-                    <select
-                      style={{ ...styles.field, width: 'auto', marginLeft: 6 }}
-                      value={sortKey}
-                      onChange={(event) => changeSort(event.target.value)}
-                      aria-label={
-                        language === 'ar'
-                          ? 'ترتيب المنتجات حسب'
-                          : 'Trier les produits par'
-                      }
-                    >
-                      <option value="current_quantity">
-                        {language === 'ar' ? 'الكمية' : 'Quantité'}
-                      </option>
-                      <option value="wholesale_price">
-                        {language === 'ar' ? 'سعر الجملة' : 'Prix de gros'}
-                      </option>
-                      <option value="retail_price">
-                        {language === 'ar' ? 'سعر التجزئة' : 'Prix de détail'}
-                      </option>
-                      <option value="name">
-                        {language === 'ar' ? 'اسم المنتج' : 'Désignation'}
-                      </option>
-                      <option value="product_ref">
-                        {language === 'ar' ? 'المرجع' : 'Référence'}
-                      </option>
-                    </select>
-                  </label>
-                  <button
-                    type="button"
-                    style={styles.secondary}
-                    onClick={() => {
-                      setSortDirection((direction) =>
-                        direction === 'asc' ? 'desc' : 'asc'
-                      );
-                      setCurrentPage(1);
-                    }}
-                    aria-label={
-                      language === 'ar'
-                        ? 'تغيير اتجاه الترتيب'
-                        : 'Inverser le sens du tri'
-                    }
-                  >
-                    {sortDirection === 'asc'
-                      ? language === 'ar'
-                        ? 'تصاعدي ▲'
-                        : 'Croissant ▲'
-                      : language === 'ar'
-                      ? 'تنازلي ▼'
-                      : 'Décroissant ▼'}
-                  </button>
-                  <label className="ls-muted">
+                                    <label className="ls-muted">
                     {language === 'ar' ? 'عدد الأسطر' : 'Lignes par page'}{' '}
                     <select
                       style={{ ...styles.field, width: 'auto', marginLeft: 6 }}
