@@ -1746,7 +1746,7 @@ export default function App() {
     },
     {
       id: 'analysis',
-      label: language === 'ar' ? 'تحليل المنتجات' : 'Analyse des produits',
+      label: language === 'ar' ? 'Analyse Linge' : 'Analyse Linge',
       icon: '⌁',
       admin: true,
     },
