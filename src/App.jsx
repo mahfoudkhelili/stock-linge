@@ -54,7 +54,7 @@ function ClearableSearchInput({ value, onChange, style, className, placeholder, 
 
 function makeReferenceQrDataUrl(value) {
   const text = String(value || '').trim();
-  if (!/^\\d{1,41}$/.test(text)) throw new Error('REFERENCE 1 doit contenir uniquement des chiffres (1 à 41).');
+  if (!/^\d{1,41}$/.test(text)) throw new Error('REFERENCE 1 doit contenir uniquement des chiffres (1 à 41).');
   const bits = [], pushBits = (number,length) => { for(let i=length-1;i>=0;i--) bits.push((number>>>i)&1); };
   pushBits(1,4); pushBits(text.length,10); let pos=0;
   while(pos+3<=text.length){pushBits(Number(text.slice(pos,pos+3)),10);pos+=3;}
@@ -2106,7 +2106,7 @@ export default function App() {
     const totalLabels = chosen.reduce((sum, line) => sum + Math.floor(Number(line.quantity)), 0);
     if (!totalLabels) { window.alert('Choisissez au moins un produit et un nombre d’étiquettes.'); return; }
     if (totalLabels > 500) { window.alert('Limite de sécurité : 500 étiquettes par PDF.'); return; }
-    const missing = chosen.find((line) => !/^\\d{1,41}$/.test(String(line.reference_1 || '').trim()));
+    const missing = chosen.find((line) => !/^\d{1,41}$/.test(String(line.reference_1 || '').trim()));
     if (missing) { window.alert('REFERENCE 1 manquante ou invalide pour : ' + missing.name); return; }
     setPdfBusy(true);
     try {
