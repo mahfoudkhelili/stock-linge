@@ -122,6 +122,8 @@ export default function App() {
   const [analysisSortDirection, setAnalysisSortDirection] = useState('asc');
   const [analysisShowCode, setAnalysisShowCode] = useState(false);
   const [activePage, setActivePage] = useState('dashboard');
+  const [alertScope, setAlertScope] = useState('linge');
+  const [statsScope, setStatsScope] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [productPhotos, setProductPhotos] = useState([]);
   const [photoProductId, setPhotoProductId] = useState('');
@@ -2064,6 +2066,14 @@ export default function App() {
       loadSuggestedProducts();
       loadStockDecreaseAnalysis();
     }
+    if (page === 'alerts') {
+      loadSuggestedProducts();
+      loadTapisSuggestedProducts();
+    }
+    if (page === 'statistics') {
+      loadStockDecreaseAnalysis();
+      loadTapisStockDecreaseAnalysis();
+    }
     if (page === 'tapis-analysis') { loadTapisSuggestedProducts(); loadTapisStockDecreaseAnalysis(); }
     if (page === 'history' && canViewPage('history')) loadStockHistory();
     if (page === 'requests') loadReplenishmentRequests();
@@ -2083,6 +2093,18 @@ export default function App() {
       label: language === 'ar' ? 'لوحة التحكم' : 'Tableau de bord',
       icon: '⌂',
       adminOnly: true,
+    },
+    {
+      id: 'alerts',
+      label: language === 'ar' ? 'تنبيهات المخزون' : 'Alertes de stock',
+      icon: '⚑',
+      admin: true,
+    },
+    {
+      id: 'statistics',
+      label: language === 'ar' ? 'الإحصائيات' : 'Statistiques',
+      icon: '▥',
+      admin: true,
     },
     {
       id: 'imports',
@@ -2851,6 +2873,64 @@ export default function App() {
               </>
             )}
 
+            {activePage === 'alerts' && isAdmin && (() => {
+              const sourceProducts = alertScope === 'tapis'
+                ? catalogProducts.filter(p => p.catalog_source === 'tapis_products')
+                : products;
+              const suggestions = alertScope === 'tapis' ? tapisSuggestedProducts : suggestedProducts;
+              const negatives = sourceProducts.filter(p => Number(p.current_quantity) < 0);
+              const exhausted = sourceProducts.filter(p => Number(p.current_quantity) === 0);
+              const low = sourceProducts.filter(p => Number(p.min_stock_level) > 0 && Number(p.current_quantity) > 0 && Number(p.current_quantity) <= Number(p.min_stock_level));
+              const imminent = suggestions.filter(p => Number(p.days_remaining) > 0 && Number(p.days_remaining) <= 2);
+              const groups = [
+                { title: 'Stock négatif', items: negatives, color: '#b42318' },
+                { title: 'Stock épuisé', items: exhausted, color: '#b54708' },
+                { title: 'Rupture imminente (≤ 2 jours)', items: imminent, color: '#b54708' },
+                { title: 'Stock faible', items: low, color: '#175cd3' },
+              ];
+              return <section className="ls-panel">
+                <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:12,flexWrap:'wrap'}}>
+                  <div><h2 style={{margin:'0 0 5px'}}>Alertes de stock</h2><p className="ls-muted" style={{margin:0}}>Les alertes sont calculées à partir du dernier PDF et des suggestions de réapprovisionnement.</p></div>
+                  <div className="ls-toolbar">
+                    <button style={alertScope==='linge'?styles.button:styles.secondary} onClick={()=>setAlertScope('linge')}>Linge</button>
+                    <button style={alertScope==='tapis'?styles.button:styles.secondary} onClick={()=>setAlertScope('tapis')}>Tapis</button>
+                    <button style={styles.secondary} onClick={()=>{if(alertScope==='tapis')loadTapisSuggestedProducts();else loadSuggestedProducts();}}>Actualiser</button>
+                  </div>
+                </div>
+                <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(145px,1fr))',gap:10,margin:'16px 0'}}>
+                  {groups.map(group=><div key={group.title} style={{border:'1px solid #e2e8f0',borderRadius:12,padding:14,background:'var(--ls-card,#fff)'}}><div className="ls-muted">{group.title}</div><strong style={{fontSize:28,color:group.color}}>{group.items.length.toLocaleString('fr-FR')}</strong></div>)}
+                </div>
+                {groups.map(group=><section key={group.title} style={{marginTop:18}}>
+                  <h3 style={{marginBottom:8}}>{group.title} <span className="ls-muted">({group.items.length})</span></h3>
+                  {group.items.length===0?<p className="ls-muted">Aucun produit dans cette catégorie.</p>:<div className="ls-table-wrap"><table className="ls-table"><thead><tr><th style={styles.th}>Référence</th><th style={styles.th}>Désignation</th><th style={styles.th}>Quantité actuelle</th>{group.title.includes('imminente')&&<th style={styles.th}>Jours restants</th>}</tr></thead><tbody>{group.items.slice(0,100).map((p,i)=><tr key={p.id||p.product_ref||i}><td style={styles.td}>{p.product_ref||'—'}</td><td style={styles.td}>{p.name||'—'}</td><td style={styles.td}>{p.current_quantity??'—'}</td>{group.title.includes('imminente')&&<td style={styles.td}>{p.days_remaining}</td>}</tr>)}</tbody></table></div>}
+                </section>)}
+              </section>;
+            })()}
+            {activePage === 'statistics' && isAdmin && (() => {
+              const sourceProducts = statsScope === 'linge' ? products : statsScope === 'tapis' ? catalogProducts.filter(p=>p.catalog_source==='tapis_products') : catalogProducts;
+              const total = sourceProducts.length;
+              const quantity = sourceProducts.reduce((sum,p)=>sum+(Number(p.current_quantity)||0),0);
+              const negative = sourceProducts.filter(p=>Number(p.current_quantity)<0).length;
+              const zero = sourceProducts.filter(p=>Number(p.current_quantity)===0).length;
+              const positive = sourceProducts.filter(p=>Number(p.current_quantity)>0).length;
+              const decreases = statsScope==='tapis'?tapisStockDecreaseProducts:statsScope==='linge'?stockDecreaseProducts:[...stockDecreaseProducts,...tapisStockDecreaseProducts];
+              const topDecreases = [...decreases].sort((a,b)=>Number(b.quantity_decreased||0)-Number(a.quantity_decreased||0)).slice(0,8);
+              const maxDecrease = Math.max(1,...topDecreases.map(p=>Number(p.quantity_decreased)||0));
+              const metrics = [{label:'Produits suivis',value:total},{label:'Quantité totale actuelle',value:quantity.toLocaleString('fr-FR',{maximumFractionDigits:2})},{label:'Stock positif',value:positive},{label:'Stock négatif',value:negative},{label:'Stock épuisé',value:zero},{label:'Baisses PDF détectées',value:decreases.length}];
+              return <section className="ls-panel">
+                <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:12,flexWrap:'wrap'}}>
+                  <div><h2 style={{margin:'0 0 5px'}}>Statistiques du stock</h2><p className="ls-muted" style={{margin:0}}>Vue synthétique calculée à partir des quantités actuelles et des comparaisons PDF.</p></div>
+                  <div className="ls-toolbar"><button style={statsScope==='all'?styles.button:styles.secondary} onClick={()=>setStatsScope('all')}>Tout</button><button style={statsScope==='linge'?styles.button:styles.secondary} onClick={()=>setStatsScope('linge')}>Linge</button><button style={statsScope==='tapis'?styles.button:styles.secondary} onClick={()=>setStatsScope('tapis')}>Tapis</button><button style={styles.secondary} onClick={()=>{loadStockDecreaseAnalysis();loadTapisStockDecreaseAnalysis();}}>Actualiser</button></div>
+                </div>
+                <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(145px,1fr))',gap:10,margin:'16px 0'}}>
+                  {metrics.map(m=><div key={m.label} style={{border:'1px solid #e2e8f0',borderRadius:12,padding:14,background:'var(--ls-card,#fff)'}}><div className="ls-muted">{m.label}</div><strong style={{fontSize:26}}>{m.value}</strong></div>)}
+                </div>
+                <h3 style={{marginTop:20}}>Répartition du stock</h3>
+                {[{label:'Stock positif',value:positive,color:'#1570ef'},{label:'Stock négatif',value:negative,color:'#d92d20'},{label:'Stock épuisé',value:zero,color:'#b54708'}].map(item=><div key={item.label} style={{margin:'12px 0'}}><div style={{display:'flex',justifyContent:'space-between',marginBottom:5}}><span>{item.label}</span><strong>{item.value}</strong></div><div style={{height:9,background:'#e9eef5',borderRadius:20,overflow:'hidden'}}><div style={{height:'100%',width:(total?Math.min(100,item.value/total*100):0)+'%',background:item.color,borderRadius:20}}/></div></div>)}
+                <h3 style={{marginTop:22}}>Plus fortes baisses de stock (PDF)</h3>
+                {topDecreases.length===0?<p className="ls-muted">Aucune baisse PDF chargée. Actualisez les données ou vérifiez les imports PDF.</p>:<div className="ls-table-wrap"><table className="ls-table"><thead><tr><th style={styles.th}>Référence</th><th style={styles.th}>Désignation</th><th style={styles.th}>Quantité diminuée</th></tr></thead><tbody>{topDecreases.map((p,i)=><tr key={p.product_id||p.product_ref||i}><td style={styles.td}>{p.product_ref||'—'}</td><td style={styles.td}>{p.name||'—'}</td><td style={styles.td}><div style={{display:'flex',alignItems:'center',gap:8}}><strong>{p.quantity_decreased??'—'}</strong><div style={{height:7,background:'#e9eef5',borderRadius:20,flex:1,overflow:'hidden'}}><div style={{height:'100%',width:Math.min(100,(Number(p.quantity_decreased)||0)/maxDecrease*100)+'%',background:'#d97706'}}/></div></div></td></tr>)}</tbody></table></div>}
+              </section>;
+            })()}
             {activePage === 'imports' && isAdmin && (
               <>
                 {isAdmin && (
