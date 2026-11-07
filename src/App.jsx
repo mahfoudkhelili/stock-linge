@@ -2272,7 +2272,9 @@ export default function App() {
                         return exists ? current.map((line) => String(line.id) === String(product.id) && line.catalog_source === product.catalog_source ? { ...line, quantity: Number(line.quantity || 0) + 1 } : line) : [...current, { ...product, quantity: 1 }];
                       });
                       setSalesSearch('');
-                      setScannerStatus('Ajouté : ' + product.name + ' — scannez le produit suivant.');
+                      setScannerStatus('Produit ajouté : ' + product.name + '. Caméra arrêtée.');
+                      setScannerTarget(null);
+                      return;
                     } else {
                       setSearchTerm(product.name); setCurrentPage(1);
                       setScannerStatus('Produit trouvé : ' + product.name); setScannerTarget(null); return;
@@ -2570,7 +2572,7 @@ export default function App() {
       if (ai < 0) return 1; if (bi < 0) return -1; return ai - bi;
     });
   const activePageTitle =
-    navItems.find((item) => item.id === activePage)?.label || 'Linge Stock';
+    navItems.find((item) => item.id === activePage)?.label || 'Africha Hamiz Assistant';
   const lastStockUpdate = stockHistory[0]?.created_at;
   const newRequests = activeRequests.filter(
     (request) => request.status === 'new'
@@ -2909,10 +2911,10 @@ export default function App() {
               className="ls-brand-mark"
               style={{ background: '#102b46', color: '#fff' }}
             >
-              LS
+              AH
             </div>
             <div>
-              <h1 style={{ margin: 0, fontSize: 25 }}>Linge Stock</h1>
+              <h1 style={{ margin: 0, fontSize: 23 }}>Africha Hamiz Assistant</h1>
               <div className="ls-muted">Gestion intelligente du stock</div>
             </div>
           </div>
@@ -2962,9 +2964,9 @@ export default function App() {
           <aside className="ls-sidebar">
             <div className="ls-sidebar-head">
               <div className="ls-brand">
-                <div className="ls-brand-mark">LS</div>
+                <div className="ls-brand-mark">AH</div>
                 <div>
-                  <strong style={{ fontSize: 19 }}>Linge Stock</strong>
+                  <strong style={{ fontSize: 16 }}>Africha Hamiz Assistant</strong>
                   <div style={{ color: '#a9bdd1', fontSize: 11 }}>
                     Gestion du stock
                   </div>
@@ -3006,7 +3008,7 @@ export default function App() {
             <div className="ls-topbar">
               <div>
                 <div className="ls-muted">
-                  LINGE STOCK / {activePageTitle.toLocaleUpperCase('fr')}
+                  AFRICHA HAMIZ ASSISTANT / {activePageTitle.toLocaleUpperCase('fr')}
                 </div>
                 <h1
                   style={{
@@ -5480,7 +5482,7 @@ export default function App() {
               className="ls-muted"
               style={{ textAlign: 'center', marginTop: 24 }}
             >
-              Linge Stock · Les données restent synchronisées avec Supabase.
+              Africha Hamiz Assistant · Les données restent synchronisées avec Supabase.
             </div>
           </main>
         </div>
