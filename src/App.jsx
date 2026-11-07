@@ -2896,7 +2896,7 @@ export default function App() {
                 <div className="ls-grid ls-dashboard-stats">
                   <button type="button" className="ls-stat ls-stat-clickable ls-stat-primary" onClick={() => navigateTo('products')}>
                     <span className="ls-stat-heading"><span className="ls-stat-icon"><DashboardIcon name="products" /></span><span className="ls-stat-label">Produits<br />visibles</span></span>
-                    <strong>{catalogProducts.length.toLocaleString('fr-FR')}</strong>
+                    <strong>{catalogProducts.filter(product => product.is_active !== false).length.toLocaleString('fr-FR')}</strong>
                   </button>
                   <button type="button" className="ls-stat ls-stat-clickable ls-stat-primary" onClick={() => navigateTo('analysis')}>
                     <span className="ls-stat-heading"><span className="ls-stat-icon"><DashboardIcon name="analysis" /></span><span className="ls-stat-label">Quantités<br />négatives</span></span>
@@ -4758,7 +4758,7 @@ export default function App() {
                 <label style={{display:'block',fontWeight:700,marginBottom:6}}>Nom du client</label>
                 <input style={styles.field} value={salesCustomer} onChange={(e)=>setSalesCustomer(e.target.value)} placeholder="Nom du client" />
                 <div style={{marginTop:14}}>
-                  <ClearableSearchInput style={styles.field} value={salesSearch} onChange={(e)=>setSalesSearch(e.target.value)} onKeyDown={(e)=>{if(e.key==='Enter'){e.preventDefault();const first=catalogProducts.find(p=>productMatchesSearch(p,salesSearch));if(first)addSalesLine(first);}}} placeholder="Rechercher par désignation ou référence… (Entrée pour ajouter le premier résultat)" />
+                  <ClearableSearchInput style={styles.field} value={salesSearch} onChange={(e)=>setSalesSearch(e.target.value)} onKeyDown={(e)=>{if(e.key==='Enter'){e.preventDefault();const first=catalogProducts.find(p=>productMatchesSearch(p,salesSearch));if(first)addSalesLine(first,salesAddQuantities[`${first.catalog_source}:${first.id}`] ?? 1);}}} placeholder="Rechercher par désignation ou référence… (Entrée pour ajouter le premier résultat)" />
                   {salesSearch.trim() && <div style={{marginTop:8,maxHeight:240,overflowY:'auto',border:'1px solid #dbe3ec',borderRadius:8}}>
                     {catalogProducts.filter(p=>productMatchesSearch(p, salesSearch)).slice(0,20).map(p=><div key={`${p.catalog_source}:${p.id}`} style={{display:'flex',alignItems:'center',gap:8,padding:8,borderBottom:'1px solid #edf1f5'}}>
                       {p.catalog_source !== 'tapis_products' && photoFor(p.id) ? <img src={photoFor(p.id)} alt="" style={{width:42,height:42,objectFit:'cover',borderRadius:6,flexShrink:0}} /> : <div style={{width:42,height:42,background:'#f1f4f8',borderRadius:6,flexShrink:0}} />}
@@ -4783,7 +4783,7 @@ export default function App() {
               <section className="ls-panel">
                 <h2>Étiquettes prix</h2>
                 <h3 style={{marginTop:22}}>1. Ajouter des produits</h3>
-                <ClearableSearchInput style={{...styles.field,marginTop:4}} value={labelSearch} onChange={(e)=>setLabelSearch(e.target.value)} onKeyDown={(e)=>{if(e.key==='Enter'){e.preventDefault();const first=catalogProducts.find(p=>productMatchesSearch(p,labelSearch));if(first)addLabelLine(first);}}} placeholder="Rechercher par désignation ou référence… (Entrée pour ajouter le premier résultat)" />
+                <ClearableSearchInput style={{...styles.field,marginTop:4}} value={labelSearch} onChange={(e)=>setLabelSearch(e.target.value)} onKeyDown={(e)=>{if(e.key==='Enter'){e.preventDefault();const first=catalogProducts.find(p=>productMatchesSearch(p,labelSearch));if(first)addLabelLine(first,labelAddQuantities[`${first.catalog_source}:${first.id}`] ?? 1);}}} placeholder="Rechercher par désignation ou référence… (Entrée pour ajouter le premier résultat)" />
                 {labelSearch.trim() && (
                   <div className="ls-table-wrap" style={{marginTop:10}}>
                     <table className="ls-table">
