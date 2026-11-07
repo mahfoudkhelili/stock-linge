@@ -1986,7 +1986,6 @@ export default function App() {
     });
     setSalesAddQuantities((current) => ({ ...current, [key]: '1' }));
     setSalesProductId('');
-    setSalesSearch('');
   }
 
   const salesTotal = salesLines.reduce((sum, line) => sum + Number(line.quantity || 0) * Number(line.wholesale_price || 0), 0);
@@ -2047,7 +2046,6 @@ export default function App() {
       return [...current, { ...product, quantity: Math.min(500, quantity) }];
     });
     setLabelAddQuantities((current) => ({ ...current, [key]: '1' }));
-    setLabelSearch('');
   }
 
   function updateLabelLineQuantity(product, value) {
