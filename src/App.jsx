@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Papa from 'papaparse';
 import * as pdfjsLib from 'pdfjs-dist';
 import pdfWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
@@ -17,7 +17,7 @@ function normalizeProductSearch(value) {
 function productMatchesSearch(product, query) {
   const normalizedQuery = normalizeProductSearch(query);
   if (!normalizedQuery) return true;
-  const searchableText = normalizeProductSearch(String(product?.name || '') + ' ' + String(product?.product_ref || ''));
+  const searchableText = normalizeProductSearch(String(product?.name || '') + ' ' + String(product?.product_ref || '') + ' ' + String(product?.reference_1 || ''));
   const words = searchableText.split(/\s+/).filter(Boolean);
   const tokens = normalizedQuery.split(/\s+/).filter(Boolean);
   // Every typed token may match the beginning of any word, in any order.
@@ -49,6 +49,37 @@ function ClearableSearchInput({ value, onChange, style, className, placeholder, 
       )}
     </div>
   );
+}
+
+
+function makeReferenceQrDataUrl(value) {
+  const text = String(value || '').trim();
+  if (!/^\\d{1,41}$/.test(text)) throw new Error('REFERENCE 1 doit contenir uniquement des chiffres (1 à 41).');
+  const bits = [], pushBits = (number,length) => { for(let i=length-1;i>=0;i--) bits.push((number>>>i)&1); };
+  pushBits(1,4); pushBits(text.length,10); let pos=0;
+  while(pos+3<=text.length){pushBits(Number(text.slice(pos,pos+3)),10);pos+=3;}
+  if(text.length-pos===2)pushBits(Number(text.slice(pos)),7); else if(text.length-pos===1)pushBits(Number(text.slice(pos)),4);
+  for(let i=0;i<Math.min(4,152-bits.length);i++)bits.push(0); while(bits.length%8)bits.push(0);
+  const data=[];for(let i=0;i<bits.length;i+=8)data.push(bits.slice(i,i+8).reduce((n,b)=>(n<<1)|b,0));
+  for(let pad=0;data.length<19;pad++)data.push(pad%2===0?0xEC:0x11);
+  const mul=(x,y)=>{let z=0;for(let i=7;i>=0;i--){z=(z<<1)^((z>>>7)*0x11D);if((y>>>i)&1)z^=x;}return z;};
+  const pow=n=>{let v=1;for(let i=0;i<n;i++)v=mul(v,2);return v;};
+  let gen=[1];for(let i=0;i<7;i++){const next=Array(gen.length+1).fill(0);gen.forEach((c,j)=>{next[j]^=c;next[j+1]^=mul(c,pow(i));});gen=next;}
+  const rem=data.concat(Array(7).fill(0));for(let i=0;i<19;i++){const factor=rem[i];if(factor)for(let j=0;j<gen.length;j++)rem[i+j]^=mul(gen[j],factor);}
+  const stream=data.concat(rem.slice(19)).flatMap(byte=>Array.from({length:8},(_,i)=>(byte>>>(7-i))&1));
+  const size=21,matrix=Array.from({length:size},()=>Array(size).fill(null)),reserved=Array.from({length:size},()=>Array(size).fill(false));
+  const set=(r,c,v)=>{if(r>=0&&r<size&&c>=0&&c<size){matrix[r][c]=v?1:0;reserved[r][c]=true;}};
+  const finder=(top,left)=>{for(let dy=-1;dy<=7;dy++)for(let dx=-1;dx<=7;dx++){const r=top+dy,c=left+dx,inside=dy>=0&&dy<=6&&dx>=0&&dx<=6;set(r,c,inside&&(dy===0||dy===6||dx===0||dx===6||(dy>=2&&dy<=4&&dx>=2&&dx<=4)));}};
+  finder(0,0);finder(0,14);finder(14,0);for(let i=8;i<=12;i++){set(6,i,i%2===0);set(i,6,i%2===0);}
+  const fd=8;let fr=fd<<10;for(let b=14;b>=10;b--)if((fr>>>b)&1)fr^=0x537<<(b-10);
+  const format=((fd<<10)|fr)^0x5412,fb=i=>((format>>>i)&1)!==0;
+  for(let i=0;i<=5;i++)set(i,8,fb(i));set(7,8,fb(6));set(8,8,fb(7));set(8,7,fb(8));for(let i=9;i<15;i++)set(8,14-i,fb(i));
+  for(let i=0;i<8;i++)set(8,size-1-i,fb(i));for(let i=8;i<15;i++)set(size-15+i,8,fb(i));set(size-8,8,true);
+  let bit=0,up=true;for(let right=size-1;right>=1;right-=2){if(right===6)right--;for(let step=0;step<size;step++){const row=up?size-1-step:step;for(let off=0;off<2;off++){const col=right-off;if(!reserved[row][col]){const raw=bit<stream.length?stream[bit++]:0;matrix[row][col]=raw^(((row+col)%2===0)?1:0);}}}up=!up;}
+  const quiet=4,scale=6,canvas=document.createElement('canvas');canvas.width=canvas.height=(size+quiet*2)*scale;
+  const ctx=canvas.getContext('2d');ctx.fillStyle='#fff';ctx.fillRect(0,0,canvas.width,canvas.height);ctx.fillStyle='#000';
+  for(let r=0;r<size;r++)for(let c=0;c<size;c++)if(matrix[r][c])ctx.fillRect((c+quiet)*scale,(r+quiet)*scale,scale,scale);
+  return canvas.toDataURL('image/png');
 }
 
 function DashboardIcon({ name, className = '' }) {
@@ -188,6 +219,12 @@ export default function App() {
   const [salesLines, setSalesLines] = useState([]);
   const [labelSearch, setLabelSearch] = useState('');
   const [labelLines, setLabelLines] = useState([]);
+  const [barcodeSearch, setBarcodeSearch] = useState('');
+  const [barcodeLines, setBarcodeLines] = useState([]);
+  const [barcodeAddQuantities, setBarcodeAddQuantities] = useState({});
+  const [scannerTarget, setScannerTarget] = useState(null);
+  const [scannerStatus, setScannerStatus] = useState('');
+  const scannerVideoRef = useRef(null);
   const [printSettings, setPrintSettings] = useState({ invoice_width_cm: 10, invoice_height_cm: 15, label_width_cm: 5, label_height_cm: 3 });
   const [printSettingsMessage, setPrintSettingsMessage] = useState('');
   const [pdfBusy, setPdfBusy] = useState(false);
@@ -206,7 +243,7 @@ export default function App() {
       const { data, error } = await supabase
         .from('products')
         .select(
-          'id, product_ref, name, current_quantity, wholesale_price, retail_price, min_stock_level, is_hidden, is_active, is_in_latest_pdf'
+          'id, product_ref, reference_1, name, current_quantity, wholesale_price, retail_price, min_stock_level, is_hidden, is_active, is_in_latest_pdf'
         )
         .eq('is_active', true)
         .eq('is_hidden', false)
@@ -232,7 +269,7 @@ export default function App() {
     const { data: inactiveArinaProducts, error: inactiveArinaError } = await supabase
       .from('products')
       .select(
-        'id, product_ref, name, current_quantity, wholesale_price, retail_price, min_stock_level, is_hidden, is_active, is_in_latest_pdf'
+        'id, product_ref, reference_1, name, current_quantity, wholesale_price, retail_price, min_stock_level, is_hidden, is_active, is_in_latest_pdf'
       )
       .eq('is_active', false)
       .eq('is_hidden', false)
@@ -255,7 +292,7 @@ export default function App() {
     while (true) {
       const { data: tapisPage, error: tapisError } = await supabase
         .from('tapis_products')
-        .select('id, product_ref, name, current_quantity, wholesale_price, retail_price, min_stock_level, is_hidden, is_active, is_in_latest_pdf')
+        .select('id, product_ref, reference_1, name, current_quantity, wholesale_price, retail_price, min_stock_level, is_hidden, is_active, is_in_latest_pdf')
         .eq('is_active', true)
         .eq('is_hidden', false)
         .order('name')
@@ -2048,6 +2085,54 @@ export default function App() {
     setLabelAddQuantities((current) => ({ ...current, [key]: '1' }));
   }
 
+  function addBarcodeLine(product, requestedQuantity = 1) {
+    if (!product) return;
+    if (!String(product.reference_1 || '').trim()) { window.alert('Ce produit ne possède pas de REFERENCE 1.'); return; }
+    const quantity = Math.floor(Number(requestedQuantity));
+    if (!Number.isFinite(quantity) || quantity <= 0) { window.alert('Saisissez un nombre d’étiquettes supérieur à zéro.'); return; }
+    setBarcodeLines((current) => {
+      const exists = current.some((line) => String(line.id) === String(product.id) && line.catalog_source === product.catalog_source);
+      return exists ? current.map((line) => String(line.id) === String(product.id) && line.catalog_source === product.catalog_source ? { ...line, quantity: Math.min(500, Number(line.quantity || 0) + quantity) } : line) : [...current, { ...product, quantity: Math.min(500, quantity) }];
+    });
+    setBarcodeAddQuantities((current) => ({ ...current, [`${product.catalog_source}:${product.id}`]: '1' }));
+  }
+  function updateBarcodeLineQuantity(product, value) {
+    const quantity = value === '' ? '' : Math.max(1, Math.min(500, Math.floor(Number(value) || 1)));
+    setBarcodeLines((current) => current.map((line) => String(line.id) === String(product.id) && line.catalog_source === product.catalog_source ? { ...line, quantity } : line));
+  }
+  async function makeBarcodePdf() {
+    if (pdfBusy) return;
+    const chosen = barcodeLines.filter((line) => Number(line.quantity) > 0);
+    const totalLabels = chosen.reduce((sum, line) => sum + Math.floor(Number(line.quantity)), 0);
+    if (!totalLabels) { window.alert('Choisissez au moins un produit et un nombre d’étiquettes.'); return; }
+    if (totalLabels > 500) { window.alert('Limite de sécurité : 500 étiquettes par PDF.'); return; }
+    const missing = chosen.find((line) => !/^\\d{1,41}$/.test(String(line.reference_1 || '').trim()));
+    if (missing) { window.alert('REFERENCE 1 manquante ou invalide pour : ' + missing.name); return; }
+    setPdfBusy(true);
+    try {
+      const { jsPDF } = await import('jspdf');
+      const width = Number(printSettings.label_width_cm) * 10, height = Number(printSettings.label_height_cm) * 10;
+      const doc = new jsPDF({ orientation: width > height ? 'landscape' : 'portrait', unit: 'mm', format: [width, height] });
+      let pageIndex = 0;
+      for (const product of chosen) {
+        const qr = makeReferenceQrDataUrl(product.reference_1);
+        for (let copy = 0; copy < Math.floor(Number(product.quantity)); copy++) {
+          if (pageIndex++) doc.addPage([width, height], width > height ? 'landscape' : 'portrait');
+          const margin = 1.5, qrSize = Math.max(8, Math.min(height - margin * 2, width * 0.48));
+          doc.addImage(qr, 'PNG', margin, (height - qrSize) / 2, qrSize, qrSize);
+          const textX = margin + qrSize + 2, textWidth = Math.max(5, width - textX - margin);
+          const fontSize = Math.max(6, Math.min(10, textWidth / 4.5));
+          doc.setFont('helvetica', 'bold'); doc.setFontSize(fontSize);
+          const nameLines = doc.splitTextToSize(String(product.name || ''), textWidth).slice(0, 4);
+          const lineHeight = fontSize * 0.42, textY = (height - nameLines.length * lineHeight) / 2 + lineHeight * 0.75;
+          doc.text(nameLines, textX, textY, { lineHeightFactor: 1.05 });
+        }
+      }
+      doc.save('codes-QR-' + new Date().toISOString().slice(0, 10) + '.pdf');
+      setMessage(`PDF QR téléchargé : ${totalLabels} étiquette(s). Le QR contient REFERENCE 1.`);
+    } catch (error) { window.alert('Erreur création PDF QR : ' + (error?.message || error)); }
+    finally { setPdfBusy(false); }
+  }
   function updateLabelLineQuantity(product, value) {
     const quantity = value === '' ? '' : Math.max(1, Math.min(500, Math.floor(Number(value) || 1)));
     setLabelLines((current) => current.map((line) =>
@@ -2157,6 +2242,48 @@ export default function App() {
     } finally { setPdfBusy(false); }
   }
 
+  useEffect(() => {
+    if (!scannerTarget) return undefined;
+    let stream, animationFrame, stopped = false;
+    const cleanup = () => { stopped = true; if (animationFrame) cancelAnimationFrame(animationFrame); if (stream) stream.getTracks().forEach((track) => track.stop()); if (scannerVideoRef.current) scannerVideoRef.current.srcObject = null; };
+    const start = async () => {
+      try {
+        if (!navigator.mediaDevices?.getUserMedia) throw new Error('Caméra indisponible. Utilisez HTTPS ou l’APK.');
+        if (!('BarcodeDetector' in window)) throw new Error('Lecture QR native non prise en charge. Mettez à jour Chrome / Android System WebView.');
+        const detector = new window.BarcodeDetector({ formats: ['qr_code'] });
+        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } }, audio: false });
+        if (stopped) { stream.getTracks().forEach((track) => track.stop()); return; }
+        const video = scannerVideoRef.current; if (!video) return;
+        video.srcObject = stream; await video.play(); setScannerStatus('Placez le QR dans le cadre.');
+        const scan = async () => {
+          if (stopped) return;
+          try {
+            if (video.readyState >= 2) {
+              const results = await detector.detect(video), value = results?.[0]?.rawValue?.trim();
+              if (value) {
+                const product = catalogProducts.find((item) => String(item.reference_1 || '').trim() === value);
+                if (product) {
+                  if (scannerTarget === 'sales') {
+                    setSalesLines((current) => {
+                      const exists = current.some((line) => String(line.id) === String(product.id) && line.catalog_source === product.catalog_source);
+                      return exists ? current.map((line) => String(line.id) === String(product.id) && line.catalog_source === product.catalog_source ? { ...line, quantity: Number(line.quantity || 0) + 1 } : line) : [...current, { ...product, quantity: 1 }];
+                    });
+                    setSalesSearch('');
+                  } else { setSearchTerm(product.name); setCurrentPage(1); }
+                  setScannerStatus('Produit trouvé : ' + product.name); setScannerTarget(null); return;
+                }
+                setScannerStatus('Aucun produit associé à ce QR : ' + value);
+              }
+            }
+          } catch (error) { setScannerStatus('Lecture en cours…'); }
+          animationFrame = requestAnimationFrame(scan);
+        };
+        scan();
+      } catch (error) { setScannerStatus(error?.message || 'Impossible de démarrer la caméra.'); }
+    };
+    start(); return cleanup;
+  }, [scannerTarget, catalogProducts]);
+
   function navigateTo(page) {
     setActivePage(page);
     setCurrentPage(1);
@@ -2237,6 +2364,7 @@ export default function App() {
     },
     { id: 'sales', label: 'Bon de vente', icon: '▧' },
     { id: 'labels', label: 'Étiquettes prix', icon: '▤' },
+    { id: 'barcode', label: 'Code à barre', icon: '▦' },
     {
       id: 'photos',
       label: language === 'ar' ? 'صور المنتجات' : 'Photos des produits',
@@ -2274,7 +2402,7 @@ export default function App() {
   ];
 
   const isAdmin = user?.profile?.role === 'admin';
-  const canViewPage = (pageId) => isAdmin || (['sales', 'labels'].includes(pageId) ? pagePermissions[pageId] === true : pagePermissions[pageId] === true || (!navItems?.find?.((item) => item.id === pageId)?.admin && !navItems?.find?.((item) => item.id === pageId)?.adminOnly && pagePermissions[pageId] !== false));
+  const canViewPage = (pageId) => isAdmin || (['sales', 'labels', 'barcode'].includes(pageId) ? pagePermissions[pageId] === true : pagePermissions[pageId] === true || (!navItems?.find?.((item) => item.id === pageId)?.admin && !navItems?.find?.((item) => item.id === pageId)?.adminOnly && pagePermissions[pageId] !== false));
   const normalizeName = (value) =>
     String(value || '')
       .toLocaleUpperCase('fr')
@@ -2420,7 +2548,7 @@ export default function App() {
     .filter((item) => (!item.admin || isAdmin || pagePermissions[item.id] === true) && (!item.adminOnly || isAdmin || pagePermissions[item.id] === true))
     .filter((item) => !hiddenPages.includes(item.id))
     .filter((item) => isAdmin || pagePermissions[item.id] !== false)
-    .filter((item) => isAdmin || !['sales', 'labels'].includes(item.id) || pagePermissions[item.id] === true)
+    .filter((item) => isAdmin || !['sales', 'labels', 'barcode'].includes(item.id) || pagePermissions[item.id] === true)
     .sort((a, b) => {
       if (a.id === 'dashboard') return -1;
       if (b.id === 'dashboard') return 1;
@@ -3590,6 +3718,7 @@ export default function App() {
                   )}
                 </div>
                 <div className="ls-toolbar">
+                  {activePage === 'products' && <button type="button" style={styles.secondary} onClick={() => { setScannerStatus(''); setScannerTarget('products'); }}>Scanner QR</button>}
                   {activePage === 'arina' && (
                     <label className="ls-muted" style={{display:'flex',alignItems:'center',gap:6,fontWeight:700}}>
                       <input
@@ -3601,6 +3730,7 @@ export default function App() {
                       Afficher les Matelas à quantité 0 ou négative
                     </label>
                   )}
+                  {scannerTarget === 'products' && <div className="ls-panel" style={{flexBasis:'100%',border:'1px solid #94a3b8'}}><div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:10}}><strong>Scanner QR — Tous les produits</strong><button type="button" style={styles.secondary} onClick={() => setScannerTarget(null)}>Fermer</button></div><video ref={scannerVideoRef} playsInline muted style={{display:'block',width:'100%',maxWidth:420,maxHeight:300,objectFit:'cover',margin:'12px auto',background:'#111827',borderRadius:10}}/><p className="ls-muted">{scannerStatus || 'Démarrage de la caméra…'}</p></div>}
                   <ClearableSearchInput
                     className="ls-search"
                     style={styles.field}
@@ -4869,6 +4999,8 @@ export default function App() {
             {activePage === 'sales' && canViewPage('sales') && (
               <section className="ls-panel">
                 <h2>Bon de vente</h2>
+                <div className="ls-toolbar"><button type="button" style={styles.secondary} onClick={() => { setScannerStatus(''); setScannerTarget('sales'); }}>Scanner QR pour ajouter un produit</button></div>
+                {scannerTarget === 'sales' && <div className="ls-panel" style={{marginTop:10,border:'1px solid #94a3b8'}}><div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:10}}><strong>Scanner QR — Bon de vente</strong><button type="button" style={styles.secondary} onClick={() => setScannerTarget(null)}>Fermer</button></div><video ref={scannerVideoRef} playsInline muted style={{display:'block',width:'100%',maxWidth:420,maxHeight:300,objectFit:'cover',margin:'12px auto',background:'#111827',borderRadius:10}}/><p className="ls-muted">{scannerStatus || 'Démarrage de la caméra…'}</p></div>}
                 <label style={{display:'block',fontWeight:700,marginBottom:6}}>Nom du client</label>
                 <input style={styles.field} value={salesCustomer} onChange={(e)=>setSalesCustomer(e.target.value)} placeholder="Nom du client" />
                 <div style={{marginTop:14}}>
@@ -4890,6 +5022,24 @@ export default function App() {
                 <button style={{...styles.secondary,marginLeft:8,marginTop:8}} onClick={()=>{setSalesCustomer('');setSalesLines([]);setSalesSearch('');setSalesAddQuantities({});}}>Nouveau bon</button>
                 <h3 style={{marginTop:28}}>Mes bons de vente / Historique</h3>
                 {documentsLoading ? <p className="ls-muted">Chargement de l’historique…</p> : savedPdfDocuments.filter(d=>d.doc_type==='invoice').length===0 ? <p className="ls-muted">Aucun bon enregistré.</p> : <><div className="ls-toolbar" style={{marginBottom:10}}><label style={{display:'inline-flex',alignItems:'center',gap:6}}><input type="checkbox" checked={savedPdfDocuments.filter(d=>d.doc_type==='invoice').length>0 && selectedInvoiceDocuments.length===savedPdfDocuments.filter(d=>d.doc_type==='invoice').length} onChange={e=>setSelectedInvoiceDocuments(e.target.checked?savedPdfDocuments.filter(d=>d.doc_type==='invoice').map(d=>d.id):[])} /> Tout sélectionner</label><button type="button" style={styles.secondary} disabled={!selectedInvoiceDocuments.length} onClick={()=>deleteSelectedPdfDocuments('invoice',selectedInvoiceDocuments,setSelectedInvoiceDocuments)}>Supprimer la sélection ({selectedInvoiceDocuments.length})</button></div><div className="ls-table-wrap"><table className="ls-table"><thead><tr><th style={styles.th}>Choix</th><th style={styles.th}>Date</th><th style={styles.th}>Client</th><th style={styles.th}>Total</th><th style={styles.th}>Produits</th><th style={styles.th}>Consulter</th><th style={styles.th}>Action</th></tr></thead><tbody>{savedPdfDocuments.filter(d=>d.doc_type==='invoice').map(d=><tr key={d.id}><td style={styles.td}><input type="checkbox" checked={selectedInvoiceDocuments.includes(d.id)} onChange={e=>setSelectedInvoiceDocuments(current=>e.target.checked?[...current,d.id]:current.filter(id=>id!==d.id))} /></td><td style={styles.td}>{d.document_date}</td><td style={styles.td}>{d.customer_name || '—'}</td><td style={styles.td}>{Number(d.total||0).toFixed(2)} DA</td><td style={styles.td}>{Array.isArray(d.items)?d.items.length:0}</td><td style={styles.td}><details><summary style={{cursor:'pointer',fontWeight:700}}>Voir le bon</summary><div style={{minWidth:220,paddingTop:8}}><div>Client : {d.customer_name || '—'}</div>{(Array.isArray(d.items)?d.items:[]).map((item,index)=><div key={item.product_id || index} style={{padding:'6px 0',borderBottom:'1px solid #e5eaf0'}}><strong>{item.name}</strong><div className="ls-muted">{item.quantity} × {Number(item.unit_price||0).toFixed(2)} DA = {Number(item.line_total||0).toFixed(2)} DA</div></div>)}<strong>Total : {Number(d.total||0).toFixed(2)} DA</strong></div></details></td><td style={styles.td}><button type="button" style={styles.secondary} onClick={()=>deleteSavedPdfDocument(d.id)}>Supprimer</button></td></tr>)}</tbody></table></div></>}
+              </section>
+            )}
+
+
+            {activePage === 'barcode' && canViewPage('barcode') && (
+              <section className="ls-panel">
+                <h2>Code à barre — Étiquettes QR</h2>
+                <p className="ls-muted">Le QR contient le numéro Logicom de REFERENCE 1. Linge et Tapis sont recherchés ensemble sans fusionner leurs tables.</p>
+                <h3 style={{marginTop:20}}>1. Ajouter des produits</h3>
+                <ClearableSearchInput style={{...styles.field,marginTop:4}} value={barcodeSearch} onChange={(e)=>setBarcodeSearch(e.target.value)} onKeyDown={(e)=>{if(e.key==='Enter'){e.preventDefault();const first=catalogProducts.find(p=>productMatchesSearch(p,barcodeSearch)&&String(p.reference_1||'').trim());if(first)addBarcodeLine(first,barcodeAddQuantities[`${first.catalog_source}:${first.id}`] ?? 1);}}} placeholder="Rechercher par désignation, référence ou numéro Logicom…" />
+                {barcodeSearch.trim() && <div className="ls-table-wrap" style={{marginTop:10}}><table className="ls-table"><thead><tr><th style={styles.th}>Désignation</th><th style={styles.th}>REFERENCE 1</th><th style={styles.th}>Famille</th><th style={styles.th}>Nombre</th><th style={styles.th}>Action</th></tr></thead><tbody>
+                  {catalogProducts.filter(p=>productMatchesSearch(p,barcodeSearch)).slice(0,30).map(p=><tr key={`${p.catalog_source}:${p.id}`}><td style={styles.td}><strong>{p.name}</strong></td><td style={styles.td}>{p.reference_1 || <span style={{color:'#b42318'}}>Manquante</span>}</td><td style={styles.td}>{p.catalog_source==='tapis_products'?'Tapis':'Linge / autre'}</td><td style={styles.td}><input type="number" min="1" max="500" step="1" style={{...styles.field,width:90}} value={barcodeAddQuantities[`${p.catalog_source}:${p.id}`] ?? '1'} onChange={e=>setBarcodeAddQuantities(current=>({...current,[`${p.catalog_source}:${p.id}`]:e.target.value}))}/></td><td style={styles.td}><button type="button" style={styles.button} disabled={!p.reference_1} onClick={()=>addBarcodeLine(p,barcodeAddQuantities[`${p.catalog_source}:${p.id}`] ?? 1)}>Ajouter</button></td></tr>)}
+                  {catalogProducts.filter(p=>productMatchesSearch(p,barcodeSearch)).length===0 && <tr><td style={styles.td} colSpan={5}>Aucun produit trouvé.</td></tr>}
+                </tbody></table></div>}
+                <h3 style={{marginTop:24}}>2. Produits choisis ({barcodeLines.length})</h3>
+                {barcodeLines.length===0 ? <p className="ls-muted">Aucun produit ajouté.</p> : <div className="ls-table-wrap"><table className="ls-table"><thead><tr><th style={styles.th}>Désignation</th><th style={styles.th}>REFERENCE 1</th><th style={styles.th}>Nombre d’étiquettes</th><th style={styles.th}>Action</th></tr></thead><tbody>{barcodeLines.map(line=><tr key={`${line.catalog_source}:${line.id}`}><td style={styles.td}>{line.name}</td><td style={styles.td}>{line.reference_1}</td><td style={styles.td}><input type="number" min="1" max="500" step="1" style={{...styles.field,width:110}} value={line.quantity} onChange={e=>updateBarcodeLineQuantity(line,e.target.value)}/></td><td style={styles.td}><button type="button" style={styles.secondary} onClick={()=>setBarcodeLines(current=>current.filter(item=>!(String(item.id)===String(line.id)&&item.catalog_source===line.catalog_source)))}>Retirer</button></td></tr>)}</tbody></table></div>}
+                <p className="ls-muted">Dimensions selon Paramètres → Dimensions des documents PDF. QR à gauche, désignation à droite. Limite : 500 étiquettes par PDF.</p>
+                <div className="ls-toolbar"><button type="button" style={styles.button} disabled={pdfBusy||barcodeLines.length===0||barcodeLines.reduce((sum,line)=>sum+Math.max(0,Number(line.quantity)||0),0)>500} onClick={makeBarcodePdf}>{pdfBusy?'Préparation…':'Générer et télécharger le PDF QR'}</button><button type="button" style={styles.secondary} onClick={()=>{setBarcodeLines([]);setBarcodeSearch('');setBarcodeAddQuantities({});}}>Vider la sélection</button></div>
               </section>
             )}
 
@@ -5285,7 +5435,7 @@ export default function App() {
                                     </td>
                                     <td style={styles.td}>
                                       <details><summary>Sections et autorisations</summary>
-                                        {navItems.filter((item)=>(!item.adminOnly || isAdmin) && (!item.admin || isAdmin)).map((item)=><label key={item.id} style={{display:'flex',gap:6,alignItems:'center',margin:'6px 0'}}><input type="checkbox" checked={(item.admin || item.adminOnly || ['sales','labels'].includes(item.id)) ? account.page_permissions?.[item.id] === true : account.page_permissions?.[item.id] !== false} onChange={(e)=>savePagePermission(account.id,item.id,e.target.checked)}/>{item.label}</label>)}
+                                        {navItems.filter((item)=>(!item.adminOnly || isAdmin) && (!item.admin || isAdmin)).map((item)=><label key={item.id} style={{display:'flex',gap:6,alignItems:'center',margin:'6px 0'}}><input type="checkbox" checked={(item.admin || item.adminOnly || ['sales','labels','barcode'].includes(item.id)) ? account.page_permissions?.[item.id] === true : account.page_permissions?.[item.id] !== false} onChange={(e)=>savePagePermission(account.id,item.id,e.target.checked)}/>{item.label}</label>)}
                                         <label style={{display:'flex',gap:6,alignItems:'center',margin:'8px 0'}}><input type="checkbox" checked={Boolean(account.can_view_negative_stock)} disabled={permissionSavingId === account.id + ':can_view_negative_stock'} onChange={(event)=>updateAccountPermission(account.id,'can_view_negative_stock',event.target.checked)}/>Tableau des stocks négatifs</label>
                                         <label style={{display:'flex',gap:6,alignItems:'center',margin:'8px 0'}}><input type="checkbox" checked={Boolean(account.can_view_zero_negative_products)} disabled={permissionSavingId === account.id + ':can_view_zero_negative_products'} onChange={(event)=>updateAccountPermission(account.id,'can_view_zero_negative_products',event.target.checked)}/>Europ Arina : afficher quantité 0 ou négative</label>
                                       </details>
