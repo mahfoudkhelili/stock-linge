@@ -127,6 +127,8 @@ export default function App() {
   const [alertTablePages, setAlertTablePages] = useState({});
   const [alertTablePageSizes, setAlertTablePageSizes] = useState({});
   const [alertTableSelections, setAlertTableSelections] = useState({});
+  const [alertShowReference, setAlertShowReference] = useState(true);
+  const [statsShowReference, setStatsShowReference] = useState(true);
   const [statsPage, setStatsPage] = useState(1);
   const [statsPageSize, setStatsPageSize] = useState(10);
   const [statsSelection, setStatsSelection] = useState([]);
@@ -2976,15 +2978,16 @@ export default function App() {
                       <button style={styles.secondary} disabled={!selected.length} onClick={()=>copyCatalogItems(selectedItems)}>Copier ({selected.length})</button>
                       <button style={styles.secondary} disabled={!selected.length} onClick={()=>hideCatalogItems(selectedItems,()=>setAlertTableSelections(current=>({...current,[group.key]:[]})))}>Masquer sélection ({selected.length})</button>
                       <button style={styles.secondary} disabled={!selected.length} onClick={()=>setAlertTableSelections(current=>({...current,[group.key]:[]}))}>Désélectionner</button>
+                      <label className="ls-muted"><input type="checkbox" checked={alertShowReference} onChange={e=>setAlertShowReference(e.target.checked)}/> Afficher référence</label>
                       <label className="ls-muted">Lignes par page <select style={{...styles.field,width:'auto'}} value={pageSize} onChange={e=>{setAlertTablePageSizes(current=>({...current,[group.key]:Number(e.target.value)}));setAlertTablePages(current=>({...current,[group.key]:1}));}}>{[10,20,100].map(n=><option key={n} value={n}>{n}</option>)}</select></label>
                     </div>
                     {group.items.length===0?<p className="ls-muted">Aucun produit dans cette catégorie.</p>:<>
                       <div className="ls-table-wrap"><table className="ls-table"><thead><tr>
                         <th style={styles.th}><input type="checkbox" aria-label="Tout sélectionner" checked={visible.length>0&&visible.every(p=>selected.includes(rowKey(p)))} onChange={e=>setAlertTableSelections(current=>({...current,[group.key]:e.target.checked?Array.from(new Set([...selected,...visible.map(rowKey)])):selected.filter(id=>!visible.some(p=>rowKey(p)===id))}))}/></th>
-                        <th style={styles.th}>Référence</th><th style={styles.th}>Désignation</th><th style={styles.th}>Quantité actuelle</th>{group.key==='imminent'&&<th style={styles.th}>Jours restants</th>}<th style={styles.th}>Action</th>
+                        {alertShowReference&&<th style={styles.th}>Référence</th>}<th style={styles.th}>Désignation</th><th style={styles.th}>Quantité actuelle</th>{group.key==='imminent'&&<th style={styles.th}>Jours restants</th>}<th style={styles.th}>Action</th>
                       </tr></thead><tbody>{visible.map((p,i)=><tr key={rowKey(p)||i}>
                         <td style={styles.td}><input type="checkbox" checked={selected.includes(rowKey(p))} onChange={e=>setAlertTableSelections(current=>({...current,[group.key]:e.target.checked?[...selected,rowKey(p)]:selected.filter(id=>id!==rowKey(p))}))}/></td>
-                        <td style={styles.td}>{p.product_ref||'—'}</td><td style={styles.td}>{p.name||p.product_name||'—'}</td><td style={styles.td}>{p.current_quantity??'—'}</td>{group.key==='imminent'&&<td style={styles.td}>{p.days_remaining}</td>}
+                        {alertShowReference&&<td style={styles.td}>{p.product_ref||'—'}</td>}<td style={styles.td}>{p.name||p.product_name||'—'}</td><td style={styles.td}>{p.current_quantity??'—'}</td>{group.key==='imminent'&&<td style={styles.td}>{p.days_remaining}</td>}
                         <td style={styles.td}><button style={{...styles.secondary,padding:'5px 9px',fontSize:12}} onClick={()=>hideProduct(productForHide(p))}>Masquer</button></td>
                       </tr>)}</tbody></table></div>
                       <div className="ls-toolbar" style={{justifyContent:'space-between',marginTop:8}}><span className="ls-muted">Page {safePage} / {pages} · {group.items.length} produit(s)</span><div className="ls-toolbar"><button style={styles.secondary} disabled={safePage<=1} onClick={()=>setAlertTablePages(current=>({...current,[group.key]:safePage-1}))}>Précédent</button><button style={styles.secondary} disabled={safePage>=pages} onClick={()=>setAlertTablePages(current=>({...current,[group.key]:safePage+1}))}>Suivant</button></div></div>
@@ -3027,15 +3030,16 @@ export default function App() {
                   <button style={styles.secondary} disabled={!statsSelection.length} onClick={()=>copyCatalogItems(selectedItems)}>Copier ({statsSelection.length})</button>
                   <button style={styles.secondary} disabled={!statsSelection.length} onClick={()=>hideCatalogItems(selectedItems,()=>setStatsSelection([]))}>Masquer sélection ({statsSelection.length})</button>
                   <button style={styles.secondary} disabled={!statsSelection.length} onClick={()=>setStatsSelection([])}>Désélectionner</button>
+                  <label className="ls-muted"><input type="checkbox" checked={statsShowReference} onChange={e=>setStatsShowReference(e.target.checked)}/> Afficher référence</label>
                   <label className="ls-muted">Lignes par page <select style={{...styles.field,width:'auto'}} value={statsPageSize} onChange={e=>{setStatsPageSize(Number(e.target.value));setStatsPage(1);}}>{[10,20,100].map(n=><option key={n} value={n}>{n}</option>)}</select></label>
                 </div>
                 {sortedDecreases.length===0?<p className="ls-muted">Aucune baisse PDF chargée. Actualisez les données ou vérifiez les imports PDF.</p>:<>
                   <div className="ls-table-wrap"><table className="ls-table"><thead><tr>
                     <th style={styles.th}><input type="checkbox" aria-label="Tout sélectionner" checked={visible.length>0&&visible.every(p=>statsSelection.includes(String(p.product_id||p.id||p.product_ref)))} onChange={e=>setStatsSelection(e.target.checked?Array.from(new Set([...statsSelection,...visible.map(p=>String(p.product_id||p.id||p.product_ref))])):statsSelection.filter(id=>!visible.some(p=>String(p.product_id||p.id||p.product_ref)===id)))}/></th>
-                    <th style={styles.th}>Référence</th><th style={styles.th}>Désignation</th><th style={styles.th}>Quantité diminuée</th><th style={styles.th}>Action</th>
+                    {statsShowReference&&<th style={styles.th}>Référence</th>}<th style={styles.th}>Désignation</th><th style={styles.th}>Quantité diminuée</th><th style={styles.th}>Action</th>
                   </tr></thead><tbody>{visible.map((p,i)=>{const key=String(p.product_id||p.id||p.product_ref);const product={...p,id:p.product_id||p.id,name:p.name||p.product_name||'Produit',catalog_source:p.catalog_source};return <tr key={key||i}>
                     <td style={styles.td}><input type="checkbox" checked={statsSelection.includes(key)} onChange={e=>setStatsSelection(e.target.checked?[...statsSelection,key]:statsSelection.filter(id=>id!==key))}/></td>
-                    <td style={styles.td}>{p.product_ref||'—'}</td><td style={styles.td}>{p.name||p.product_name||'—'}</td>
+                    {statsShowReference&&<td style={styles.td}>{p.product_ref||'—'}</td>}<td style={styles.td}>{p.name||p.product_name||'—'}</td>
                     <td style={styles.td}><div style={{display:'flex',alignItems:'center',gap:8}}><strong>{p.quantity_decreased??'—'}</strong><div style={{height:7,background:'#e9eef5',borderRadius:20,flex:1,overflow:'hidden'}}><div style={{height:'100%',width:Math.min(100,(Number(p.quantity_decreased)||0)/maxDecrease*100)+'%',background:'#d97706'}}/></div></div></td>
                     <td style={styles.td}><button style={{...styles.secondary,padding:'5px 9px',fontSize:12}} onClick={()=>hideProduct(product)}>Masquer</button></td>
                   </tr>})}</tbody></table></div>
