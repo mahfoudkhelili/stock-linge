@@ -3463,7 +3463,7 @@ export default function App() {
               };
               const canShowProduct = (product, allowZero = false) =>
                 product.is_active !== false &&
-                (Number(product.current_quantity) > 0 || (allowZero && canShowMatelasZero) || isAdmin) &&
+                (Number(product.current_quantity) > 0 || (allowZero ? canShowMatelasZero : isAdmin)) &&
                 matchesTableSearch(searchTerm, product.name, product.product_ref);
               const sortItems = (items) => [...items].sort((a, b) => {
                 const av = a[sortKey], bv = b[sortKey];
