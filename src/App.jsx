@@ -124,6 +124,13 @@ export default function App() {
   const [activePage, setActivePage] = useState('dashboard');
   const [alertScope, setAlertScope] = useState('linge');
   const [statsScope, setStatsScope] = useState('all');
+  const [alertTablePages, setAlertTablePages] = useState({});
+  const [alertTablePageSizes, setAlertTablePageSizes] = useState({});
+  const [alertTableSelections, setAlertTableSelections] = useState({});
+  const [statsPage, setStatsPage] = useState(1);
+  const [statsPageSize, setStatsPageSize] = useState(10);
+  const [statsSelection, setStatsSelection] = useState([]);
+
   const [searchTerm, setSearchTerm] = useState('');
   const [productPhotos, setProductPhotos] = useState([]);
   const [photoProductId, setPhotoProductId] = useState('');
@@ -292,6 +299,58 @@ export default function App() {
     setCatalogProducts((current) => current.filter((item) => !(item.id === product.id && item.catalog_source === sourceTable)));
 
     window.alert('Produit masqué avec succès.');
+  }
+
+
+  async function hideCatalogItems(items, onDone) {
+    const normalized = (items || []).map((item) => ({
+      ...item,
+      id: item.id || item.product_id,
+      catalog_source: item.catalog_source || 'products',
+    })).filter((item) => item.id);
+    if (!normalized.length) {
+      window.alert('Sélectionnez au moins un produit.');
+      return;
+    }
+    if (!window.confirm(`Voulez-vous masquer les ${normalized.length} produit(s) sélectionné(s) ?`)) return;
+    const groups = {
+      products: normalized.filter((item) => item.catalog_source !== 'tapis_products').map((item) => item.id),
+      tapis_products: normalized.filter((item) => item.catalog_source === 'tapis_products').map((item) => item.id),
+    };
+    for (const [table, ids] of Object.entries(groups)) {
+      if (!ids.length) continue;
+      const { error } = await supabase.from(table).update({ is_hidden: true }).in('id', ids);
+      if (error) {
+        window.alert('Erreur : ' + error.message);
+        return;
+      }
+    }
+    const hiddenIds = new Set(normalized.map((item) => String(item.id)));
+    const hiddenKeys = new Set(normalized.map((item) => `${item.catalog_source}:${item.id}`));
+    setProducts((current) => current.filter((item) => !hiddenIds.has(String(item.id))));
+    setCatalogProducts((current) => current.filter((item) => !hiddenKeys.has(`${item.catalog_source}:${item.id}`)));
+    setSuggestedProducts((current) => current.filter((item) => !hiddenIds.has(String(item.id))));
+    setTapisSuggestedProducts((current) => current.filter((item) => !hiddenIds.has(String(item.id))));
+    setStockDecreaseProducts((current) => current.filter((item) => !hiddenIds.has(String(item.product_id))));
+    setTapisStockDecreaseProducts((current) => current.filter((item) => !hiddenIds.has(String(item.product_id))));
+    if (onDone) onDone();
+    await loadHiddenProducts();
+    window.alert('Produits sélectionnés masqués avec succès.');
+  }
+
+  async function copyCatalogItems(items) {
+    const names = (items || []).map((item) => item.name || item.product_name).filter(Boolean);
+    if (!names.length) {
+      window.alert('Sélectionnez au moins un produit.');
+      return;
+    }
+    const textToCopy = names.join('\\n');
+    try {
+      await navigator.clipboard.writeText(textToCopy);
+      window.alert(`${names.length} désignation(s) copiée(s).`);
+    } catch (error) {
+      window.prompt('Copiez les désignations :', textToCopy);
+    }
   }
 
   async function hideSelectedSuggestions() {
@@ -2881,29 +2940,57 @@ export default function App() {
               const negatives = sourceProducts.filter(p => Number(p.current_quantity) < 0);
               const exhausted = sourceProducts.filter(p => Number(p.current_quantity) === 0);
               const low = sourceProducts.filter(p => Number(p.min_stock_level) > 0 && Number(p.current_quantity) > 0 && Number(p.current_quantity) <= Number(p.min_stock_level));
-              const imminent = suggestions.filter(p => Number(p.days_remaining) > 0 && Number(p.days_remaining) <= 2);
+              const imminent = suggestions.filter(p => Number(p.days_remaining) > 0 && Number(p.days_remaining) <= 2)
+                .map(p => ({ ...p, catalog_source: alertScope === 'tapis' ? 'tapis_products' : 'products' }));
               const groups = [
-                { title: 'Stock négatif', items: negatives, color: '#b42318' },
-                { title: 'Stock épuisé', items: exhausted, color: '#b54708' },
-                { title: 'Rupture imminente (≤ 2 jours)', items: imminent, color: '#b54708' },
-                { title: 'Stock faible', items: low, color: '#175cd3' },
+                { key: 'negative', title: 'Stock négatif', items: negatives, color: '#b42318' },
+                { key: 'zero', title: 'Stock épuisé', items: exhausted, color: '#b54708' },
+                { key: 'imminent', title: 'Rupture imminente (≤ 2 jours)', items: imminent, color: '#b54708' },
+                { key: 'low', title: 'Stock faible', items: low, color: '#175cd3' },
               ];
+              const rowKey = (p) => String(p.id || p.product_id || p.product_ref);
+              const productForHide = (p) => ({ ...p, id: p.id || p.product_id, catalog_source: p.catalog_source || (alertScope === 'tapis' ? 'tapis_products' : 'products') });
               return <section className="ls-panel">
                 <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:12,flexWrap:'wrap'}}>
                   <div><h2 style={{margin:'0 0 5px'}}>Alertes de stock</h2><p className="ls-muted" style={{margin:0}}>Les alertes sont calculées à partir du dernier PDF et des suggestions de réapprovisionnement.</p></div>
                   <div className="ls-toolbar">
                     <button style={alertScope==='linge'?styles.button:styles.secondary} onClick={()=>setAlertScope('linge')}>Linge</button>
                     <button style={alertScope==='tapis'?styles.button:styles.secondary} onClick={()=>setAlertScope('tapis')}>Tapis</button>
-                    <button style={styles.secondary} onClick={()=>{if(alertScope==='tapis')loadTapisSuggestedProducts();else loadSuggestedProducts();}}>Actualiser</button>
+                    <button style={styles.secondary} onClick={()=>{if(alertScope==='tapis'){loadProducts();loadTapisSuggestedProducts();}else{loadProducts();loadSuggestedProducts();}}}>Actualiser</button>
                   </div>
                 </div>
                 <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(145px,1fr))',gap:10,margin:'16px 0'}}>
-                  {groups.map(group=><div key={group.title} style={{border:'1px solid #e2e8f0',borderRadius:12,padding:14,background:'var(--ls-card,#fff)'}}><div className="ls-muted">{group.title}</div><strong style={{fontSize:28,color:group.color}}>{group.items.length.toLocaleString('fr-FR')}</strong></div>)}
+                  {groups.map(group=><div key={group.key} style={{border:'1px solid #e2e8f0',borderRadius:12,padding:14,background:'var(--ls-card,#fff)'}}><div className="ls-muted">{group.title}</div><strong style={{fontSize:28,color:group.color}}>{group.items.length.toLocaleString('fr-FR')}</strong></div>)}
                 </div>
-                {groups.map(group=><section key={group.title} style={{marginTop:18}}>
-                  <h3 style={{marginBottom:8}}>{group.title} <span className="ls-muted">({group.items.length})</span></h3>
-                  {group.items.length===0?<p className="ls-muted">Aucun produit dans cette catégorie.</p>:<div className="ls-table-wrap"><table className="ls-table"><thead><tr><th style={styles.th}>Référence</th><th style={styles.th}>Désignation</th><th style={styles.th}>Quantité actuelle</th>{group.title.includes('imminente')&&<th style={styles.th}>Jours restants</th>}</tr></thead><tbody>{group.items.slice(0,100).map((p,i)=><tr key={p.id||p.product_ref||i}><td style={styles.td}>{p.product_ref||'—'}</td><td style={styles.td}>{p.name||'—'}</td><td style={styles.td}>{p.current_quantity??'—'}</td>{group.title.includes('imminente')&&<td style={styles.td}>{p.days_remaining}</td>}</tr>)}</tbody></table></div>}
-                </section>)}
+                {groups.map(group=>{
+                  const pageSize=alertTablePageSizes[group.key]||10;
+                  const page=alertTablePages[group.key]||1;
+                  const selected=alertTableSelections[group.key]||[];
+                  const pages=Math.max(1,Math.ceil(group.items.length/pageSize));
+                  const safePage=Math.min(page,pages);
+                  const visible=group.items.slice((safePage-1)*pageSize,safePage*pageSize);
+                  const selectedItems=group.items.filter(p=>selected.includes(rowKey(p))).map(productForHide);
+                  return <section key={group.key} style={{marginTop:18}}>
+                    <h3 style={{marginBottom:8}}>{group.title} <span className="ls-muted">({group.items.length})</span></h3>
+                    <div className="ls-toolbar" style={{flexWrap:'wrap',marginBottom:8}}>
+                      <button style={styles.secondary} disabled={!selected.length} onClick={()=>copyCatalogItems(selectedItems)}>Copier ({selected.length})</button>
+                      <button style={styles.secondary} disabled={!selected.length} onClick={()=>hideCatalogItems(selectedItems,()=>setAlertTableSelections(current=>({...current,[group.key]:[]})))}>Masquer sélection ({selected.length})</button>
+                      <button style={styles.secondary} disabled={!selected.length} onClick={()=>setAlertTableSelections(current=>({...current,[group.key]:[]}))}>Désélectionner</button>
+                      <label className="ls-muted">Lignes par page <select style={{...styles.field,width:'auto'}} value={pageSize} onChange={e=>{setAlertTablePageSizes(current=>({...current,[group.key]:Number(e.target.value)}));setAlertTablePages(current=>({...current,[group.key]:1}));}}>{[10,20,100].map(n=><option key={n} value={n}>{n}</option>)}</select></label>
+                    </div>
+                    {group.items.length===0?<p className="ls-muted">Aucun produit dans cette catégorie.</p>:<>
+                      <div className="ls-table-wrap"><table className="ls-table"><thead><tr>
+                        <th style={styles.th}><input type="checkbox" aria-label="Tout sélectionner" checked={visible.length>0&&visible.every(p=>selected.includes(rowKey(p)))} onChange={e=>setAlertTableSelections(current=>({...current,[group.key]:e.target.checked?Array.from(new Set([...selected,...visible.map(rowKey)])):selected.filter(id=>!visible.some(p=>rowKey(p)===id))}))}/></th>
+                        <th style={styles.th}>Référence</th><th style={styles.th}>Désignation</th><th style={styles.th}>Quantité actuelle</th>{group.key==='imminent'&&<th style={styles.th}>Jours restants</th>}<th style={styles.th}>Action</th>
+                      </tr></thead><tbody>{visible.map((p,i)=><tr key={rowKey(p)||i}>
+                        <td style={styles.td}><input type="checkbox" checked={selected.includes(rowKey(p))} onChange={e=>setAlertTableSelections(current=>({...current,[group.key]:e.target.checked?[...selected,rowKey(p)]:selected.filter(id=>id!==rowKey(p))}))}/></td>
+                        <td style={styles.td}>{p.product_ref||'—'}</td><td style={styles.td}>{p.name||p.product_name||'—'}</td><td style={styles.td}>{p.current_quantity??'—'}</td>{group.key==='imminent'&&<td style={styles.td}>{p.days_remaining}</td>}
+                        <td style={styles.td}><button style={{...styles.secondary,padding:'5px 9px',fontSize:12}} onClick={()=>hideProduct(productForHide(p))}>Masquer</button></td>
+                      </tr>)}</tbody></table></div>
+                      <div className="ls-toolbar" style={{justifyContent:'space-between',marginTop:8}}><span className="ls-muted">Page {safePage} / {pages} · {group.items.length} produit(s)</span><div className="ls-toolbar"><button style={styles.secondary} disabled={safePage<=1} onClick={()=>setAlertTablePages(current=>({...current,[group.key]:safePage-1}))}>Précédent</button><button style={styles.secondary} disabled={safePage>=pages} onClick={()=>setAlertTablePages(current=>({...current,[group.key]:safePage+1}))}>Suivant</button></div></div>
+                    </>}
+                  </section>;
+                })}
               </section>;
             })()}
             {activePage === 'statistics' && isAdmin && (() => {
@@ -2913,14 +3000,22 @@ export default function App() {
               const negative = sourceProducts.filter(p=>Number(p.current_quantity)<0).length;
               const zero = sourceProducts.filter(p=>Number(p.current_quantity)===0).length;
               const positive = sourceProducts.filter(p=>Number(p.current_quantity)>0).length;
-              const decreases = statsScope==='tapis'?tapisStockDecreaseProducts:statsScope==='linge'?stockDecreaseProducts:[...stockDecreaseProducts,...tapisStockDecreaseProducts];
-              const topDecreases = [...decreases].sort((a,b)=>Number(b.quantity_decreased||0)-Number(a.quantity_decreased||0)).slice(0,8);
-              const maxDecrease = Math.max(1,...topDecreases.map(p=>Number(p.quantity_decreased)||0));
-              const metrics = [{label:'Produits suivis',value:total},{label:'Quantité totale actuelle',value:quantity.toLocaleString('fr-FR',{maximumFractionDigits:2})},{label:'Stock positif',value:positive},{label:'Stock négatif',value:negative},{label:'Stock épuisé',value:zero},{label:'Baisses PDF détectées',value:decreases.length}];
+              const decreases = statsScope==='tapis'
+                ? tapisStockDecreaseProducts.map(p=>({...p,catalog_source:'tapis_products'}))
+                : statsScope==='linge'
+                  ? stockDecreaseProducts.map(p=>({...p,catalog_source:'products'}))
+                  : [...stockDecreaseProducts.map(p=>({...p,catalog_source:'products'})),...tapisStockDecreaseProducts.map(p=>({...p,catalog_source:'tapis_products'}))];
+              const sortedDecreases=[...decreases].sort((a,b)=>Number(b.quantity_decreased||0)-Number(a.quantity_decreased||0));
+              const maxDecrease=Math.max(1,...sortedDecreases.map(p=>Number(p.quantity_decreased)||0));
+              const metrics=[{label:'Produits suivis',value:total},{label:'Quantité totale actuelle',value:quantity.toLocaleString('fr-FR',{maximumFractionDigits:2})},{label:'Stock positif',value:positive},{label:'Stock négatif',value:negative},{label:'Stock épuisé',value:zero},{label:'Baisses PDF détectées',value:decreases.length}];
+              const pages=Math.max(1,Math.ceil(sortedDecreases.length/statsPageSize));
+              const safePage=Math.min(statsPage,pages);
+              const visible=sortedDecreases.slice((safePage-1)*statsPageSize,safePage*statsPageSize);
+              const selectedItems=sortedDecreases.filter(p=>statsSelection.includes(String(p.product_id||p.id||p.product_ref))).map(p=>({...p,id:p.product_id||p.id,catalog_source:p.catalog_source}));
               return <section className="ls-panel">
                 <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:12,flexWrap:'wrap'}}>
                   <div><h2 style={{margin:'0 0 5px'}}>Statistiques du stock</h2><p className="ls-muted" style={{margin:0}}>Vue synthétique calculée à partir des quantités actuelles et des comparaisons PDF.</p></div>
-                  <div className="ls-toolbar"><button style={statsScope==='all'?styles.button:styles.secondary} onClick={()=>setStatsScope('all')}>Tout</button><button style={statsScope==='linge'?styles.button:styles.secondary} onClick={()=>setStatsScope('linge')}>Linge</button><button style={statsScope==='tapis'?styles.button:styles.secondary} onClick={()=>setStatsScope('tapis')}>Tapis</button><button style={styles.secondary} onClick={()=>{loadStockDecreaseAnalysis();loadTapisStockDecreaseAnalysis();}}>Actualiser</button></div>
+                  <div className="ls-toolbar"><button style={statsScope==='all'?styles.button:styles.secondary} onClick={()=>{setStatsScope('all');setStatsPage(1);setStatsSelection([]);}}>Tout</button><button style={statsScope==='linge'?styles.button:styles.secondary} onClick={()=>{setStatsScope('linge');setStatsPage(1);setStatsSelection([]);}}>Linge</button><button style={statsScope==='tapis'?styles.button:styles.secondary} onClick={()=>{setStatsScope('tapis');setStatsPage(1);setStatsSelection([]);}}>Tapis</button><button style={styles.secondary} onClick={()=>{loadStockDecreaseAnalysis();loadTapisStockDecreaseAnalysis();loadProducts();}}>Actualiser</button></div>
                 </div>
                 <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(145px,1fr))',gap:10,margin:'16px 0'}}>
                   {metrics.map(m=><div key={m.label} style={{border:'1px solid #e2e8f0',borderRadius:12,padding:14,background:'var(--ls-card,#fff)'}}><div className="ls-muted">{m.label}</div><strong style={{fontSize:26}}>{m.value}</strong></div>)}
@@ -2928,7 +3023,24 @@ export default function App() {
                 <h3 style={{marginTop:20}}>Répartition du stock</h3>
                 {[{label:'Stock positif',value:positive,color:'#1570ef'},{label:'Stock négatif',value:negative,color:'#d92d20'},{label:'Stock épuisé',value:zero,color:'#b54708'}].map(item=><div key={item.label} style={{margin:'12px 0'}}><div style={{display:'flex',justifyContent:'space-between',marginBottom:5}}><span>{item.label}</span><strong>{item.value}</strong></div><div style={{height:9,background:'#e9eef5',borderRadius:20,overflow:'hidden'}}><div style={{height:'100%',width:(total?Math.min(100,item.value/total*100):0)+'%',background:item.color,borderRadius:20}}/></div></div>)}
                 <h3 style={{marginTop:22}}>Plus fortes baisses de stock (PDF)</h3>
-                {topDecreases.length===0?<p className="ls-muted">Aucune baisse PDF chargée. Actualisez les données ou vérifiez les imports PDF.</p>:<div className="ls-table-wrap"><table className="ls-table"><thead><tr><th style={styles.th}>Référence</th><th style={styles.th}>Désignation</th><th style={styles.th}>Quantité diminuée</th></tr></thead><tbody>{topDecreases.map((p,i)=><tr key={p.product_id||p.product_ref||i}><td style={styles.td}>{p.product_ref||'—'}</td><td style={styles.td}>{p.name||'—'}</td><td style={styles.td}><div style={{display:'flex',alignItems:'center',gap:8}}><strong>{p.quantity_decreased??'—'}</strong><div style={{height:7,background:'#e9eef5',borderRadius:20,flex:1,overflow:'hidden'}}><div style={{height:'100%',width:Math.min(100,(Number(p.quantity_decreased)||0)/maxDecrease*100)+'%',background:'#d97706'}}/></div></div></td></tr>)}</tbody></table></div>}
+                <div className="ls-toolbar" style={{flexWrap:'wrap',marginBottom:8}}>
+                  <button style={styles.secondary} disabled={!statsSelection.length} onClick={()=>copyCatalogItems(selectedItems)}>Copier ({statsSelection.length})</button>
+                  <button style={styles.secondary} disabled={!statsSelection.length} onClick={()=>hideCatalogItems(selectedItems,()=>setStatsSelection([]))}>Masquer sélection ({statsSelection.length})</button>
+                  <button style={styles.secondary} disabled={!statsSelection.length} onClick={()=>setStatsSelection([])}>Désélectionner</button>
+                  <label className="ls-muted">Lignes par page <select style={{...styles.field,width:'auto'}} value={statsPageSize} onChange={e=>{setStatsPageSize(Number(e.target.value));setStatsPage(1);}}>{[10,20,100].map(n=><option key={n} value={n}>{n}</option>)}</select></label>
+                </div>
+                {sortedDecreases.length===0?<p className="ls-muted">Aucune baisse PDF chargée. Actualisez les données ou vérifiez les imports PDF.</p>:<>
+                  <div className="ls-table-wrap"><table className="ls-table"><thead><tr>
+                    <th style={styles.th}><input type="checkbox" aria-label="Tout sélectionner" checked={visible.length>0&&visible.every(p=>statsSelection.includes(String(p.product_id||p.id||p.product_ref)))} onChange={e=>setStatsSelection(e.target.checked?Array.from(new Set([...statsSelection,...visible.map(p=>String(p.product_id||p.id||p.product_ref))])):statsSelection.filter(id=>!visible.some(p=>String(p.product_id||p.id||p.product_ref)===id)))}/></th>
+                    <th style={styles.th}>Référence</th><th style={styles.th}>Désignation</th><th style={styles.th}>Quantité diminuée</th><th style={styles.th}>Action</th>
+                  </tr></thead><tbody>{visible.map((p,i)=>{const key=String(p.product_id||p.id||p.product_ref);const product={...p,id:p.product_id||p.id,catalog_source:p.catalog_source};return <tr key={key||i}>
+                    <td style={styles.td}><input type="checkbox" checked={statsSelection.includes(key)} onChange={e=>setStatsSelection(e.target.checked?[...statsSelection,key]:statsSelection.filter(id=>id!==key))}/></td>
+                    <td style={styles.td}>{p.product_ref||'—'}</td><td style={styles.td}>{p.name||p.product_name||'—'}</td>
+                    <td style={styles.td}><div style={{display:'flex',alignItems:'center',gap:8}}><strong>{p.quantity_decreased??'—'}</strong><div style={{height:7,background:'#e9eef5',borderRadius:20,flex:1,overflow:'hidden'}}><div style={{height:'100%',width:Math.min(100,(Number(p.quantity_decreased)||0)/maxDecrease*100)+'%',background:'#d97706'}}/></div></div></td>
+                    <td style={styles.td}><button style={{...styles.secondary,padding:'5px 9px',fontSize:12}} onClick={()=>hideProduct(product)}>Masquer</button></td>
+                  </tr>})}</tbody></table></div>
+                  <div className="ls-toolbar" style={{justifyContent:'space-between',marginTop:8}}><span className="ls-muted">Page {safePage} / {pages} · {sortedDecreases.length} produit(s)</span><div className="ls-toolbar"><button style={styles.secondary} disabled={safePage<=1} onClick={()=>setStatsPage(safePage-1)}>Précédent</button><button style={styles.secondary} disabled={safePage>=pages} onClick={()=>setStatsPage(safePage+1)}>Suivant</button></div></div>
+                </>}
               </section>;
             })()}
             {activePage === 'imports' && isAdmin && (
