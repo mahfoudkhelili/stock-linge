@@ -2231,11 +2231,10 @@ export default function App() {
       admin: true,
     },
     {
-      id: 'arina',
-      label: language === 'ar' ? 'مراتب Europ Arina' : 'Matelas Europ Arina',
-      icon: '▣',
+      id: 'chora-matelas',
+      label: language === 'ar' ? 'Chora & Matelas' : 'Chora & Matelas',
+      icon: '▤',
     },
-    { id: 'textiles', label: 'Chora / Voilage / Rideau', icon: '▤' },
     { id: 'sales', label: 'Bon de vente', icon: '▧' },
     { id: 'labels', label: 'Étiquettes prix', icon: '▤' },
     {
@@ -2502,7 +2501,7 @@ export default function App() {
           </>
         ) : product.catalog_source === 'tapis_products' ? (
           <span className="ls-muted">Consultation uniquement</span>
-        ) : user?.profile?.role === 'trader' && activePage === 'arina' ? (
+        ) : user?.profile?.role === 'trader' && (activePage === 'arina' || (activePage === 'chora-matelas' && (normalizeName(product.name).includes('EUROP') || normalizeName(product.name).includes('AFRICHA')))) ? (
           <>
             <label
               className="ls-muted"
@@ -3452,7 +3451,108 @@ export default function App() {
               </>
             )}
 
-            {['products', 'arina', 'textiles'].includes(activePage) && (
+            {activePage === 'chora-matelas' && (() => {
+              const canShowMatelasZero = showArinaZeroStock && (isAdmin || Boolean(user?.profile?.can_view_zero_negative_products));
+              const isArinaProduct = (product) => {
+                const name = normalizeName(product.name);
+                return name.includes('EUROPARINA') || (name.includes('EUROP') && name.includes('ARINA'));
+              };
+              const isAfrichaProduct = (product) => {
+                const name = normalizeName(product.name);
+                return name.includes('AFRICHASHOP') || (name.includes('AFRICHA') && name.includes('SHOP'));
+              };
+              const canShowProduct = (product, allowZero = false) =>
+                product.is_active !== false &&
+                (Number(product.current_quantity) > 0 || (allowZero && canShowMatelasZero) || isAdmin) &&
+                matchesTableSearch(searchTerm, product.name, product.product_ref);
+              const sortItems = (items) => [...items].sort((a, b) => {
+                const av = a[sortKey], bv = b[sortKey];
+                const numeric = ['current_quantity', 'wholesale_price', 'retail_price'].includes(sortKey);
+                const comparison = numeric
+                  ? Number(av ?? 0) - Number(bv ?? 0)
+                  : String(av ?? '').localeCompare(String(bv ?? ''), 'fr', { numeric: true, sensitivity: 'base' });
+                return sortDirection === 'asc' ? comparison : -comparison;
+              });
+              const choraItems = sortItems(products.filter((product) => {
+                const name = normalizeName(product.name);
+                return (name.includes('CHORA') || name.includes('VOILAGE') || (name.includes('RIDEAU') && !name.includes('CUISINE'))) && canShowProduct(product);
+              }));
+              const arinaItems = sortItems(products.filter((product) => isArinaProduct(product) && canShowProduct(product, true)));
+              const africhaItems = sortItems(products.filter((product) => isAfrichaProduct(product) && canShowProduct(product, true)));
+              const renderCatalogTable = (items) => {
+                const total = Math.max(1, Math.ceil(items.length / pageSize));
+                const page = Math.min(currentPage, total);
+                const visible = items.slice((page - 1) * pageSize, page * pageSize);
+                return (
+                  <>
+                    <div className="ls-muted" style={{margin:'8px 0 12px'}}>{items.length.toLocaleString('fr-FR')} produit(s)</div>
+                    <div className="ls-toolbar">
+                      <ClearableSearchInput className="ls-search" style={styles.field} value={searchTerm} onChange={(event)=>{setSearchTerm(event.target.value);setCurrentPage(1);}} placeholder="Rechercher par désignation…" />
+                      <label className="ls-muted">Lignes par page{' '}
+                        <select style={{...styles.field,width:'auto'}} value={pageSize} onChange={(event)=>{setPageSize(Number(event.target.value));setCurrentPage(1);}}>
+                          {[10,20,100].map((size)=><option key={size} value={size}>{size}</option>)}
+                        </select>
+                      </label>
+                      <label className="ls-muted" style={{display:'flex',alignItems:'center',gap:6}}>
+                        <input type="checkbox" checked={showCodeColumn} onChange={(event)=>setShowCodeColumn(event.target.checked)} />Afficher référence
+                      </label>
+                    </div>
+                    <div className="ls-table-wrap"><table className="ls-table">
+                      <thead><tr>
+                        {showCodeColumn && <th style={styles.th}><button onClick={()=>changeSort('product_ref')}>{sortLabel('product_ref','Référence')}</button></th>}
+                        <th style={styles.th}><button onClick={()=>changeSort('name')}>{sortLabel('name','Désignation')}</button></th>
+                        <th style={styles.th}><button onClick={()=>changeSort('current_quantity')}>{sortLabel('current_quantity','Quantité')}</button></th>
+                        <th style={styles.th}><button onClick={()=>changeSort('wholesale_price')}>{sortLabel('wholesale_price','Prix de gros')}</button></th>
+                        <th style={styles.th}><button onClick={()=>changeSort('retail_price')}>{sortLabel('retail_price','Prix de détail')}</button></th>
+                        <th style={styles.th}>Action</th>
+                      </tr></thead>
+                      <tbody>
+                        {visible.length ? visible.map((product)=><tr key={product.id}>
+                          {showCodeColumn && <td style={styles.td}><strong>{product.product_ref}</strong></td>}
+                          <td style={styles.td}><span style={{display:'inline-flex',alignItems:'center',gap:8}}>
+                            {photoFor(product.id) && <img src={photoFor(product.id)} alt="" onClick={()=>setPhotoPreview({url:photoFor(product.id),name:product.name})} style={{width:38,height:38,objectFit:'cover',borderRadius:6,cursor:'zoom-in'}}/>}
+                            {product.name}
+                          </span></td>
+                          <td style={{...styles.td,color:Number(product.current_quantity)<0?'#b42318':'#102b46',fontWeight:800}}>{isAdmin||showTraderQuantities?product.current_quantity:Number(product.current_quantity)<=0?'Rupture':'Disponible'}</td>
+                          <td style={styles.td}>{product.wholesale_price??'—'} DA</td>
+                          <td style={styles.td}>{product.retail_price??'—'} DA</td>
+                          <td style={styles.td}>{productActions(product)}</td>
+                        </tr>) : <tr><td colSpan={showCodeColumn?6:5} style={{...styles.td,textAlign:'center'}}>Aucun produit trouvé.</td></tr>}
+                      </tbody>
+                    </table></div>
+                    <div className="ls-pagination"><span className="ls-muted">Page {page} sur {total}</span><div className="ls-toolbar" style={{margin:0}}>
+                      <button style={styles.secondary} disabled={page<=1} onClick={()=>setCurrentPage((n)=>Math.max(1,n-1))}>← Précédent</button>
+                      <button style={styles.secondary} disabled={page>=total} onClick={()=>setCurrentPage((n)=>Math.min(total,n+1))}>Suivant →</button>
+                    </div></div>
+                  </>
+                );
+              };
+              return (
+                <section className="ls-panel">
+                  <h2 style={{marginTop:0}}>Chora & Matelas</h2>
+                  <p className="ls-muted">Ouvrez la rubrique souhaitée pour afficher son tableau.</p>
+                  <details style={{border:'1px solid #e2e8f0',borderRadius:12,padding:14,marginBottom:14}}>
+                    <summary style={{cursor:'pointer',fontWeight:800,fontSize:16}}>Chora / Voilage / Rideau <span className="ls-muted">({choraItems.length})</span></summary>
+                    {renderCatalogTable(choraItems)}
+                  </details>
+                  <details style={{border:'1px solid #e2e8f0',borderRadius:12,padding:14}}>
+                    <summary style={{cursor:'pointer',fontWeight:800,fontSize:16}}>Matelas Europ Arina & Africha Shop <span className="ls-muted">({arinaItems.length + africhaItems.length})</span></summary>
+                    {isAdmin || user?.profile?.can_view_zero_negative_products ? (
+                      <label className="ls-muted" style={{display:'flex',alignItems:'center',gap:6,marginTop:12}}>
+                        <input type="checkbox" checked={showArinaZeroStock} onChange={(event)=>{setShowArinaZeroStock(event.target.checked);setCurrentPage(1);}} />
+                        Afficher les Matelas à quantité 0 ou négative
+                      </label>
+                    ) : null}
+                    <h3 style={{marginTop:18}}>Europ Arina</h3>
+                    {renderCatalogTable(arinaItems)}
+                    <h3 style={{marginTop:22}}>Africha Shop</h3>
+                    {renderCatalogTable(africhaItems)}
+                  </details>
+                </section>
+              );
+            })()}
+
+            {['products'].includes(activePage) && (
               <section className="ls-panel">
                 <div
                   style={{
