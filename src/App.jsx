@@ -2244,7 +2244,7 @@ export default function App() {
 
   useEffect(() => {
     if (!scannerTarget) return undefined;
-    let stream, animationFrame, stopped = false;
+    let stream, animationFrame, stopped = false, lastScannedValue = '', lastSeenAt = 0;
     const cleanup = () => { stopped = true; if (animationFrame) cancelAnimationFrame(animationFrame); if (stream) stream.getTracks().forEach((track) => track.stop()); if (scannerVideoRef.current) scannerVideoRef.current.srcObject = null; };
     const start = async () => {
       try {
@@ -2261,18 +2261,28 @@ export default function App() {
             if (video.readyState >= 2) {
               const results = await detector.detect(video), value = results?.[0]?.rawValue?.trim();
               if (value) {
-                const product = catalogProducts.find((item) => String(item.reference_1 || '').trim() === value);
-                if (product) {
-                  if (scannerTarget === 'sales') {
-                    setSalesLines((current) => {
-                      const exists = current.some((line) => String(line.id) === String(product.id) && line.catalog_source === product.catalog_source);
-                      return exists ? current.map((line) => String(line.id) === String(product.id) && line.catalog_source === product.catalog_source ? { ...line, quantity: Number(line.quantity || 0) + 1 } : line) : [...current, { ...product, quantity: 1 }];
-                    });
-                    setSalesSearch('');
-                  } else { setSearchTerm(product.name); setCurrentPage(1); }
-                  setScannerStatus('Produit trouvé : ' + product.name); setScannerTarget(null); return;
+                lastSeenAt = Date.now();
+                if (value !== lastScannedValue) {
+                  lastScannedValue = value;
+                  const product = catalogProducts.find((item) => String(item.reference_1 || '').trim() === value);
+                  if (product) {
+                    if (scannerTarget === 'sales') {
+                      setSalesLines((current) => {
+                        const exists = current.some((line) => String(line.id) === String(product.id) && line.catalog_source === product.catalog_source);
+                        return exists ? current.map((line) => String(line.id) === String(product.id) && line.catalog_source === product.catalog_source ? { ...line, quantity: Number(line.quantity || 0) + 1 } : line) : [...current, { ...product, quantity: 1 }];
+                      });
+                      setSalesSearch('');
+                      setScannerStatus('Ajouté : ' + product.name + ' — scannez le produit suivant.');
+                    } else {
+                      setSearchTerm(product.name); setCurrentPage(1);
+                      setScannerStatus('Produit trouvé : ' + product.name); setScannerTarget(null); return;
+                    }
+                  } else {
+                    setScannerStatus('Aucun produit associé à ce QR : ' + value);
+                  }
                 }
-                setScannerStatus('Aucun produit associé à ce QR : ' + value);
+              } else if (lastScannedValue && Date.now() - lastSeenAt > 800) {
+                lastScannedValue = '';
               }
             }
           } catch (error) { setScannerStatus('Lecture en cours…'); }
