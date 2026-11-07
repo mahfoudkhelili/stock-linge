@@ -2285,6 +2285,7 @@ export default function App() {
   }, [scannerTarget, catalogProducts]);
 
   function navigateTo(page) {
+    setScannerTarget(null);
     setActivePage(page);
     setCurrentPage(1);
     setSearchTerm('');
