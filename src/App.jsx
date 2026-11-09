@@ -385,7 +385,7 @@ export default function App() {
       window.alert('Sélectionnez au moins un produit.');
       return;
     }
-    const textToCopy = names.join('\\n');
+    const textToCopy = names.join('\n');
     try {
       await navigator.clipboard.writeText(textToCopy);
       window.alert(`${names.length} désignation(s) copiée(s).`);
