@@ -3160,11 +3160,17 @@ export default function App() {
               const negative = sourceProducts.filter(p=>Number(p.current_quantity)<0).length;
               const zero = sourceProducts.filter(p=>Number(p.current_quantity)===0).length;
               const positive = sourceProducts.filter(p=>Number(p.current_quantity)>0).length;
-              const decreases = statsScope==='tapis'
+              const currentQuantityById = new Map(sourceProducts.map(p=>[String(p.id),p.current_quantity]));
+              const currentQuantityByRef = new Map(sourceProducts.map(p=>[String(p.catalog_source||'products')+'|'+String(p.product_ref||''),p.current_quantity]));
+              const decreases = (statsScope==='tapis'
                 ? tapisStockDecreaseProducts.map(p=>({...p,catalog_source:'tapis_products'}))
                 : statsScope==='linge'
                   ? stockDecreaseProducts.map(p=>({...p,catalog_source:'products'}))
-                  : [...stockDecreaseProducts.map(p=>({...p,catalog_source:'products'})),...tapisStockDecreaseProducts.map(p=>({...p,catalog_source:'tapis_products'}))];
+                  : [...stockDecreaseProducts.map(p=>({...p,catalog_source:'products'})),...tapisStockDecreaseProducts.map(p=>({...p,catalog_source:'tapis_products'}))]
+              ).map(p=>({
+                ...p,
+                current_quantity: currentQuantityById.get(String(p.product_id||p.id||'')) ?? currentQuantityByRef.get(String(p.catalog_source)+'|'+String(p.product_ref||'')) ?? p.current_quantity ?? null
+              }));
               const sortedDecreases=[...decreases].sort((a,b)=>Number(b.quantity_decreased||0)-Number(a.quantity_decreased||0));
               const maxDecrease=Math.max(1,...sortedDecreases.map(p=>Number(p.quantity_decreased)||0));
               const metrics=[{label:'Produits suivis',value:total},{label:'Quantité totale actuelle',value:quantity.toLocaleString('fr-FR',{maximumFractionDigits:2})},{label:'Stock positif',value:positive},{label:'Stock négatif',value:negative},{label:'Stock épuisé',value:zero},{label:'Baisses PDF détectées',value:decreases.length}];
@@ -3193,10 +3199,11 @@ export default function App() {
                 {sortedDecreases.length===0?<p className="ls-muted">Aucune baisse PDF chargée. Actualisez les données ou vérifiez les imports PDF.</p>:<>
                   <div className="ls-table-wrap"><table className="ls-table"><thead><tr>
                     <th style={styles.th}><input type="checkbox" aria-label="Tout sélectionner" checked={visible.length>0&&visible.every(p=>statsSelection.includes(String(p.product_id||p.id||p.product_ref)))} onChange={e=>setStatsSelection(e.target.checked?Array.from(new Set([...statsSelection,...visible.map(p=>String(p.product_id||p.id||p.product_ref))])):statsSelection.filter(id=>!visible.some(p=>String(p.product_id||p.id||p.product_ref)===id)))}/></th>
-                    {statsShowReference&&<th style={styles.th}>Référence</th>}<th style={styles.th}>Désignation</th><th style={styles.th}>Quantité diminuée</th><th style={styles.th}>Action</th>
+                    {statsShowReference&&<th style={styles.th}>Référence</th>}<th style={styles.th}>Désignation</th><th style={styles.th}>Quantité actuelle</th><th style={styles.th}>Quantité diminuée</th><th style={styles.th}>Action</th>
                   </tr></thead><tbody>{visible.map((p,i)=>{const key=String(p.product_id||p.id||p.product_ref);const product={...p,id:p.product_id||p.id,name:p.name||p.product_name||'Produit',catalog_source:p.catalog_source};return <tr key={key||i}>
                     <td style={styles.td}><input type="checkbox" checked={statsSelection.includes(key)} onChange={e=>setStatsSelection(e.target.checked?[...statsSelection,key]:statsSelection.filter(id=>id!==key))}/></td>
                     {statsShowReference&&<td style={styles.td}>{p.product_ref||'—'}</td>}<td style={styles.td}>{p.name||p.product_name||'—'}</td>
+                    <td style={styles.td}>{p.current_quantity??'—'}</td>
                     <td style={styles.td}><div style={{display:'flex',alignItems:'center',gap:8}}><strong>{p.quantity_decreased??'—'}</strong><div style={{height:7,background:'#e9eef5',borderRadius:20,flex:1,overflow:'hidden'}}><div style={{height:'100%',width:Math.min(100,(Number(p.quantity_decreased)||0)/maxDecrease*100)+'%',background:'#d97706'}}/></div></div></td>
                     <td style={styles.td}><button style={{...styles.secondary,padding:'5px 9px',fontSize:12}} onClick={()=>hideProduct(product)}>Masquer</button></td>
                   </tr>})}</tbody></table></div>
