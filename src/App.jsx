@@ -5133,10 +5133,10 @@ export default function App() {
                       <thead><tr><th style={styles.th}>Désignation</th>{!hideLabelPrice && <th style={styles.th}>Prix détail</th>}<th style={styles.th}>Quantité</th><th style={styles.th}>Action</th></tr></thead>
                       <tbody>
                         {labelLines.map(line=>(
-                          <tr key={\`\${line.catalog_source}:\${line.id}\`}>
+                          <tr key={`${line.catalog_source}:${line.id}`}>
                             <td style={styles.td}><strong>{line.name}</strong></td>
                             {!hideLabelPrice && <td style={styles.td}>{Number(line.retail_price||0).toFixed(2)} DA</td>}
-                            <td style={styles.td}><div className="label-qty-control"><input type="number" min="1" max="500" step="1" aria-label={\`Nombre d’étiquettes pour \${line.name}\`} style={{...styles.field,width:90}} value={line.quantity} onChange={e=>updateLabelLineQuantity(line,e.target.value)} /><button type="button" className="label-qty-plus" aria-label={\`Augmenter la quantité pour \${line.name}\`} onClick={()=>updateLabelLineQuantity(line,Math.min(500,Number(line.quantity||0)+1))}>+</button></div></td>
+                            <td style={styles.td}><div className="label-qty-control"><input type="number" min="1" max="500" step="1" aria-label={`Nombre d’étiquettes pour ${line.name}`} style={{...styles.field,width:90}} value={line.quantity} onChange={e=>updateLabelLineQuantity(line,e.target.value)} /><button type="button" className="label-qty-plus" aria-label={`Augmenter la quantité pour ${line.name}`} onClick={()=>updateLabelLineQuantity(line,Math.min(500,Number(line.quantity||0)+1))}>+</button></div></td>
                             <td style={styles.td}><button type="button" style={styles.secondary} onClick={()=>setLabelLines(current=>current.filter(item=>!(String(item.id)===String(line.id)&&item.catalog_source===line.catalog_source)))}>Retirer</button></td>
                           </tr>
                         ))}
