@@ -2928,6 +2928,12 @@ export default function App() {
           .ls-app.ls-web .ls-actions button{font-size:9px;padding:4px 3px}
           .ls-app.ls-web .ls-toolbar{gap:6px}
           .ls-app.ls-web .ls-search{min-width:0}
+          .ls-app.ls-web .label-picker-table{table-layout:fixed!important;width:100%!important}
+          .ls-app.ls-web .label-picker-table th,.ls-app.ls-web .label-picker-table td{padding:5px 2px!important;font-size:10px!important;overflow-wrap:anywhere}
+          .ls-app.ls-web .label-picker-table th:first-child,.ls-app.ls-web .label-picker-table td:first-child{font-size:10px!important}
+          .ls-app.ls-web .label-picker-table td:nth-child(2) input,.ls-app.ls-web .label-picker-table td:nth-child(3) input{width:100%!important;max-width:62px!important;min-width:0!important;box-sizing:border-box}
+          .ls-app.ls-web .label-picker-table button{width:100%;min-width:0;padding:5px 2px!important;font-size:9px!important}
+          .ls-app.ls-web .label-picker-table td strong{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
         }
         @media(min-width:761px){.ls-app.ls-web .ls-mobile-menu{display:none!important}}
       `}</style>
@@ -5100,8 +5106,9 @@ export default function App() {
                 <ClearableSearchInput style={{...styles.field,marginTop:4}} value={labelSearch} onChange={(e)=>setLabelSearch(e.target.value)} onKeyDown={(e)=>{if(e.key==='Enter'){e.preventDefault();const first=catalogProducts.find(p=>productMatchesSearch(p,labelSearch));if(first)addLabelLine(first,labelAddQuantities[`${first.catalog_source}:${first.id}`] ?? 1);}}} placeholder="Rechercher par désignation ou référence… (Entrée pour ajouter le premier résultat)" />
                 {labelSearch.trim() && (
                   <div className="ls-table-wrap ls-force-table" style={{marginTop:10}}>
-                    <table className="ls-table">
-                      <thead><tr><th style={styles.th}>Désignation</th>{!hideLabelPrice && <th style={styles.th}>Prix détail</th>}<th style={styles.th}>Quantité à ajouter</th><th style={styles.th}>Action</th></tr></thead>
+                    <table className="ls-table label-picker-table">
+                      <colgroup>{hideLabelPrice ? <><col style={{width:'48%'}}/><col style={{width:'26%'}}/><col style={{width:'26%'}}/></> : <><col style={{width:'34%'}}/><col style={{width:'19%'}}/><col style={{width:'27%'}}/><col style={{width:'20%'}}/></>}</colgroup>
+                      <thead><tr><th style={styles.th}>Désignation</th>{!hideLabelPrice && <th style={styles.th}>Prix détail</th>}<th style={styles.th}>Quantité</th><th style={styles.th}>Action</th></tr></thead>
                       <tbody>
                         {catalogProducts.filter(p=>productMatchesSearch(p, labelSearch)).slice(0,30).map(p=>(
                           <tr key={`${p.catalog_source}:${p.id}`}>
@@ -5119,8 +5126,9 @@ export default function App() {
                 <h3 style={{marginTop:24}}>2. Produits choisis ({labelLines.length})</h3>
                 {labelLines.length===0 ? <p className="ls-muted">Aucun produit ajouté. Recherchez un produit ci-dessus puis cliquez sur Ajouter.</p> : (
                   <div className="ls-table-wrap ls-force-table">
-                    <table className="ls-table">
-                      <thead><tr><th style={styles.th}>Désignation</th>{!hideLabelPrice && <th style={styles.th}>Prix détail</th>}<th style={styles.th}>Nombre d’étiquettes</th><th style={styles.th}>Action</th></tr></thead>
+                    <table className="ls-table label-picker-table">
+                      <colgroup>{hideLabelPrice ? <><col style={{width:'48%'}}/><col style={{width:'26%'}}/><col style={{width:'26%'}}/></> : <><col style={{width:'34%'}}/><col style={{width:'19%'}}/><col style={{width:'27%'}}/><col style={{width:'20%'}}/></>}</colgroup>
+                      <thead><tr><th style={styles.th}>Désignation</th>{!hideLabelPrice && <th style={styles.th}>Prix détail</th>}<th style={styles.th}>Quantité</th><th style={styles.th}>Action</th></tr></thead>
                       <tbody>{labelLines.map(line=>(
                         <tr key={`${line.catalog_source}:${line.id}`}>
                           <td style={styles.td}><strong>{line.name}{line.catalog_source === 'tapis_products' ? <small style={{marginInlineStart:7,color:'#64748b'}}>Tapis</small> : null}</strong><div className="ls-muted">{line.product_ref}</div></td>
