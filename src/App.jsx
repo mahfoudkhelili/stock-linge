@@ -153,6 +153,7 @@ export default function App() {
   const [analysisSortDirection, setAnalysisSortDirection] = useState('asc');
   const [analysisShowCode, setAnalysisShowCode] = useState(false);
   const [activePage, setActivePage] = useState('dashboard');
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [alertScope, setAlertScope] = useState('linge');
   const [statsScope, setStatsScope] = useState('all');
   const [alertTablePages, setAlertTablePages] = useState({});
@@ -2798,7 +2799,7 @@ export default function App() {
 
   return (
     <div
-      className={`ls-app ${theme === 'dark' || (theme === 'system' && typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'ls-dark' : ''}`}
+      className={`ls-app ${typeof window !== 'undefined' && window.Capacitor?.isNativePlatform?.() ? 'ls-native' : 'ls-web'} ${theme === 'dark' || (theme === 'system' && typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'ls-dark' : ''}`}
       dir={language === 'ar' ? 'rtl' : 'ltr'}
     >
       <style>{`
@@ -2902,6 +2903,32 @@ export default function App() {
         .ls-dark .ls-icon-peach{background:#594334;color:#ffbd91}
         .ls-dark .ls-icon-sage{background:#354b40;color:#a4d2b2}
 
+        /* Mobile web only: reclaim screen width for tables; keep native APK and desktop unchanged. */
+        @media(max-width:760px){
+          .ls-app.ls-web .ls-layout{display:block}
+          .ls-app.ls-web .ls-sidebar{display:none}
+          .ls-app.ls-web .ls-nav-open .ls-sidebar{display:flex;position:fixed;inset:0 auto 0 0;z-index:1000;width:min(82vw,300px);height:100dvh;margin:0;border-radius:0;padding:18px 12px;overflow-y:auto;box-shadow:12px 0 32px rgba(0,0,0,.22)}
+          .ls-app.ls-web .ls-nav-open .ls-nav{display:flex;flex-direction:column;overflow:visible}
+          .ls-app.ls-web .ls-nav-open .ls-nav button{width:100%;white-space:normal;flex-shrink:1;font-size:13px}
+          .ls-app.ls-web .ls-mobile-menu{display:inline-flex!important;align-items:center;justify-content:center;gap:7px;min-height:38px;padding:7px 12px;border:1px solid #d8dee8;border-radius:9px;background:#fff;color:#102b46;font-weight:700}
+          .ls-app.ls-web .ls-main{padding:10px 7px 28px}
+          .ls-app.ls-web .ls-topbar{gap:8px;margin-bottom:12px}
+          .ls-app.ls-web .ls-topbar h1{font-size:22px!important}
+          .ls-app.ls-web .ls-topbar-actions{width:100%;gap:6px}
+          .ls-app.ls-web .ls-panel{padding:8px;margin-bottom:10px;border-radius:10px}
+          .ls-app.ls-web .ls-table-wrap{display:block!important;width:100%;max-width:100%;overflow-x:hidden!important}
+          .ls-app.ls-web .ls-table-wrap:not(.ls-force-table){display:block!important}
+          .ls-app.ls-web .ls-product-cards{display:none!important}
+          .ls-app.ls-web .ls-table{width:100%!important;min-width:0!important;table-layout:fixed;font-size:10px;line-height:1.25}
+          .ls-app.ls-web .ls-table th,.ls-app.ls-web .ls-table td{padding:5px 3px!important;white-space:normal!important;overflow-wrap:anywhere;word-break:normal;vertical-align:middle}
+          .ls-app.ls-web .ls-table td strong{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;line-height:1.2}
+          .ls-app.ls-web .ls-table button{font-size:10px!important;padding:5px 4px!important;white-space:normal}
+          .ls-app.ls-web .ls-actions{gap:3px}
+          .ls-app.ls-web .ls-actions button{font-size:9px;padding:4px 3px}
+          .ls-app.ls-web .ls-toolbar{gap:6px}
+          .ls-app.ls-web .ls-search{min-width:0}
+        }
+        @media(min-width:761px){.ls-app.ls-web .ls-mobile-menu{display:none!important}}
       `}</style>
 
       {!user ? (
@@ -2960,7 +2987,7 @@ export default function App() {
           </form>
         </div>
       ) : (
-        <div className="ls-layout">
+        <div className={`ls-layout ${mobileNavOpen ? "ls-nav-open" : ""}`}>
           <aside className="ls-sidebar">
             <div className="ls-sidebar-head">
               <div className="ls-brand">
@@ -2978,7 +3005,7 @@ export default function App() {
                 <button
                   key={item.id}
                   className={activePage === item.id ? 'active' : ''}
-                  onClick={() => navigateTo(item.id)}
+                  onClick={() => { navigateTo(item.id); setMobileNavOpen(false); }}
                 >
                   <span style={{ width: 17, textAlign: 'center' }}>
                     {item.icon}
@@ -3006,6 +3033,7 @@ export default function App() {
           </aside>
           <main className="ls-main">
             <div className="ls-topbar">
+              <button type="button" className="ls-mobile-menu" onClick={() => setMobileNavOpen((open) => !open)} aria-expanded={mobileNavOpen} aria-label="Ouvrir le menu">☰ Menu</button>
               <div>
                 <div className="ls-muted">
                   AFRICHA HAMIZ ASSISTANT / {activePageTitle.toLocaleUpperCase('fr')}
