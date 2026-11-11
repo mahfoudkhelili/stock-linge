@@ -2931,8 +2931,10 @@ export default function App() {
           .ls-app.ls-web .label-picker-table{table-layout:fixed!important;width:100%!important;min-width:0!important}
           .ls-app.ls-web .label-picker-table th,.ls-app.ls-web .label-picker-table td{padding:4px 2px!important;font-size:10px!important;overflow-wrap:anywhere;min-width:0!important}
           .ls-app.ls-web .label-picker-table th:first-child,.ls-app.ls-web .label-picker-table td:first-child{font-size:10px!important}
-          .ls-app.ls-web .label-picker-table input[type="number"]{display:block!important;width:48px!important;max-width:48px!important;min-width:0!important;box-sizing:border-box;padding:4px 2px!important;margin:0 auto!important}
+          .ls-app.ls-web .label-picker-table input[type="number"]{display:block!important;width:42px!important;max-width:42px!important;min-width:0!important;box-sizing:border-box;padding:4px 2px!important;margin:0!important}
           .ls-app.ls-web .label-picker-table button{display:inline-block!important;width:auto!important;max-width:64px!important;min-width:0!important;white-space:nowrap!important;padding:4px 5px!important;font-size:9px!important;line-height:1.2!important}
+          .ls-app.ls-web .label-picker-table .label-qty-control{display:flex!important;align-items:center!important;justify-content:center!important;gap:3px!important;min-width:0!important}
+          .ls-app.ls-web .label-picker-table .label-qty-plus{width:23px!important;height:27px!important;min-width:23px!important;max-width:23px!important;padding:0!important;font-size:16px!important;line-height:1!important;border-radius:5px!important}
           .ls-app.ls-web .label-picker-table td:last-child{text-align:center!important}
           .ls-app.ls-web .label-picker-table td strong{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
         }
@@ -5113,9 +5115,9 @@ export default function App() {
                       <tbody>
                         {catalogProducts.filter(p=>productMatchesSearch(p, labelSearch)).slice(0,30).map(p=>(
                           <tr key={`${p.catalog_source}:${p.id}`}>
-                            <td style={styles.td}><strong>{p.name}{p.catalog_source === 'tapis_products' ? <small style={{marginInlineStart:7,color:'#64748b'}}>Tapis</small> : null}</strong><div className="ls-muted">{p.product_ref}</div></td>
+                            <td style={styles.td}><strong>{p.name}{p.catalog_source === 'tapis_products' ? <small style={{marginInlineStart:7,color:'#64748b'}}>Tapis</small> : null}</strong></td>
                             {!hideLabelPrice && <td style={styles.td}>{Number(p.retail_price||0).toFixed(2)} DA</td>}
-                            <td style={styles.td}><input type="number" min="1" max="500" step="1" aria-label={`Nombre d’étiquettes à ajouter pour ${p.name}`} style={{...styles.field,width:90}} value={labelAddQuantities[`${p.catalog_source}:${p.id}`] ?? '1'} onChange={(e)=>setLabelAddQuantities(current=>({...current,[`${p.catalog_source}:${p.id}`]:e.target.value}))} /></td>
+                            <td style={styles.td}><div className="label-qty-control"><button type="button" className="label-qty-plus" aria-label={`Augmenter la quantité pour ${p.name}`} onClick={()=>setLabelAddQuantities(current=>({...current,[`${p.catalog_source}:${p.id}`]:String(Math.min(500,Math.max(1,Number(current[`${p.catalog_source}:${p.id}`]||1))+1))}))}>+</button><input type="number" min="1" max="500" step="1" aria-label={`Nombre d’étiquettes à ajouter pour ${p.name}`} style={{...styles.field,width:90}} value={labelAddQuantities[`${p.catalog_source}:${p.id}`] ?? '1'} onChange={(e)=>setLabelAddQuantities(current=>({...current,[`${p.catalog_source}:${p.id}`]:e.target.value}))} /></div></td>
                             <td style={styles.td}><button type="button" style={styles.button} onClick={()=>addLabelLine(p,labelAddQuantities[`${p.catalog_source}:${p.id}`] ?? 1)}>Ajouter</button></td>
                           </tr>
                         ))}
@@ -5132,9 +5134,9 @@ export default function App() {
                       <thead><tr><th style={styles.th}>Désignation</th>{!hideLabelPrice && <th style={styles.th}>Prix détail</th>}<th style={styles.th}>Quantité</th><th style={styles.th}>Action</th></tr></thead>
                       <tbody>{labelLines.map(line=>(
                         <tr key={`${line.catalog_source}:${line.id}`}>
-                          <td style={styles.td}><strong>{line.name}{line.catalog_source === 'tapis_products' ? <small style={{marginInlineStart:7,color:'#64748b'}}>Tapis</small> : null}</strong><div className="ls-muted">{line.product_ref}</div></td>
+                          <td style={styles.td}><strong>{line.name}{line.catalog_source === 'tapis_products' ? <small style={{marginInlineStart:7,color:'#64748b'}}>Tapis</small> : null}</strong></td>
                           {!hideLabelPrice && <td style={styles.td}>{Number(line.retail_price||0).toFixed(2)} DA</td>}
-                          <td style={styles.td}><input aria-label={'Nombre d’étiquettes pour '+line.name} type="number" min="1" max="500" step="1" style={{...styles.field,width:120}} value={line.quantity} onChange={(e)=>updateLabelLineQuantity(line,e.target.value)} /></td>
+                          <td style={styles.td}><div className="label-qty-control"><button type="button" className="label-qty-plus" aria-label={'Augmenter la quantité pour '+line.name} onClick={()=>updateLabelLineQuantity(line,Math.min(500,Math.max(1,Number(line.quantity||1))+1))}>+</button><input aria-label={'Nombre d’étiquettes pour '+line.name} type="number" min="1" max="500" step="1" style={{...styles.field,width:120}} value={line.quantity} onChange={(e)=>updateLabelLineQuantity(line,e.target.value)} /></div></td>
                           <td style={styles.td}><button type="button" style={styles.secondary} onClick={()=>setLabelLines(current=>current.filter(item=>!(String(item.id)===String(line.id) && item.catalog_source===line.catalog_source)))}>Retirer</button></td>
                         </tr>
                       ))}</tbody>
