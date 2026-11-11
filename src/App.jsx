@@ -5117,11 +5117,29 @@ export default function App() {
                           <tr key={`${p.catalog_source}:${p.id}`}>
                             <td style={styles.td}><strong>{p.name}{p.catalog_source === 'tapis_products' ? <small style={{marginInlineStart:7,color:'#64748b'}}>Tapis</small> : null}</strong></td>
                             {!hideLabelPrice && <td style={styles.td}>{Number(p.retail_price||0).toFixed(2)} DA</td>}
-                            <td style={styles.td}><div className="label-qty-control"><button type="button" className="label-qty-plus" aria-label={`Augmenter la quantité pour ${p.name}`} onClick={()=>setLabelAddQuantities(current=>({...current,[`${p.catalog_source}:${p.id}`]:String(Math.min(500,Math.max(1,Number(current[`${p.catalog_source}:${p.id}`]||1))+1))}))}>+</button><input type="number" min="1" max="500" step="1" aria-label={`Nombre d’étiquettes à ajouter pour ${p.name}`} style={{...styles.field,width:90}} value={labelAddQuantities[`${p.catalog_source}:${p.id}`] ?? '1'} onChange={(e)=>setLabelAddQuantities(current=>({...current,[`${p.catalog_source}:${p.id}`]:e.target.value}))} /></div></td>
+                            <td style={styles.td}><div className="label-qty-control"><input type="number" min="1" max="500" step="1" aria-label={\`Nombre d’étiquettes à ajouter pour \${p.name}\`} style={{...styles.field,width:90}} value={labelAddQuantities[\`\${p.catalog_source}:\${p.id}\`] ?? '1'} onChange={(e)=>setLabelAddQuantities(current=>({...current,[\`\${p.catalog_source}:\${p.id}\`]:e.target.value}))} /><button type="button" className="label-qty-plus" aria-label={\`Augmenter la quantité pour \${p.name}\`} onClick={()=>setLabelAddQuantities(current=>({...current,[\`\${p.catalog_source}:\${p.id}\`]:String(Math.min(500,Math.max(1,Number(current[\`\${p.catalog_source}:\${p.id}\`]||1))+1))}))}>+</button></div></td>
                             <td style={styles.td}><button type="button" style={styles.button} onClick={()=>addLabelLine(p,labelAddQuantities[`${p.catalog_source}:${p.id}`] ?? 1)}>Ajouter</button></td>
                           </tr>
                         ))}
                         {catalogProducts.filter(p=>productMatchesSearch(p, labelSearch)).length===0 && <tr><td style={styles.td} colSpan={hideLabelPrice ? 3 : 4}>Aucun produit trouvé.</td></tr>}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+                {labelLines.length > 0 && (
+                  <div className="ls-table-wrap ls-force-table" style={{marginTop:16}}>
+                    <table className="ls-table label-picker-table">
+                      <colgroup>{hideLabelPrice ? <><col style={{width:'34%'}}/><col style={{width:'33%'}}/><col style={{width:'33%'}}/></> : <><col style={{width:'34%'}}/><col style={{width:'19%'}}/><col style={{width:'27%'}}/><col style={{width:'20%'}}/></>}</colgroup>
+                      <thead><tr><th style={styles.th}>Désignation</th>{!hideLabelPrice && <th style={styles.th}>Prix détail</th>}<th style={styles.th}>Quantité</th><th style={styles.th}>Action</th></tr></thead>
+                      <tbody>
+                        {labelLines.map(line=>(
+                          <tr key={\`\${line.catalog_source}:\${line.id}\`}>
+                            <td style={styles.td}><strong>{line.name}</strong></td>
+                            {!hideLabelPrice && <td style={styles.td}>{Number(line.retail_price||0).toFixed(2)} DA</td>}
+                            <td style={styles.td}><div className="label-qty-control"><input type="number" min="1" max="500" step="1" aria-label={\`Nombre d’étiquettes pour \${line.name}\`} style={{...styles.field,width:90}} value={line.quantity} onChange={e=>updateLabelLineQuantity(line,e.target.value)} /><button type="button" className="label-qty-plus" aria-label={\`Augmenter la quantité pour \${line.name}\`} onClick={()=>updateLabelLineQuantity(line,Math.min(500,Number(line.quantity||0)+1))}>+</button></div></td>
+                            <td style={styles.td}><button type="button" style={styles.secondary} onClick={()=>setLabelLines(current=>current.filter(item=>!(String(item.id)===String(line.id)&&item.catalog_source===line.catalog_source)))}>Retirer</button></td>
+                          </tr>
+                        ))}
                       </tbody>
                     </table>
                   </div>
