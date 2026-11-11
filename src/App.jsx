@@ -2911,7 +2911,7 @@ export default function App() {
           .ls-app.ls-web .ls-nav-open .ls-sidebar{display:flex;position:fixed;inset:0 auto 0 0;z-index:1000;width:min(82vw,300px);height:100dvh;margin:0;border-radius:0;padding:18px 12px;overflow-y:auto;box-shadow:12px 0 32px rgba(0,0,0,.22)}
           .ls-app.ls-web .ls-nav-open .ls-nav{display:flex;flex-direction:column;overflow:visible}
           .ls-app.ls-web .ls-nav-open .ls-nav button{width:100%;white-space:normal;flex-shrink:1;font-size:13px}
-          .ls-app.ls-web .ls-mobile-menu{display:inline-flex!important;position:fixed!important;top:10px!important;left:10px!important;z-index:1101!important;align-items:center;justify-content:center;gap:7px;min-height:38px;padding:7px 12px;border:1px solid #d8dee8;border-radius:9px;background:#fff;color:#102b46;font-weight:700;box-shadow:0 2px 8px rgba(0,0,0,.12)}
+          .ls-app.ls-web .ls-mobile-menu{display:inline-flex!important;position:fixed!important;top:calc(10px + env(safe-area-inset-top, 0px))!important;left:10px!important;z-index:9999!important;transform:none!important;contain:none!important;align-items:center;justify-content:center;gap:7px;min-height:38px;padding:7px 12px;border:1px solid #d8dee8;border-radius:9px;background:#fff;color:#102b46;font-weight:700;box-shadow:0 2px 8px rgba(0,0,0,.18);pointer-events:auto!important}
           .ls-app.ls-web .ls-main{padding:56px 7px 28px}
           .ls-app.ls-web .ls-topbar{gap:8px;margin-bottom:12px}
           .ls-app.ls-web .ls-topbar h1{font-size:22px!important}
@@ -2998,6 +2998,7 @@ export default function App() {
         </div>
       ) : (
         <div className={`ls-layout ${mobileNavOpen ? "ls-nav-open" : ""}`}>
+          <button type="button" className="ls-mobile-menu" onClick={() => setMobileNavOpen((open) => !open)} aria-expanded={mobileNavOpen} aria-label="Ouvrir le menu">☰ Menu</button>
           <aside className="ls-sidebar">
             <div className="ls-sidebar-head">
               <div className="ls-brand">
@@ -3043,7 +3044,6 @@ export default function App() {
           </aside>
           <main className="ls-main">
             <div className="ls-topbar">
-              <button type="button" className="ls-mobile-menu" onClick={() => setMobileNavOpen((open) => !open)} aria-expanded={mobileNavOpen} aria-label="Ouvrir le menu">☰ Menu</button>
               <div>
                 <div className="ls-muted">
                   AFRICHA HAMIZ ASSISTANT / {activePageTitle.toLocaleUpperCase('fr')}
