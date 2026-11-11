@@ -5108,7 +5108,7 @@ export default function App() {
                 {labelSearch.trim() && (
                   <div className="ls-table-wrap ls-force-table" style={{marginTop:10}}>
                     <table className="ls-table label-picker-table">
-                      <colgroup>{hideLabelPrice ? <><col style={{width:'34%'}}/><col style={{width:'18%'}}/><col style={{width:'18%'}}/></> : <><col style={{width:'34%'}}/><col style={{width:'19%'}}/><col style={{width:'27%'}}/><col style={{width:'20%'}}/></>}</colgroup>
+                      <colgroup>{hideLabelPrice ? <><col style={{width:'34%'}}/><col style={{width:'33%'}}/><col style={{width:'33%'}}/></> : <><col style={{width:'34%'}}/><col style={{width:'19%'}}/><col style={{width:'27%'}}/><col style={{width:'20%'}}/></>}</colgroup>
                       <thead><tr><th style={styles.th}>Désignation</th>{!hideLabelPrice && <th style={styles.th}>Prix détail</th>}<th style={styles.th}>Quantité</th><th style={styles.th}>Action</th></tr></thead>
                       <tbody>
                         {catalogProducts.filter(p=>productMatchesSearch(p, labelSearch)).slice(0,30).map(p=>(
@@ -5128,7 +5128,7 @@ export default function App() {
                 {labelLines.length===0 ? <p className="ls-muted">Aucun produit ajouté. Recherchez un produit ci-dessus puis cliquez sur Ajouter.</p> : (
                   <div className="ls-table-wrap ls-force-table">
                     <table className="ls-table label-picker-table">
-                      <colgroup>{hideLabelPrice ? <><col style={{width:'34%'}}/><col style={{width:'18%'}}/><col style={{width:'18%'}}/></> : <><col style={{width:'34%'}}/><col style={{width:'19%'}}/><col style={{width:'27%'}}/><col style={{width:'20%'}}/></>}</colgroup>
+                      <colgroup>{hideLabelPrice ? <><col style={{width:'34%'}}/><col style={{width:'33%'}}/><col style={{width:'33%'}}/></> : <><col style={{width:'34%'}}/><col style={{width:'19%'}}/><col style={{width:'27%'}}/><col style={{width:'20%'}}/></>}</colgroup>
                       <thead><tr><th style={styles.th}>Désignation</th>{!hideLabelPrice && <th style={styles.th}>Prix détail</th>}<th style={styles.th}>Quantité</th><th style={styles.th}>Action</th></tr></thead>
                       <tbody>{labelLines.map(line=>(
                         <tr key={`${line.catalog_source}:${line.id}`}>
