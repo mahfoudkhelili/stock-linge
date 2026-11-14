@@ -2205,7 +2205,7 @@ export default function App() {
           const nameY = height * 0.47 - (nameLines.length > 1 ? (nameLines.length - 1) * 2 : 0);
           doc.text(nameLines, width / 2, nameY, { align: 'center', lineHeightFactor: 1.05 });
           // Retail price at the bottom: larger/bolder and with no decimal places.
-          doc.setFontSize(Math.max(9, Math.min(14, width / 3.8)));
+          doc.setFontSize(16);
           const formattedRetailPrice = Math.round(Number(product.retail_price || 0)).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
           doc.text(formattedRetailPrice + ' DA', width / 2, height * 0.86, { align: 'center' });
         });
