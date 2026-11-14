@@ -5125,14 +5125,14 @@ export default function App() {
                 <h2>Étiquettes prix</h2>
                 <h3 style={{marginTop:22}}>1. Ajouter des produits</h3>
                 <label style={{display:'inline-flex',alignItems:'center',gap:7,margin:'8px 0 10px',fontWeight:600}}><input type="checkbox" checked={hideLabelPrice} onChange={(e)=>setHideLabelPrice(e.target.checked)} /> Masquer prix</label>
-                <ClearableSearchInput style={{...styles.field,marginTop:4}} value={labelSearch} onChange={(e)=>setLabelSearch(e.target.value)} onKeyDown={(e)=>{if(e.key==='Enter'){e.preventDefault();const first=catalogProducts.find(p=>Number(p.current_quantity)>0 && productMatchesSearch(p,labelSearch));if(first)addLabelLine(first,labelAddQuantities[`${first.catalog_source}:${first.id}`] ?? 1);}}} placeholder="Rechercher par désignation ou référence… (Entrée pour ajouter le premier résultat)" />
+                <ClearableSearchInput style={{...styles.field,marginTop:4}} value={labelSearch} onChange={(e)=>setLabelSearch(e.target.value)} onKeyDown={(e)=>{if(e.key==='Enter'){e.preventDefault();const first=catalogProducts.find(p=>productMatchesSearch(p,labelSearch));if(first)addLabelLine(first,labelAddQuantities[`${first.catalog_source}:${first.id}`] ?? 1);}}} placeholder="Rechercher par désignation ou référence… (Entrée pour ajouter le premier résultat)" />
                 {labelSearch.trim() && (
                   <div className="ls-table-wrap ls-force-table" style={{marginTop:10}}>
                     <table className="ls-table label-picker-table">
                       <colgroup>{hideLabelPrice ? <><col style={{width:'34%'}}/><col style={{width:'33%'}}/><col style={{width:'33%'}}/></> : <><col style={{width:'34%'}}/><col style={{width:'19%'}}/><col style={{width:'27%'}}/><col style={{width:'20%'}}/></>}</colgroup>
                       <thead><tr><th style={styles.th}>Désignation</th>{!hideLabelPrice && <th style={styles.th}>Prix détail</th>}<th style={styles.th}>Quantité</th><th style={styles.th}>Action</th></tr></thead>
                       <tbody>
-                        {catalogProducts.filter(p=>Number(p.current_quantity)>0 && productMatchesSearch(p, labelSearch)).slice(0,30).map(p=>(
+                        {catalogProducts.filter(p=>productMatchesSearch(p, labelSearch)).slice(0,30).map(p=>(
                           <tr key={`${p.catalog_source}:${p.id}`}>
                             <td style={styles.td}><strong>{p.name}{p.catalog_source === 'tapis_products' ? <small style={{marginInlineStart:7,color:'#64748b'}}>Tapis</small> : null}</strong></td>
                             {!hideLabelPrice && <td style={styles.td}>{Number(p.retail_price||0).toFixed(2)} DA</td>}
@@ -5140,7 +5140,7 @@ export default function App() {
                             <td style={styles.td}><button type="button" style={styles.button} onClick={()=>addLabelLine(p,labelAddQuantities[`${p.catalog_source}:${p.id}`] ?? 1)}>Ajouter</button></td>
                           </tr>
                         ))}
-                        {catalogProducts.filter(p=>Number(p.current_quantity)>0 && productMatchesSearch(p, labelSearch)).length===0 && <tr><td style={styles.td} colSpan={hideLabelPrice ? 3 : 4}>Aucun produit trouvé.</td></tr>}
+                        {catalogProducts.filter(p=>productMatchesSearch(p, labelSearch)).length===0 && <tr><td style={styles.td} colSpan={hideLabelPrice ? 3 : 4}>Aucun produit trouvé.</td></tr>}
                       </tbody>
                     </table>
                   </div>
