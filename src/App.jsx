@@ -985,6 +985,18 @@ export default function App() {
     });
   }
 
+  async function syncProductDesignations(rpcName, rows) {
+    const designationRows = (rows || [])
+      .filter((row) => row.product_ref && row.name)
+      .map((row) => ({
+        product_ref: String(row.product_ref).trim(),
+        name: String(row.name).trim(),
+      }));
+    if (!designationRows.length) return null;
+    const { error } = await supabase.rpc(rpcName, { p_rows: designationRows });
+    return error || null;
+  }
+
   async function importTapisCsvToSupabase() {
     if (!tapisCsvPreview.length) {
       window.alert('Veuillez sélectionner un fichier CSV Tapis.');
@@ -1029,8 +1041,11 @@ export default function App() {
       setMessage('Erreur import CSV Tapis : ' + error.message);
       return;
     }
+    const designationError = await syncProductDesignations('admin_sync_tapis_product_designations', rows);
     await loadProducts();
-    setMessage(`CSV Tapis enregistré : ${data?.rows_saved ?? 0} lignes historiques. Prix Tapis actualisés. Le stock actuel n’a pas été modifié.`);
+    setMessage(designationError
+      ? `CSV Tapis enregistré, mais échec de mise à jour des désignations : ${designationError.message}`
+      : `CSV Tapis enregistré : ${data?.rows_saved ?? 0} lignes historiques. Prix et désignations Tapis actualisés. Le stock actuel n’a pas été modifié.`);
     setTapisCsvPreview([]);
     setTapisCsvFileName('');
   }
@@ -1078,9 +1093,12 @@ export default function App() {
       setMessage('Erreur import CSV : ' + error.message);
       return;
     }
+    const designationError = await syncProductDesignations('admin_sync_product_designations', rows);
     await loadProducts();
     await loadLastImport();
-    setMessage(`CSV enregistré : ${data?.rows_saved ?? 0} lignes historiques. Prix actualisés. La quantité actuelle n’a pas été modifiée.`);
+    setMessage(designationError
+      ? `CSV enregistré, mais échec de mise à jour des désignations : ${designationError.message}`
+      : `CSV enregistré : ${data?.rows_saved ?? 0} lignes historiques. Prix et désignations actualisés. La quantité actuelle n’a pas été modifiée.`);
     setCsvPreview([]);
     setCsvFileName('');
   }
@@ -1207,8 +1225,11 @@ export default function App() {
       setMessage('Erreur import PDF : ' + error.message);
       return;
     }
+    const designationError = await syncProductDesignations('admin_sync_product_designations', pdfPreview);
     await loadProducts();
-    setMessage(`PDF importé : ${data?.rows_updated ?? 0} quantités mises à jour. Références introuvables : ${data?.products_not_found ?? 0}. Prix et historique CSV inchangés.`);
+    setMessage(designationError
+      ? `PDF importé, mais échec de mise à jour des désignations : ${designationError.message}`
+      : `PDF importé : ${data?.rows_updated ?? 0} quantités mises à jour et désignations synchronisées. Références introuvables : ${data?.products_not_found ?? 0}. Prix et historique CSV inchangés.`);
     setPdfPreview([]);
     setPdfSearch('');
     setPdfFileName('');
@@ -1325,8 +1346,11 @@ export default function App() {
       setMessage('Erreur import PDF Tapis : ' + error.message);
       return;
     }
+    const designationError = await syncProductDesignations('admin_sync_tapis_product_designations', tapisPdfPreview);
     setMessage(
-      `PDF Tapis importé : ${data?.rows_updated ?? 0} quantités mises à jour. Produits créés/actualisés : ${data?.products_created_or_refreshed ?? 0}. Références introuvables : ${data?.products_not_found ?? 0}.`
+      designationError
+        ? `PDF Tapis importé, mais échec de mise à jour des désignations : ${designationError.message}`
+        : `PDF Tapis importé : ${data?.rows_updated ?? 0} quantités mises à jour et désignations synchronisées. Produits créés/actualisés : ${data?.products_created_or_refreshed ?? 0}. Références introuvables : ${data?.products_not_found ?? 0}.`
     );
     setTapisPdfPreview([]);
     setTapisPdfSearch('');
