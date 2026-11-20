@@ -44,6 +44,8 @@ export default function AIAnalysis() {
   const [section, setSection] = useState('forecast');
   const [historyByModule, setHistoryByModule] = useState({ LINGE: [], TAPIS: [] });
   const [productsByModule, setProductsByModule] = useState({ LINGE: [], TAPIS: [] });
+  const [suggestionsByModule, setSuggestionsByModule] = useState({ LINGE: [], TAPIS: [] });
+  const [reloadKey, setReloadKey] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
@@ -56,18 +58,23 @@ export default function AIAnalysis() {
       setLoading(true);
       setError('');
       try {
-        const [lingeHistory, tapisHistory, lingeProducts, tapisProducts] = await Promise.all([
+        const [lingeHistory, tapisHistory, lingeProducts, tapisProducts, lingeSuggestions, tapisSuggestions] = await Promise.all([
           readAll('monthly_stock_history', 'product_ref,month_no,initial_quantity,entry_quantity,outgoing_quantity,final_quantity', 'product_ref'),
           readAll('tapis_monthly_stock_history', 'product_ref,month_no,initial_quantity,entry_quantity,outgoing_quantity,final_quantity', 'product_ref'),
           readAll('products', 'product_ref,name,current_quantity,retail_price,wholesale_price,is_active,is_hidden', 'product_ref'),
-          readAll('tapis_products', 'product_ref,name,current_quantity,retail_price,wholesale_price,is_active,is_hidden', 'product_ref')
+          readAll('tapis_products', 'product_ref,name,current_quantity,retail_price,wholesale_price,is_active,is_hidden', 'product_ref'),
+          supabase.rpc('get_reorder_suggestions'),
+          supabase.rpc('get_tapis_reorder_suggestions')
         ]);
+        if (lingeSuggestions.error) throw lingeSuggestions.error;
+        if (tapisSuggestions.error) throw tapisSuggestions.error;
         if (!alive) return;
         setHistoryByModule({ LINGE: lingeHistory || [], TAPIS: tapisHistory || [] });
         setProductsByModule({
           LINGE: (lingeProducts || []).filter(p => p.is_active !== false && p.is_hidden !== true),
           TAPIS: (tapisProducts || []).filter(p => p.is_active !== false && p.is_hidden !== true)
         });
+        setSuggestionsByModule({ LINGE: lingeSuggestions.data || [], TAPIS: tapisSuggestions.data || [] });
       } catch (e) {
         if (alive) setError(e?.message || 'Erreur lors du chargement des données.');
       } finally {
@@ -91,19 +98,7 @@ export default function AIAnalysis() {
     return map;
   }, [rows]);
 
-  const forecasts = useMemo(() => {
-    return catalog.map(p => {
-      const history = historyByProduct.get(p.product_ref) || [];
-      const byMonth = new Map(history.filter(h => FULL_MONTHS.includes(Number(h.month_no))).map(h => [Number(h.month_no), Number(h.outgoing_quantity) || 0]));
-      const values = [5,6,7,8,9,10].map(m => byMonth.get(m) || 0);
-      const net = values.reduce((sum, n) => sum + n, 0);
-      const forecast = Math.max(0, net / values.length);
-      const activeMonths = values.filter(v => v > 0).length;
-      const availableMonths = history.filter(h => FULL_MONTHS.includes(Number(h.month_no))).length;
-      const confidence = availableMonths < 4 ? 'بيانات قليلة' : activeMonths >= 4 ? 'أفضل نسبياً' : activeMonths >= 2 ? 'متوسط' : 'ضعيف';
-      return { ...p, forecast, net, activeMonths, availableMonths, current: Number(p.current_quantity) || 0, confidence };
-    }).filter(p => p.availableMonths > 0).sort((a,b) => b.forecast-a.forecast);
-  }, [catalog, historyByProduct]);
+  const forecasts = suggestionsByModule[module] || [];
 
   const negativeCases = useMemo(() => {
     const cases = [];
@@ -133,13 +128,18 @@ export default function AIAnalysis() {
         targetTokens.forEach(t => { if (p.tokenSet.has(t)) shared++; });
         const family = targetTokens.size + p.tokenSet.size - shared > 0
           ? 100 * shared / (targetTokens.size + p.tokenSet.size - shared) : 0;
-        const nameScore = dice(targetTri, p.triSet);
+        const nameScore = (() => { let common = 0; targetTri.forEach(t => { if (p.triSet.has(t)) common++; }); const union = targetTri.size + p.triSet.size - common; return union ? 100 * common / union : 0; })();
+        const typeScore = cleanText(item.name).split(' ')[0] === cleanText(p.name).split(' ')[0] ? 100 : 0;
         const a = Number(item.retail_price), b = Number(p.retail_price);
         const priceScore = Number.isFinite(a) && Number.isFinite(b) && Math.max(Math.abs(a),Math.abs(b)) > 0
           ? 100 * Math.max(0, 1 - Math.abs(a-b) / Math.max(Math.abs(a),Math.abs(b))) : 0;
+        const wa = Number(item.wholesale_price), wb = Number(p.wholesale_price);
+        const wholesaleScore = Number.isFinite(wa) && Number.isFinite(wb) && Math.max(Math.abs(wa),Math.abs(wb)) > 0
+          ? 100 * Math.max(0, 1 - Math.abs(wa-wb) / Math.max(Math.abs(wa),Math.abs(wb))) : 0;
         const monthSales = salesLookup.get(String(p.product_ref) + '|' + String(item.month_no)) ?? 0;
-        const score = family * 0.50 + nameScore * 0.25 + priceScore * 0.15 + (monthSales > 0 ? 100 : 0) * 0.10 - (monthSales < 0 ? 8 : 0);
-        return { ...p, familyScore: family, nameScore, priceScore, monthSales, score };
+        const salesScore = monthSales > 0 ? 100 : 0;
+        const score = typeScore * 0.10 + family * 0.45 + nameScore * 0.20 + priceScore * 0.15 + wholesaleScore * 0.05 + salesScore * 0.05;
+        return { ...p, typeScore, familyScore: family, nameScore, priceScore, wholesaleScore, monthSales, score };
       }).sort((a,b) => b.score-a.score).slice(0,5);
       result.push({ ...item, candidates });
     });
@@ -188,7 +188,7 @@ export default function AIAnalysis() {
           <h2 style={{marginTop:0,marginBottom:6}}>التحليل الذكي</h2>
           <p className="ls-muted" style={{margin:0}}>قراءة وتحليل فقط. لا توجد أي عملية كتابة أو تعديل في قاعدة البيانات.</p>
         </div>
-        <span style={{background:'#ecfdf3',color:'#027a48',padding:'6px 10px',borderRadius:20,fontSize:12,fontWeight:800}}>READ ONLY · قراءة فقط</span>
+        <div style={{display:'flex',gap:8,alignItems:'center',flexWrap:'wrap'}}><span style={{background:'#ecfdf3',color:'#027a48',padding:'6px 10px',borderRadius:20,fontSize:12,fontWeight:800}}>READ ONLY · قراءة فقط</span><button style={button} onClick={()=>setReloadKey(v=>v+1)} disabled={loading}>تحديث القراءة</button></div>
       </div>
 
       <div style={{display:'flex',gap:8,flexWrap:'wrap',margin:'16px 0'}}>
@@ -212,11 +212,11 @@ export default function AIAnalysis() {
         <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="ابحث بالمرجع أو اسم المنتج…" style={{width:'100%',maxWidth:420,boxSizing:'border-box',padding:'10px 12px',border:'1px solid #d5dfeb',borderRadius:9,marginBottom:12}} />
 
         {section==='forecast' && <>
-          <p className="ls-muted">تقدير تجريبي للطلب الشهري اعتماداً على صافي الخروج خلال آخر 6 أشهر مكتملة. هذا عرض تحليلي وليس أمراً بالشراء أو تعديلاً للمخزون.</p>
-          <div style={{overflowX:'auto'}}><table className="ls-table" style={{width:'100%'}}><thead><tr>{['المنتج','المرجع','المخزون الحالي','متوسط الطلب الشهري','أشهر بها مبيعات','جودة البيانات'].map(x=><th key={x} style={th}>{x}</th>)}</tr></thead><tbody>
-            {filteredForecasts.slice(0,300).map(p=><tr key={p.product_ref}><td style={td}>{p.name}</td><td style={td}>{p.product_ref}</td><td style={td}>{p.current}</td><td style={td}><strong>{p.forecast.toFixed(1)}</strong></td><td style={td}>{p.activeMonths}/6</td><td style={td}>{p.confidence}</td></tr>)}
+          <p className="ls-muted">هذه هي اقتراحات إعادة التموين الحالية في التطبيق، باستعمال نفس دوال التوقع الموجودة دون تغييرها. العرض للقراءة فقط؛ لا يتم إنشاء طلب شراء أو تعديل المخزون.</p>
+          <div style={{overflowX:'auto'}}><table className="ls-table" style={{width:'100%'}}><thead><tr>{['المنتج','المرجع','الكمية الحالية','متوسط النقص اليومي','الأيام المتبقية','الكمية المقترحة','آخر relevé'].map(x=><th key={x} style={th}>{x}</th>)}</tr></thead><tbody>
+            {filteredForecasts.slice(0,300).map((p,i)=><tr key={p.id || p.product_ref || i}><td style={td}>{p.name || '—'}</td><td style={td}>{p.product_ref || '—'}</td><td style={td}>{p.current_quantity ?? '—'}</td><td style={td}>{p.average_daily_decrease == null ? '—' : Number(p.average_daily_decrease).toFixed(2)}</td><td style={td}>{p.days_remaining == null ? '—' : Number(p.days_remaining).toFixed(1)}</td><td style={td}><strong>{p.suggested_order_quantity ?? '—'}</strong></td><td style={td}>{p.last_snapshot_date || '—'}</td></tr>)}
           </tbody></table></div>
-          <p className="ls-muted">عرض {Math.min(filteredForecasts.length,300)} من {filteredForecasts.length} منتجاً.</p>
+          <p className="ls-muted">عرض {Math.min(filteredForecasts.length,300)} من {filteredForecasts.length} اقتراحاً.</p>
         </>}
 
         {section==='negative' && <>
