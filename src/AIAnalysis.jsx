@@ -17,12 +17,6 @@ function trigrams(value) {
   for (let i = 0; i < s.length - 2; i++) result.add(s.slice(i, i + 3));
   return result;
 }
-function dice(a, b) {
-  if (!a.size || !b.size) return 0;
-  let common = 0;
-  a.forEach(x => { if (b.has(x)) common++; });
-  return 200 * common / (a.size + b.size);
-}
 function readAll(table, select, orderColumn) {
   return (async () => {
     const rows = [];
@@ -83,7 +77,7 @@ export default function AIAnalysis() {
     }
     load();
     return () => { alive = false; };
-  }, []);
+  }, [reloadKey]);
 
   const rows = historyByModule[module] || [];
   const catalog = productsByModule[module] || [];
