@@ -3044,6 +3044,14 @@ export default function App() {
         .ls-app.ls-dark .ls-import-panel h2,.ls-app.ls-dark .ls-import-panel strong,.ls-app.ls-dark .ls-import-panel .ls-muted{color:var(--ls-text)!important}
         .ls-app.ls-web .ls-mobile-menu{border-color:var(--ls-border)!important;color:var(--ls-primary)!important}
         .ls-app.ls-dark.ls-web .ls-mobile-menu{background:#0A0A0A!important;color:#8FA7A0!important;border-color:#242424!important}
+        /* Remove leftover blue-tinted surfaces from legacy component styles */
+        .ls-app.ls-dark .ls-icon-lavender,
+        .ls-app.ls-dark .ls-icon-blue{background:#0A0A0A!important;color:#8FA7A0!important}
+        .ls-app.ls-dark [style*="background: rgb(245, 248, 251)"],
+        .ls-app.ls-dark [style*="background-color: rgb(245, 248, 251)"]{
+          background:#0A0A0A!important;color:#F5F5F5!important;border-color:#242424!important
+        }
+        .ls-app.ls-dark .ls-card-metrics>div{background:#0A0A0A!important;border-color:#242424!important;color:#F5F5F5!important}
       `}</style>
 
       {!user ? (
