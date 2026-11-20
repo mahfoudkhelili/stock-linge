@@ -35,6 +35,10 @@ function readAll(table, select, orderColumn) {
 
 export default function AIAnalysis() {
   const [module, setModule] = useState('LINGE');
+  const [rowsPerPage, setRowsPerPage] = useState(20);
+  const [showReference, setShowReference] = useState(true);
+  const [sortState, setSortState] = useState({ key: '', direction: 'asc' });
+  const [selectedRows, setSelectedRows] = useState([]);
   const [section, setSection] = useState('forecast');
   const [historyByModule, setHistoryByModule] = useState({ LINGE: [], TAPIS: [] });
   const [productsByModule, setProductsByModule] = useState({ LINGE: [], TAPIS: [] });
@@ -154,7 +158,7 @@ export default function AIAnalysis() {
       const stock = Number(p.current_quantity) || 0;
       const decline = priorAvg > 0 && recentAvg < priorAvg * 0.5;
       if (gap < 2 && !decline) return null;
-      return { ...p, lastSaleMonth, gap, priorAvg, recentAvg, stock, status: stock > 0 ? 'توقف مع توفر المخزون' : 'توقف مع نفاد المخزون', decline };
+      return { ...p, lastSaleMonth, gap, priorAvg, recentAvg, stock, status: stock > 0 ? 'Arrêt avec stock disponible' : 'Arrêt avec rupture de stock', decline };
     }).filter(Boolean).sort((a,b) => b.gap-a.gap || a.recentAvg-b.recentAvg);
   }, [catalog, historyByProduct]);
 
@@ -179,10 +183,10 @@ export default function AIAnalysis() {
     <section className="ls-panel">
       <div style={{display:'flex',justifyContent:'space-between',gap:12,flexWrap:'wrap',alignItems:'flex-start'}}>
         <div>
-          <h2 style={{marginTop:0,marginBottom:6}}>التحليل الذكي</h2>
-          <p className="ls-muted" style={{margin:0}}>قراءة وتحليل فقط. لا توجد أي عملية كتابة أو تعديل في قاعدة البيانات.</p>
+          <h2 style={{marginTop:0,marginBottom:6}}>Analyse intelligente</h2>
+          <p className="ls-muted" style={{margin:0}}>Lecture et analyse uniquement. Aucune écriture ni modification de la base de données.</p>
         </div>
-        <div style={{display:'flex',gap:8,alignItems:'center',flexWrap:'wrap'}}><span style={{background:'#ecfdf3',color:'#027a48',padding:'6px 10px',borderRadius:20,fontSize:12,fontWeight:800}}>READ ONLY · قراءة فقط</span><button style={button} onClick={()=>setReloadKey(v=>v+1)} disabled={loading}>تحديث القراءة</button></div>
+        <div style={{display:'flex',gap:8,alignItems:'center',flexWrap:'wrap'}}><span style={{background:'#ecfdf3',color:'#027a48',padding:'6px 10px',borderRadius:20,fontSize:12,fontWeight:800}}>LECTURE SEULE · READ ONLY</span><button style={button} onClick={()=>setReloadKey(v=>v+1)} disabled={loading}>Actualiser</button></div>
       </div>
 
       <div style={{display:'flex',gap:8,flexWrap:'wrap',margin:'16px 0'}}>
@@ -190,57 +194,62 @@ export default function AIAnalysis() {
         <button style={module==='TAPIS'?activeButton:button} onClick={()=>{setModule('TAPIS');setSearch('');}}>Tapis</button>
       </div>
 
-      {loading ? <p>جاري قراءة البيانات التاريخية…</p> : error ? <p role="alert" style={{color:'#b42318'}}>تعذر تحميل التحليل: {error}</p> : <>
+      {loading ? <p>Chargement des données historiques…</p> : error ? <p role="alert" style={{color:'#b42318'}}>Impossible de charger l’analyse : {error}</p> : <>
         <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(145px,1fr))',gap:10,marginBottom:16}}>
-          <div style={panel}><div className="ls-muted">المنتجات المحللة</div><strong style={{fontSize:26}}>{catalog.length.toLocaleString('fr-FR')}</strong></div>
-          <div style={panel}><div className="ls-muted">حالات المبيعات السالبة</div><strong style={{fontSize:26}}>{negativeCases.length.toLocaleString('fr-FR')}</strong></div>
-          <div style={panel}><div className="ls-muted">توقف / تراجع المبيعات</div><strong style={{fontSize:26}}>{stopped.length.toLocaleString('fr-FR')}</strong></div>
-          <div style={panel}><div className="ls-muted">فترة التوقع</div><strong style={{fontSize:18}}>6 أشهر مكتملة</strong><small className="ls-muted" style={{display:'block'}}>جانفي إلى أكتوبر 2026؛ نوفمبر غير مكتمل</small></div>
+          <div style={panel}><div className="ls-muted">Produits analysés</div><strong style={{fontSize:26}}>{catalog.length.toLocaleString('fr-FR')}</strong></div>
+          <div style={panel}><div className="ls-muted">Ventes négatives</div><strong style={{fontSize:26}}>{negativeCases.length.toLocaleString('fr-FR')}</strong></div>
+          <div style={panel}><div className="ls-muted">Arrêt / baisse des ventes</div><strong style={{fontSize:26}}>{stopped.length.toLocaleString('fr-FR')}</strong></div>
+          <div style={panel}><div className="ls-muted">Période de prévision</div><strong style={{fontSize:18}}>6 mois complets</strong><small className="ls-muted" style={{display:'block'}}>Janvier à octobre 2026 ; novembre incomplet</small></div>
         </div>
 
         <div style={{display:'flex',gap:8,flexWrap:'wrap',marginBottom:12}}>
-          <button style={section==='forecast'?activeButton:button} onClick={()=>setSection('forecast')}>التنبؤ بالطلب</button>
-          <button style={section==='negative'?activeButton:button} onClick={()=>setSection('negative')}>المبيعات السالبة والمطابقة</button>
-          <button style={section==='stopped'?activeButton:button} onClick={()=>setSection('stopped')}>توقف / تراجع المبيعات</button>
+          <button style={section==='forecast'?activeButton:button} onClick={()=>setSection('forecast')}>Prévision de la demande</button>
+          <button style={section==='negative'?activeButton:button} onClick={()=>setSection('negative')}>Ventes négatives et rapprochement</button>
+          <button style={section==='stopped'?activeButton:button} onClick={()=>setSection('stopped')}>Arrêt / baisse des ventes</button>
         </div>
-        <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="ابحث بالمرجع أو اسم المنتج…" style={{width:'100%',maxWidth:420,boxSizing:'border-box',padding:'10px 12px',border:'1px solid #d5dfeb',borderRadius:9,marginBottom:12}} />
+        <div className="ls-toolbar" style={{flexWrap:'wrap',marginBottom:10}}>
+          <label className="ls-muted">Lignes par page <select value={rowsPerPage} onChange={e=>setRowsPerPage(Number(e.target.value))} style={{width:'auto'}}>{[10,20,100].map(n=><option key={n} value={n}>{n}</option>)}</select></label>
+          <label className="ls-muted"><input type="checkbox" checked={showReference} onChange={e=>setShowReference(e.target.checked)}/> Afficher référence</label>
+          <button type="button" onClick={()=>setSelectedRows([])}>Désélectionner</button>
+        </div>
+        <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Rechercher par référence ou désignation…" style={{width:'100%',maxWidth:420,boxSizing:'border-box',padding:'10px 12px',border:'1px solid #d5dfeb',borderRadius:9,marginBottom:12}} />
 
         {section==='forecast' && <>
-          <p className="ls-muted">هذه هي اقتراحات إعادة التموين الحالية في التطبيق، باستعمال نفس دوال التوقع الموجودة دون تغييرها. العرض للقراءة فقط؛ لا يتم إنشاء طلب شراء أو تعديل المخزون.</p>
-          <div style={{overflowX:'auto'}}><table className="ls-table" style={{width:'100%'}}><thead><tr>{['المنتج','المرجع','الكمية الحالية','متوسط النقص اليومي','الأيام المتبقية','الكمية المقترحة','تاريخ آخر قراءة'].map(x=><th key={x} style={th}>{x}</th>)}</tr></thead><tbody>
+          <p className="ls-muted">Suggestions de réapprovisionnement actuelles de l’application, calculées par les fonctions existantes sans modification. Consultation uniquement : aucune commande ni modification du stock.</p>
+          <div style={{overflowX:'auto'}}><table className="ls-table" style={{width:'100%'}}><thead><tr>{['Désignation','Référence','Stock actuel','Baisse moyenne / jour','Jours restants','Quantité suggérée','Date de dernière lecture'].map(x=><th key={x} style={th}>{x}</th>)}</tr></thead><tbody>
             {filteredForecasts.slice(0,300).map((p,i)=><tr key={p.id || p.product_ref || i}><td style={td}>{p.name || '—'}</td><td style={td}>{p.product_ref || '—'}</td><td style={td}>{p.current_quantity ?? '—'}</td><td style={td}>{p.average_daily_decrease == null ? '—' : Number(p.average_daily_decrease).toFixed(2)}</td><td style={td}>{p.days_remaining == null ? '—' : Number(p.days_remaining).toFixed(1)}</td><td style={td}><strong>{p.suggested_order_quantity ?? '—'}</strong></td><td style={td}>{p.last_snapshot_date || '—'}</td></tr>)}
           </tbody></table></div>
-          <p className="ls-muted">عرض {Math.min(filteredForecasts.length,300)} من {filteredForecasts.length} اقتراحاً.</p>
+          <p className="ls-muted">Affichage {Math.min(filteredForecasts.length,300)} sur {filteredForecasts.length} suggestions.</p>
         </>}
 
         {section==='negative' && <>
-          <p className="ls-muted">كل حالة تعرض أفضل 5 مرشحين داخل نفس قاعدة البيانات. الترتيب تجريبي، ولا يعني أن المرشح صحيح تلقائياً.</p>
+          <p className="ls-muted">Chaque cas présente les 5 meilleurs candidats de la même base. Le classement est expérimental et ne confirme pas automatiquement une correspondance.</p>
           <div style={{display:'grid',gap:12}}>
             {filteredNegatives.slice(0,100).map((item,idx)=><article key={item.product_ref+'-'+item.month_no+'-'+idx} style={panel}>
               <div style={{display:'flex',justifyContent:'space-between',gap:8,flexWrap:'wrap'}}>
                 <strong>{item.name} <span className="ls-muted">({item.product_ref})</span></strong>
-                <span style={{color:'#b42318',fontWeight:800}}>{item.negative_quantity} · {MONTH_NAMES[Number(item.month_no)-1] || ('شهر '+item.month_no)}</span>
+                <span style={{color:'#b42318',fontWeight:800}}>{item.negative_quantity} · {MONTH_NAMES[Number(item.month_no)-1] || ('Mois '+item.month_no)}</span>
               </div>
-              <div style={{overflowX:'auto',marginTop:8}}><table className="ls-table" style={{width:'100%'}}><thead><tr>{['المرشح','المرجع','درجة الترتيب /100','سعر التجزئة','مبيعات نفس الشهر','المخزون الحالي','تقييمك'].map(x=><th key={x} style={th}>{x}</th>)}</tr></thead><tbody>
-                {item.candidates.map(c=>{const key=module+':'+item.product_ref+':'+item.month_no+':'+c.product_ref;return <tr key={c.product_ref}><td style={td}>{c.name}</td><td style={td}>{c.product_ref}</td><td style={td}>{c.score.toFixed(1)}/100</td><td style={td}>{c.retail_price ?? '—'}</td><td style={td}>{c.monthSales}</td><td style={td}>{c.current_quantity ?? '—'}</td><td style={td}><div style={{display:'flex',gap:5,flexWrap:'wrap'}}><button style={{...button,padding:'5px 8px',fontSize:11}} onClick={()=>setFeedback(v=>({...v,[key]:'مرشح صحيح'}))}>صحيح</button><button style={{...button,padding:'5px 8px',fontSize:11}} onClick={()=>setFeedback(v=>({...v,[key]:'غير صحيح'}))}>خطأ</button>{feedback[key]&&<small>{feedback[key]}</small>}</div></td></tr>;})}
+              <div style={{overflowX:'auto',marginTop:8}}><table className="ls-table" style={{width:'100%'}}><thead><tr>{['Candidat','Référence','Score /100','Prix de détail','Ventes du même mois','Stock actuel','Votre évaluation'].map(x=><th key={x} style={th}>{x}</th>)}</tr></thead><tbody>
+                {item.candidates.map(c=>{const key=module+':'+item.product_ref+':'+item.month_no+':'+c.product_ref;return <tr key={c.product_ref}><td style={td}>{c.name}</td><td style={td}>{c.product_ref}</td><td style={td}>{c.score.toFixed(1)}/100</td><td style={td}>{c.retail_price ?? '—'}</td><td style={td}>{c.monthSales}</td><td style={td}>{c.current_quantity ?? '—'}</td><td style={td}><div style={{display:'flex',gap:5,flexWrap:'wrap'}}><button style={{...button,padding:'5px 8px',fontSize:11}} onClick={()=>setFeedback(v=>({...v,[key]:'مرشح Correct'}))}>Correct</button><button style={{...button,padding:'5px 8px',fontSize:11}} onClick={()=>setFeedback(v=>({...v,[key]:'غير Correct'}))}>Incorrect</button>{feedback[key]&&<small>{feedback[key]}</small>}</div></td></tr>;})}
               </tbody></table></div>
             </article>)}
           </div>
-          <p className="ls-muted">عرض {Math.min(filteredNegatives.length,100)} من {filteredNegatives.length} حالة.</p>
+          <p className="ls-muted">Affichage {Math.min(filteredNegatives.length,100)} sur {filteredNegatives.length} cas.</p>
         </>}
 
         {section==='stopped' && <>
-          <p className="ls-muted">يعتمد الكشف على آخر شهر كامل (أكتوبر 2026)، ويقارن آخر شهرين بالأشهر الأربعة السابقة. المخزون الحالي مؤشر فقط، وليس دليلاً نهائياً على سبب التوقف.</p>
-          <div style={{overflowX:'auto'}}><table className="ls-table" style={{width:'100%'}}><thead><tr>{['المنتج','المرجع','آخر شهر بيع','مدة التوقف','المخزون الحالي','متوسط سابق','متوسط حديث','الحالة'].map(x=><th key={x} style={th}>{x}</th>)}</tr></thead><tbody>
-            {filteredStopped.slice(0,300).map(p=><tr key={p.product_ref}><td style={td}>{p.name}</td><td style={td}>{p.product_ref}</td><td style={td}>{MONTH_NAMES[p.lastSaleMonth-1]}</td><td style={td}>{p.gap} شهر</td><td style={td}>{p.stock}</td><td style={td}>{p.priorAvg.toFixed(1)}</td><td style={td}>{p.recentAvg.toFixed(1)}</td><td style={td}>{p.status}{p.decline?' · تراجع واضح':''}</td></tr>)}
+          <p className="ls-muted">La détection utilise le dernier mois complet (octobre 2026) et compare les deux derniers mois aux quatre mois précédents. Le stock actuel est un indicateur, pas une preuve de la cause de l’arrêt.</p>
+          <div style={{overflowX:'auto'}}><table className="ls-table" style={{width:'100%'}}><thead><tr>{['Désignation','Référence','Dernier mois de vente','Durée d’arrêt','Stock actuel','Moyenne précédente','Moyenne récente','Statut'].map(x=><th key={x} style={th}>{x}</th>)}</tr></thead><tbody>
+            {filteredStopped.slice(0,300).map(p=><tr key={p.product_ref}><td style={td}>{p.name}</td><td style={td}>{p.product_ref}</td><td style={td}>{MONTH_NAMES[p.lastSaleMonth-1]}</td><td style={td}>{p.gap} Mois</td><td style={td}>{p.stock}</td><td style={td}>{p.priorAvg.toFixed(1)}</td><td style={td}>{p.recentAvg.toFixed(1)}</td><td style={td}>{p.status}{p.decline?' · Baisse notable':''}</td></tr>)}
           </tbody></table></div>
-          <p className="ls-muted">عرض {Math.min(filteredStopped.length,300)} من {filteredStopped.length} منتجاً.</p>
+          <p className="ls-muted">Affichage {Math.min(filteredStopped.length,300)} sur {filteredStopped.length} produits.</p>
         </>}
         <div style={{...panel,marginTop:18}}>
-          <strong>تقييم النتائج — لا يُحفظ في قاعدة البيانات</strong>
-          <p className="ls-muted" style={{margin:'5px 0 10px'}}>اختياراتك تبقى مؤقتة أثناء فتح الصفحة. انسخها وأرسلها لي لاحقاً حتى نراجع الدقة.</p>
-          <textarea value={note} onChange={e=>setNote(e.target.value)} placeholder="ملاحظاتك على النتائج…" rows={3} style={{width:'100%',boxSizing:'border-box',padding:10,border:'1px solid #d5dfeb',borderRadius:9,marginBottom:8}} />
-          <div style={{display:'flex',gap:8,alignItems:'center',flexWrap:'wrap'}}><button style={activeButton} onClick={copyFeedback}>نسخ التقييمات والملاحظات</button><span className="ls-muted">{visibleFeedback.length} تقييم مؤقت</span></div>
+          <strong>Évaluation des résultats — non enregistrée dans la base</strong>
+          <p className="ls-muted" style={{margin:'5px 0 10px'}}>Vos choix restent temporaires pendant l’ouverture de la page. Copiez-les et envoyez-les pour examiner la précision.</p>
+          <textarea value={note} onChange={e=>setNote(e.target.value)} placeholder="Vos remarques sur les résultats…" rows={3} style={{width:'100%',boxSizing:'border-box',padding:10,border:'1px solid #d5dfeb',borderRadius:9,marginBottom:8}} />
+          <div style={{display:'flex',gap:8,alignItems:'center',flexWrap:'wrap'}}><button style={activeButton} onClick={copyFeedback}>Copier les évaluations et remarques</button><span className="ls-muted">{visibleFeedback.length} évaluation(s) temporaire(s)</span></div>
         </div>
       </>}
     </section>
