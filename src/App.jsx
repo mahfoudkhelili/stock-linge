@@ -4,6 +4,7 @@ import * as pdfjsLib from 'pdfjs-dist';
 import pdfWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker;
 import { supabase } from './supabase';
+import AIAnalysis from './AIAnalysis';
 
 function normalizeProductSearch(value) {
   return String(value || '')
@@ -2398,6 +2399,12 @@ export default function App() {
       admin: true,
     },
     {
+      id: 'ai-analysis',
+      label: language === 'ar' ? 'التحليل الذكي' : 'Analyse intelligente',
+      icon: '✧',
+      admin: true,
+    },
+    {
       id: 'chora-matelas',
       label: language === 'ar' ? 'Chora & Matelas' : 'Chora & Matelas',
       icon: '▤',
@@ -2829,6 +2836,8 @@ export default function App() {
       dir={language === 'ar' ? 'rtl' : 'ltr'}
     >
       <style>{`
+        .ls-app{--ls-card:#fff;--ls-card-soft:#f8fafc;--ls-border:#e2e8f0;--ls-text:#102b46;--ls-text-muted:#64748b;--ls-table-head:#f1f5f9;--ls-table-line:#edf1f5}
+        .ls-dark{--ls-card:#182431;--ls-card-soft:#223242;--ls-border:#405266;--ls-text:#e7edf4;--ls-text-muted:#bdc9d6;--ls-table-head:#263747;--ls-table-line:#334456}
         *{box-sizing:border-box} body{margin:0;background:#f3f6fa;font-family:Inter,Arial,sans-serif;color:#102b46}
         .ls-app{min-height:100vh;background:#f3f6fa;color:#102b46}.ls-login{max-width:440px;margin:7vh auto;padding:30px;background:#fff;border:1px solid #e2e8f0;border-radius:20px;box-shadow:0 15px 45px rgba(16,43,70,.09)}
         .ls-brand{display:flex;align-items:center;gap:12px}.ls-brand-mark{display:grid;place-items:center;background:#fff;color:#102b46;border-radius:12px;width:42px;height:42px;font-weight:900;font-size:19px}.ls-layout{display:grid;grid-template-columns:250px minmax(0,1fr);min-height:100vh}.ls-sidebar{background:#102b46;color:#fff;padding:22px 14px;display:flex;flex-direction:column;gap:20px}.ls-nav{display:flex;flex-direction:column;gap:5px}.ls-nav button{display:flex;gap:11px;align-items:center;width:100%;border:0;border-radius:10px;padding:12px;color:#d8e4f1;background:transparent;text-align:left;cursor:pointer;font-weight:600}.ls-nav button.active,.ls-nav button:hover{background:#214361;color:#fff}.ls-nav .ls-count{margin-left:auto;background:#e5484d;color:white;border-radius:20px;padding:2px 7px;font-size:11px}.ls-main{min-width:0;padding:26px clamp(14px,3vw,34px) 50px}.ls-topbar{display:flex;justify-content:space-between;align-items:center;gap:14px;margin-bottom:24px}.ls-panel{background:white;border:1px solid #e2e8f0;border-radius:14px;padding:18px;margin-bottom:18px;min-width:0}.ls-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin-bottom:18px}.ls-stat{padding:18px;background:white;border:1px solid #e2e8f0;border-radius:14px}.ls-stat small{display:block;color:#64748b;margin-bottom:8px}.ls-stat strong{font-size:25px}.ls-toolbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:12px 0 16px}.ls-search{flex:1;min-width:200px}.ls-table-wrap{width:100%;overflow-x:auto;border:1px solid #e2e8f0;border-radius:12px}.ls-table{width:100%;border-collapse:collapse;min-width:850px;background:white}.ls-table th button{border:0;background:transparent;color:inherit;font:inherit;cursor:pointer;padding:0}.ls-actions{display:flex;gap:7px;flex-wrap:wrap}.ls-actions button{font-size:12px;padding:8px 9px}.ls-pagination{display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap;margin-top:14px}.ls-product-cards{display:none}.ls-photo-placeholder{width:78px;height:78px;display:grid;place-items:center;border-radius:10px;background:#edf2f7;color:#9aaabd;font-weight:900}.ls-card-metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:16px 0}.ls-card-metrics>div{background:#f5f8fb;border-radius:9px;padding:10px;min-width:0}.ls-card-metrics small{display:block;color:#64748b;font-size:11px;margin-bottom:5px}.ls-card-metrics strong{font-size:13px;overflow-wrap:anywhere}.ls-alert{padding:12px 14px;border-radius:10px;background:#fff2e0;color:#9a4b00;border:1px solid #ffddb0;margin:12px 0}.ls-message{padding:12px 14px;background:#eaf2ff;border:1px solid #cbdcf5;border-radius:10px;margin-bottom:16px;overflow-wrap:anywhere}.ls-request{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;padding:14px 0;border-top:1px solid #edf1f5}.ls-muted{color:#64748b;font-size:13px}.ls-photo-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:14px}.ls-photo-grid img{width:100%;aspect-ratio:1/1;object-fit:cover;border-radius:10px;background:#f1f5f9}.ls-input-row{display:grid;grid-template-columns:1fr 1fr auto;gap:10px;align-items:end}.ls-footer-note{color:#8ba0b5;font-size:12px;line-height:1.5;margin-top:auto;padding:8px}
@@ -3121,6 +3130,8 @@ export default function App() {
               </div>
             )}
 
+            {activePage === 'ai-analysis' && canViewPage('ai-analysis') && <AIAnalysis />}
+
             {activePage === 'dashboard' && canViewPage('dashboard') && (
               <>
                 <div className="ls-grid ls-dashboard-stats">
@@ -3293,7 +3304,7 @@ export default function App() {
                   <section className="ls-panel ls-import-panel">
                     <h2 style={{ marginTop: 0 }}>Dernier import historique</h2>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 16 }}>
-                      <div style={{ border: '1px solid #dbe3ec', borderRadius: 14, padding: 16, background: '#f8fafc' }}>
+                      <div className="ls-import-card" style={{ border: '1px solid var(--ls-border, #dbe3ec)', borderRadius: 14, padding: 16, background: 'var(--ls-card-soft, #f8fafc)', color: 'var(--ls-text, #102b46)' }}>
                         <h3 style={{ margin: '0 0 10px', color: '#183b5b' }}>Linge</h3>
                         <div className="ls-muted">Dernier fichier : <strong>{latestImportRecord(lastImportBatch, lastLingePdfImport)?.file_name || latestImportRecord(lastImportBatch, lastLingePdfImport)?.filename || 'Aucun fichier importé'}</strong></div>
                         <div className="ls-muted" style={{ marginTop: 6 }}>Date : <strong>{displayImportDate(latestImportRecord(lastImportBatch, lastLingePdfImport))}</strong></div>
@@ -3304,7 +3315,7 @@ export default function App() {
                           <input id="linge-pdf-upload" type="file" accept=".pdf,application/pdf" onChange={handlePdfFile} style={{display:'none'}} />
                         </div>
                       </div>
-                      <div style={{ border: '1px solid #dbe3ec', borderRadius: 14, padding: 16, background: '#f8fafc' }}>
+                      <div className="ls-import-card" style={{ border: '1px solid var(--ls-border, #dbe3ec)', borderRadius: 14, padding: 16, background: 'var(--ls-card-soft, #f8fafc)', color: 'var(--ls-text, #102b46)' }}>
                         <h3 style={{ margin: '0 0 10px', color: '#183b5b' }}>Tapis</h3>
                         <div className="ls-muted">Dernier fichier : <strong>{latestImportRecord(lastTapisImportBatch, lastTapisPdfImport)?.file_name || latestImportRecord(lastTapisImportBatch, lastTapisPdfImport)?.filename || 'Aucun fichier importé'}</strong></div>
                         <div className="ls-muted" style={{ marginTop: 6 }}>Date : <strong>{displayImportDate(latestImportRecord(lastTapisImportBatch, lastTapisPdfImport))}</strong></div>
