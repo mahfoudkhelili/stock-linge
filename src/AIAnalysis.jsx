@@ -166,11 +166,11 @@ export default function AIAnalysis() {
   const filteredNegatives = matches.filter(p => cleanText(p.name + ' ' + p.product_ref).includes(cleanText(search)));
   const filteredStopped = stopped.filter(p => cleanText(p.name + ' ' + p.product_ref).includes(cleanText(search)));
 
-  const panel = { background: 'var(--ls-card, #fff)', border: '1px solid var(--ls-border, #e2e8f0)', borderRadius: 14, padding: 16, minWidth: 0 };
-  const button = { border: '1px solid #d5dfeb', borderRadius: 9, padding: '8px 12px', background: '#fff', color: '#102b46', cursor: 'pointer', fontWeight: 700 };
+  const panel = { background: 'var(--ls-card, #fff)', color: 'var(--ls-text, #102b46)', border: '1px solid var(--ls-border, #e2e8f0)', borderRadius: 14, padding: 16, minWidth: 0 };
+  const button = { border: '1px solid var(--ls-border, #d5dfeb)', borderRadius: 9, padding: '8px 12px', background: 'var(--ls-card-soft, #fff)', color: 'var(--ls-text, #102b46)', cursor: 'pointer', fontWeight: 700 };
   const activeButton = { ...button, background: '#102b46', color: '#fff', borderColor: '#102b46' };
-  const th = { textAlign: 'left', padding: '10px 9px', background: '#f1f5f9', color: '#526477', fontSize: 12, whiteSpace: 'nowrap' };
-  const td = { padding: '10px 9px', borderTop: '1px solid #edf1f5', verticalAlign: 'top', fontSize: 13 };
+  const th = { textAlign: 'left', padding: '10px 9px', background: 'var(--ls-table-head, #f1f5f9)', color: 'var(--ls-text-muted, #526477)', fontSize: 12, whiteSpace: 'nowrap' };
+  const td = { padding: '10px 9px', borderTop: '1px solid var(--ls-table-line, #edf1f5)', verticalAlign: 'top', fontSize: 13, color: 'var(--ls-text, #102b46)' };
   const visibleFeedback = Object.entries(feedback);
   async function copyFeedback() {
     const text = visibleFeedback.map(([key,value]) => key + ': ' + value).join('\n') + (note ? '\nملاحظات: ' + note : '');
@@ -186,7 +186,7 @@ export default function AIAnalysis() {
           <h2 style={{marginTop:0,marginBottom:6}}>Analyse intelligente</h2>
           <p className="ls-muted" style={{margin:0}}>Lecture et analyse uniquement. Aucune écriture ni modification de la base de données.</p>
         </div>
-        <div style={{display:'flex',gap:8,alignItems:'center',flexWrap:'wrap'}}><span style={{background:'#ecfdf3',color:'#027a48',padding:'6px 10px',borderRadius:20,fontSize:12,fontWeight:800}}>LECTURE SEULE · READ ONLY</span><button style={button} onClick={()=>setReloadKey(v=>v+1)} disabled={loading}>Actualiser</button></div>
+        <div style={{display:'flex',gap:8,alignItems:'center',flexWrap:'wrap'}}><span style={{background:'var(--ls-card-soft, #ecfdf3)',color:'var(--ls-text, #027a48)',padding:'6px 10px',borderRadius:20,fontSize:12,fontWeight:800}}>LECTURE SEULE · READ ONLY</span><button style={button} onClick={()=>setReloadKey(v=>v+1)} disabled={loading}>Actualiser</button></div>
       </div>
 
       <div style={{display:'flex',gap:8,flexWrap:'wrap',margin:'16px 0'}}>
@@ -212,7 +212,7 @@ export default function AIAnalysis() {
           <label className="ls-muted"><input type="checkbox" checked={showReference} onChange={e=>setShowReference(e.target.checked)}/> Afficher référence</label>
           <button type="button" onClick={()=>setSelectedRows([])}>Désélectionner</button>
         </div>
-        <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Rechercher par référence ou désignation…" style={{width:'100%',maxWidth:420,boxSizing:'border-box',padding:'10px 12px',border:'1px solid #d5dfeb',borderRadius:9,marginBottom:12}} />
+        <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Rechercher par référence ou désignation…" style={{width:'100%',maxWidth:420,boxSizing:'border-box',padding:'10px 12px',border:'1px solid var(--ls-border, #d5dfeb)',borderRadius:9,marginBottom:12}} />
 
         {section==='forecast' && <>
           <p className="ls-muted">Suggestions de réapprovisionnement actuelles de l’application, calculées par les fonctions existantes sans modification. Consultation uniquement : aucune commande ni modification du stock.</p>
@@ -248,7 +248,7 @@ export default function AIAnalysis() {
         <div style={{...panel,marginTop:18}}>
           <strong>Évaluation des résultats — non enregistrée dans la base</strong>
           <p className="ls-muted" style={{margin:'5px 0 10px'}}>Vos choix restent temporaires pendant l’ouverture de la page. Copiez-les et envoyez-les pour examiner la précision.</p>
-          <textarea value={note} onChange={e=>setNote(e.target.value)} placeholder="Vos remarques sur les résultats…" rows={3} style={{width:'100%',boxSizing:'border-box',padding:10,border:'1px solid #d5dfeb',borderRadius:9,marginBottom:8}} />
+          <textarea value={note} onChange={e=>setNote(e.target.value)} placeholder="Vos remarques sur les résultats…" rows={3} style={{width:'100%',boxSizing:'border-box',padding:10,border:'1px solid var(--ls-border, #d5dfeb)',borderRadius:9,marginBottom:8}} />
           <div style={{display:'flex',gap:8,alignItems:'center',flexWrap:'wrap'}}><button style={activeButton} onClick={copyFeedback}>Copier les évaluations et remarques</button><span className="ls-muted">{visibleFeedback.length} évaluation(s) temporaire(s)</span></div>
         </div>
       </>}
