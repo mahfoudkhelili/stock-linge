@@ -2986,6 +2986,63 @@ export default function App() {
           .ls-app.ls-web .label-picker-table td strong{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
         }
         @media(min-width:761px){.ls-app.ls-web .ls-mobile-menu{display:none!important}}
+
+        /* Africha Hamiz — Petrol / Terracotta / Sand palette preview */
+        .ls-app{
+          --ls-primary:#0E5E6F;
+          --ls-accent:#D9622B;
+          --ls-sand:#E3CFA4;
+          --ls-charcoal:#2B2D33;
+          --ls-card:#FFFFFF;
+          --ls-card-soft:#F5F1E7;
+          --ls-border:#E5DCC9;
+          --ls-text:#26343A;
+          --ls-text-muted:#65747A;
+          --ls-table-head:#F1E8D7;
+          --ls-table-line:#E9E1D3;
+          background:#F7F5EF!important;color:var(--ls-text)!important;
+        }
+        .ls-app .ls-sidebar{background:var(--ls-primary)!important;color:#fff!important;border-color:var(--ls-primary)!important}
+        .ls-app .ls-sidebar .ls-brand strong,.ls-app .ls-sidebar .ls-brand div div{color:#fff!important}
+        .ls-app .ls-nav button{color:#EAF2F2!important}
+        .ls-app .ls-nav button.active,.ls-app .ls-nav button:hover{background:rgba(227,207,164,.22)!important;color:#fff!important}
+        .ls-app .ls-nav .ls-count{background:var(--ls-accent)!important;color:#fff!important}
+        .ls-app .ls-brand-mark{background:var(--ls-sand)!important;color:var(--ls-primary)!important}
+        .ls-app .ls-topbar h1,.ls-app .ls-section-heading h2{color:var(--ls-primary)!important}
+        .ls-app .ls-panel,.ls-app .ls-stat,.ls-app .ls-shortcut-card,.ls-app .ls-login{background:var(--ls-card)!important;border-color:var(--ls-border)!important;color:var(--ls-text)!important}
+        .ls-app .ls-stat-clickable strong{color:var(--ls-primary)!important}
+        .ls-app .ls-stat-icon,.ls-app .ls-shortcut-icon{background:#EAF1EF!important;color:var(--ls-primary)!important}
+        .ls-app .ls-icon-peach{background:#F8E6DC!important;color:var(--ls-accent)!important}
+        .ls-app .ls-table{background:var(--ls-card)!important;color:var(--ls-text)!important}
+        .ls-app .ls-table th{background:var(--ls-table-head)!important;color:var(--ls-primary)!important}
+        .ls-app .ls-table td{border-color:var(--ls-table-line)!important}
+        .ls-app .ls-muted{color:var(--ls-text-muted)!important}
+        .ls-app .ls-message{background:#EAF1EF!important;border-color:#C8DAD8!important;color:var(--ls-primary)!important}
+        .ls-app button:not(.ls-nav button){accent-color:var(--ls-primary)}
+        .ls-app .ls-dark,.ls-app.ls-dark{
+          --ls-card:#35383F;--ls-card-soft:#41454D;--ls-border:#51555D;
+          --ls-text:#F2EEE5;--ls-text-muted:#C5C0B5;
+          --ls-table-head:#41454D;--ls-table-line:#51555D;
+          background:var(--ls-charcoal)!important;color:#F2EEE5!important;
+        }
+        .ls-app.ls-dark .ls-layout,.ls-app.ls-dark .ls-main{background:var(--ls-charcoal)!important}
+        .ls-app.ls-dark .ls-sidebar{background:#22252B!important;border-color:#41454D!important}
+        .ls-app.ls-dark .ls-sidebar .ls-brand strong,.ls-app.ls-dark .ls-sidebar .ls-brand div div{color:#F2EEE5!important}
+        .ls-app.ls-dark .ls-nav button.active,.ls-app.ls-dark .ls-nav button:hover{background:rgba(227,207,164,.18)!important;color:var(--ls-sand)!important}
+        .ls-app.ls-dark .ls-panel,.ls-app.ls-dark .ls-stat,.ls-app.ls-dark .ls-stat-clickable,.ls-app.ls-dark .ls-shortcut-card,.ls-app.ls-dark .ls-login,.ls-app.ls-dark .ls-import-card{background:var(--ls-card)!important;border-color:var(--ls-border)!important;color:var(--ls-text)!important}
+        .ls-app.ls-dark .ls-topbar h1,.ls-app.ls-dark .ls-section-heading h2,.ls-app.ls-dark .ls-panel h2,.ls-app.ls-dark .ls-panel h3{color:var(--ls-sand)!important}
+        .ls-app.ls-dark .ls-stat-clickable strong{color:var(--ls-sand)!important}
+        .ls-app.ls-dark .ls-stat-icon,.ls-app.ls-dark .ls-shortcut-icon{background:#263F45!important;color:#B8D5D4!important}
+        .ls-app.ls-dark .ls-table,.ls-app.ls-dark .ls-table td{background:var(--ls-card)!important;color:var(--ls-text)!important}
+        .ls-app.ls-dark .ls-table th{background:var(--ls-table-head)!important;color:var(--ls-sand)!important}
+        .ls-app.ls-dark .ls-muted{color:var(--ls-text-muted)!important}
+        .ls-app.ls-dark input,.ls-app.ls-dark select,.ls-app.ls-dark textarea{background:#25282E!important;color:#F2EEE5!important;border-color:#5A5E65!important}
+        .ls-app.ls-dark .ls-alert{background:#4A3027!important;color:#FFD5C2!important;border-color:#80513E!important}
+        .ls-app.ls-dark .ls-message{background:#263F45!important;color:#DDECEB!important;border-color:#42656A!important}
+        .ls-app.ls-dark .ls-import-panel{background:var(--ls-card)!important;color:var(--ls-text)!important}
+        .ls-app.ls-dark .ls-import-panel h2,.ls-app.ls-dark .ls-import-panel strong,.ls-app.ls-dark .ls-import-panel .ls-muted{color:var(--ls-text)!important}
+        .ls-app.ls-web .ls-mobile-menu{border-color:var(--ls-border)!important;color:var(--ls-primary)!important}
+        .ls-app.ls-dark.ls-web .ls-mobile-menu{background:#35383F!important;color:var(--ls-sand)!important;border-color:#51555D!important}
       `}</style>
 
       {!user ? (
