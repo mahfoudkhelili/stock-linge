@@ -2991,7 +2991,7 @@ export default function App() {
         .ls-app{
           --ls-primary:#0E5E6F;
           --ls-accent:#D9622B;
-          --ls-sand:#E3CFA4;
+          --ls-sand:#8FA7A0;
           --ls-charcoal:#2B2D33;
           --ls-card:#FFFFFF;
           --ls-card-soft:#F5F1E7;
