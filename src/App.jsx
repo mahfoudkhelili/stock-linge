@@ -4,6 +4,7 @@ import * as pdfjsLib from 'pdfjs-dist';
 import pdfWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker;
 import { supabase } from './supabase';
+import AIAnalysis from './AIAnalysis';
 
 function normalizeProductSearch(value) {
   return String(value || '')
@@ -2398,6 +2399,12 @@ export default function App() {
       admin: true,
     },
     {
+      id: 'ai-analysis',
+      label: language === 'ar' ? 'التحليل الذكي' : 'Analyse intelligente',
+      icon: '✧',
+      admin: true,
+    },
+    {
       id: 'chora-matelas',
       label: language === 'ar' ? 'Chora & Matelas' : 'Chora & Matelas',
       icon: '▤',
@@ -3120,6 +3127,8 @@ export default function App() {
                 {message}
               </div>
             )}
+
+            {activePage === 'ai-analysis' && canViewPage('ai-analysis') && <AIAnalysis />}
 
             {activePage === 'dashboard' && canViewPage('dashboard') && (
               <>
