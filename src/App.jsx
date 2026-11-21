@@ -2723,12 +2723,14 @@ export default function App() {
   }
 
   function productTableRows() {
+    const hideProductActionColumn = activePage === 'products' && ['trader', 'viewer'].includes(String(user?.profile?.role || '').trim().toLowerCase());
+    const catalogCell = { ...styles.td, fontSize: hideProductActionColumn ? 14 : undefined };
     if (!paginatedProducts.length)
       return (
         <tr>
           <td
-            colSpan={5}
-            style={{ ...styles.td, textAlign: 'center', color: '#64748b' }}
+            colSpan={hideProductActionColumn ? 4 : 5}
+            style={{ ...catalogCell, textAlign: 'center', color: '#64748b' }}
           >
             Aucun produit trouvé.
           </td>
@@ -2737,7 +2739,7 @@ export default function App() {
     return paginatedProducts.map((product) => (
       <tr key={`${product.catalog_source || 'products'}:${product.id || product.product_ref}`}>
         
-        <td style={styles.td}>
+        <td style={{ ...catalogCell, fontSize: hideProductActionColumn ? 15 : undefined }}>
           <span style={{display:'inline-flex',alignItems:'center',gap:8}}>
             {activePage === 'textiles' && product.catalog_source !== 'tapis_products' && photoFor(product.id) ? <img src={photoFor(product.id)} alt="" onClick={()=>setPhotoPreview({url:photoFor(product.id),name:product.name})} style={{width:38,height:38,objectFit:'cover',borderRadius:6,cursor:'zoom-in'}}/> : null}
             <span>{product.name}{activePage === 'products' && product.catalog_source === 'tapis_products' ? <small style={{display:'inline-block',marginInlineStart:8,padding:'2px 7px',borderRadius:6,background:'#eef2ff',color:'#475569',fontSize:11,fontWeight:700}}>Tapis</small> : null}{activePage === 'arina' && normalizeName(product.name).includes('AFRICHA') ? <small style={{display:'block',color:'#64748b'}}>Africha Shop</small> : activePage === 'arina' ? <small style={{display:'block',color:'#64748b'}}>Europ Arina</small> : null}</span>
@@ -2745,7 +2747,8 @@ export default function App() {
         </td>
         <td
           style={{
-            ...styles.td,
+            ...catalogCell,
+            width: hideProductActionColumn ? '10%' : undefined,
             color: Number(product.current_quantity) < 0 ? '#b42318' : '#102b46',
             fontWeight: 800,
           }}
@@ -2762,7 +2765,7 @@ export default function App() {
         </td>
         <td style={styles.td}>{product.wholesale_price ?? '—'} DA</td>
         <td style={styles.td}>{product.retail_price ?? '—'} DA</td>
-        <td style={styles.td}>{productActions(product)}</td>
+        {!hideProductActionColumn && <td style={catalogCell}>{productActions(product)}</td>}
       </tr>
     ));
   }
@@ -3925,7 +3928,8 @@ export default function App() {
                   </div>
                 </div>
                 <div className="ls-table-wrap">
-                  <table className="ls-table">
+                  <table className="ls-table" style={activePage === 'products' && ['trader', 'viewer'].includes(String(user?.profile?.role || '').trim().toLowerCase()) ? { tableLayout: 'fixed', minWidth: 0 } : undefined}>
+                    {activePage === 'products' && ['trader', 'viewer'].includes(String(user?.profile?.role || '').trim().toLowerCase()) && <colgroup><col style={{width:'52%'}}/><col style={{width:'10%'}}/><col style={{width:'19%'}}/><col style={{width:'19%'}}/></colgroup>}
                     <thead>
                       <tr>
                         
@@ -3965,9 +3969,9 @@ export default function App() {
                             )}
                           </button>
                         </th>
-                        <th style={styles.th}>
+                        {!['trader', 'viewer'].includes(String(user?.profile?.role || '').trim().toLowerCase()) && <th style={styles.th}>
                           {language === 'ar' ? 'إجراء' : 'Action'}
-                        </th>
+                        </th>}
                       </tr>
                     </thead>
                     <tbody>{productTableRows()}</tbody>
