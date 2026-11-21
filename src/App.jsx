@@ -111,7 +111,6 @@ export default function App() {
   const [decreasePage, setDecreasePage] = useState(1);
   const [decreasePageSize, setDecreasePageSize] = useState(20);
   const [decreaseDays, setDecreaseDays] = useState(1);
-  const [decreaseShowCode, setDecreaseShowCode] = useState(false);
   const [decreaseSortKey, setDecreaseSortKey] = useState('quantity_decreased');
   const [decreaseSortDirection, setDecreaseSortDirection] = useState('desc');
   const [selectedSuggestions, setSelectedSuggestions] = useState([]);
@@ -135,7 +134,6 @@ export default function App() {
   const [pageSize, setPageSize] = useState(20);
   const [sortKey, setSortKey] = useState('product_ref');
   const [sortDirection, setSortDirection] = useState('asc');
-  const [showCodeColumn, setShowCodeColumn] = useState(false);
   const [pageOrder, setPageOrder] = useState([]);
   const [hiddenPages, setHiddenPages] = useState([]);
   const [pagePermissions, setPagePermissions] = useState({});
@@ -144,7 +142,6 @@ export default function App() {
   const [hiddenSearch, setHiddenSearch] = useState('');
   const [hiddenPage, setHiddenPage] = useState(1);
   const [hiddenPageSize, setHiddenPageSize] = useState(20);
-  const [hiddenShowCode, setHiddenShowCode] = useState(false);
   const [hiddenSortKey, setHiddenSortKey] = useState('name');
   const [hiddenSortDirection, setHiddenSortDirection] = useState('asc');
   const [analysisSearch, setAnalysisSearch] = useState('');
@@ -152,7 +149,6 @@ export default function App() {
   const [analysisPageSize, setAnalysisPageSize] = useState(20);
   const [analysisSortKey, setAnalysisSortKey] = useState('days_remaining');
   const [analysisSortDirection, setAnalysisSortDirection] = useState('asc');
-  const [analysisShowCode, setAnalysisShowCode] = useState(false);
   const [activePage, setActivePage] = useState('dashboard');
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [alertScope, setAlertScope] = useState('linge');
@@ -160,8 +156,6 @@ export default function App() {
   const [alertTablePages, setAlertTablePages] = useState({});
   const [alertTablePageSizes, setAlertTablePageSizes] = useState({});
   const [alertTableSelections, setAlertTableSelections] = useState({});
-  const [alertShowReference, setAlertShowReference] = useState(true);
-  const [statsShowReference, setStatsShowReference] = useState(true);
   const [statsPage, setStatsPage] = useState(1);
   const [statsPageSize, setStatsPageSize] = useState(10);
   const [statsSelection, setStatsSelection] = useState([]);
@@ -196,7 +190,6 @@ export default function App() {
   const [tapisAnalysisPageSize, setTapisAnalysisPageSize] = useState(20);
   const [tapisAnalysisSortKey, setTapisAnalysisSortKey] = useState('days_remaining');
   const [tapisAnalysisSortDirection, setTapisAnalysisSortDirection] = useState('asc');
-  const [tapisAnalysisShowCode, setTapisAnalysisShowCode] = useState(true);
   const [selectedTapisSuggestions, setSelectedTapisSuggestions] = useState([]);
   const [tapisStockDecreaseProducts, setTapisStockDecreaseProducts] = useState([]);
   const [tapisStockDecreaseLoading, setTapisStockDecreaseLoading] = useState(false);
@@ -204,7 +197,6 @@ export default function App() {
   const [tapisDecreasePage, setTapisDecreasePage] = useState(1);
   const [tapisDecreasePageSize, setTapisDecreasePageSize] = useState(20);
   const [tapisDecreaseDays, setTapisDecreaseDays] = useState(1);
-  const [tapisDecreaseShowCode, setTapisDecreaseShowCode] = useState(false);
   const [tapisDecreaseSortKey, setTapisDecreaseSortKey] = useState('quantity_decreased');
   const [tapisDecreaseSortDirection, setTapisDecreaseSortDirection] = useState('desc');
   const [selectedTapisStockDecrease, setSelectedTapisStockDecrease] = useState([]);
@@ -225,7 +217,6 @@ export default function App() {
   const [barcodeSearch, setBarcodeSearch] = useState('');
   const [barcodeLines, setBarcodeLines] = useState([]);
   const [barcodeAddQuantities, setBarcodeAddQuantities] = useState({});
-  const [showBarcodeReference, setShowBarcodeReference] = useState(false);
   const [scannerTarget, setScannerTarget] = useState(null);
   const [scannerStatus, setScannerStatus] = useState('');
   const scannerVideoRef = useRef(null);
@@ -2736,7 +2727,7 @@ export default function App() {
       return (
         <tr>
           <td
-            colSpan={showCodeColumn ? 6 : 5}
+            colSpan={5}
             style={{ ...styles.td, textAlign: 'center', color: '#64748b' }}
           >
             Aucun produit trouvé.
@@ -2745,7 +2736,7 @@ export default function App() {
       );
     return paginatedProducts.map((product) => (
       <tr key={`${product.catalog_source || 'products'}:${product.id || product.product_ref}`}>
-        {showCodeColumn && <td style={styles.td}><strong>{product.product_ref}</strong></td>}
+        
         <td style={styles.td}>
           <span style={{display:'inline-flex',alignItems:'center',gap:8}}>
             {activePage === 'textiles' && product.catalog_source !== 'tapis_products' && photoFor(product.id) ? <img src={photoFor(product.id)} alt="" onClick={()=>setPhotoPreview({url:photoFor(product.id),name:product.name})} style={{width:38,height:38,objectFit:'cover',borderRadius:6,cursor:'zoom-in'}}/> : null}
@@ -2986,6 +2977,72 @@ export default function App() {
           .ls-app.ls-web .label-picker-table td strong{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
         }
         @media(min-width:761px){.ls-app.ls-web .ls-mobile-menu{display:none!important}}
+
+        /* Africha Hamiz — Petrol / Terracotta / Sand palette preview */
+        .ls-app{
+          --ls-primary:#0E5E6F;
+          --ls-accent:#D9622B;
+          --ls-sand:#8FA7A0;
+          --ls-charcoal:#2B2D33;
+          --ls-card:#FFFFFF;
+          --ls-card-soft:#F5F1E7;
+          --ls-border:#E5DCC9;
+          --ls-text:#26343A;
+          --ls-text-muted:#65747A;
+          --ls-table-head:#F1E8D7;
+          --ls-table-line:#E9E1D3;
+          background:#F7F5EF!important;color:var(--ls-text)!important;
+        }
+        .ls-app .ls-sidebar{background:var(--ls-primary)!important;color:#fff!important;border-color:var(--ls-primary)!important}
+        .ls-app .ls-sidebar .ls-brand strong,.ls-app .ls-sidebar .ls-brand div div{color:#fff!important}
+        .ls-app .ls-nav button{color:#EAF2F2!important}
+        .ls-app .ls-nav button.active,.ls-app .ls-nav button:hover{background:rgba(227,207,164,.22)!important;color:#fff!important}
+        .ls-app .ls-nav .ls-count{background:var(--ls-accent)!important;color:#fff!important}
+        .ls-app .ls-brand-mark{background:var(--ls-sand)!important;color:var(--ls-primary)!important}
+        .ls-app .ls-topbar h1,.ls-app .ls-section-heading h2{color:var(--ls-primary)!important}
+        .ls-app .ls-panel,.ls-app .ls-stat,.ls-app .ls-shortcut-card,.ls-app .ls-login{background:var(--ls-card)!important;border-color:var(--ls-border)!important;color:var(--ls-text)!important}
+        .ls-app .ls-stat-clickable strong{color:var(--ls-primary)!important}
+        .ls-app .ls-stat-icon,.ls-app .ls-shortcut-icon{background:#EAF1EF!important;color:var(--ls-primary)!important}
+        .ls-app .ls-icon-peach{background:#F8E6DC!important;color:var(--ls-accent)!important}
+        .ls-app .ls-table{background:var(--ls-card)!important;color:var(--ls-text)!important}
+        .ls-app .ls-table th{background:var(--ls-table-head)!important;color:var(--ls-primary)!important}
+        .ls-app .ls-table td{border-color:var(--ls-table-line)!important}
+        .ls-app .ls-muted{color:var(--ls-text-muted)!important}
+        .ls-app .ls-message{background:#EAF1EF!important;border-color:#C8DAD8!important;color:var(--ls-primary)!important}
+        .ls-app button:not(.ls-nav button){accent-color:var(--ls-primary)}
+        /* Black AMOLED: pure black background, near-black cards */
+        .ls-app .ls-dark,.ls-app.ls-dark{
+          --ls-card:#0A0A0A;--ls-card-soft:#101010;--ls-border:#242424;
+          --ls-text:#F5F5F5;--ls-text-muted:#A3A3A3;
+          --ls-table-head:#111111;--ls-table-line:#242424;
+          background:#000000!important;color:#F5F5F5!important;
+        }
+        .ls-app.ls-dark,.ls-app.ls-dark .ls-layout,.ls-app.ls-dark .ls-main{background:#000000!important;color:#F5F5F5!important}
+        .ls-app.ls-dark .ls-sidebar{background:#050505!important;border-color:#202020!important}
+        .ls-app.ls-dark .ls-sidebar .ls-brand strong,.ls-app.ls-dark .ls-sidebar .ls-brand div div{color:#F5F5F5!important}
+        .ls-app.ls-dark .ls-nav button.active,.ls-app.ls-dark .ls-nav button:hover{background:rgba(14,94,111,.28)!important;color:#8FA7A0!important}
+        .ls-app.ls-dark .ls-panel,.ls-app.ls-dark .ls-stat,.ls-app.ls-dark .ls-stat-clickable,.ls-app.ls-dark .ls-shortcut-card,.ls-app.ls-dark .ls-login,.ls-app.ls-dark .ls-import-card{background:var(--ls-card)!important;border-color:var(--ls-border)!important;color:var(--ls-text)!important}
+        .ls-app.ls-dark .ls-topbar h1,.ls-app.ls-dark .ls-section-heading h2,.ls-app.ls-dark .ls-panel h2,.ls-app.ls-dark .ls-panel h3{color:#8FA7A0!important}
+        .ls-app.ls-dark .ls-stat-clickable strong{color:#8FA7A0!important}
+        .ls-app.ls-dark .ls-stat-icon,.ls-app.ls-dark .ls-shortcut-icon{background:#102326!important;color:#8FA7A0!important}
+        .ls-app.ls-dark .ls-table,.ls-app.ls-dark .ls-table td{background:var(--ls-card)!important;color:var(--ls-text)!important}
+        .ls-app.ls-dark .ls-table th{background:var(--ls-table-head)!important;color:#8FA7A0!important}
+        .ls-app.ls-dark .ls-muted{color:var(--ls-text-muted)!important}
+        .ls-app.ls-dark input,.ls-app.ls-dark select,.ls-app.ls-dark textarea{background:#080808!important;color:#F5F5F5!important;border-color:#303030!important}
+        .ls-app.ls-dark .ls-alert{background:#29150F!important;color:#FFD5C2!important;border-color:#633522!important}
+        .ls-app.ls-dark .ls-message{background:#0D2023!important;color:#DDECEB!important;border-color:#21464B!important}
+        .ls-app.ls-dark .ls-import-panel{background:var(--ls-card)!important;color:var(--ls-text)!important}
+        .ls-app.ls-dark .ls-import-panel h2,.ls-app.ls-dark .ls-import-panel strong,.ls-app.ls-dark .ls-import-panel .ls-muted{color:var(--ls-text)!important}
+        .ls-app.ls-web .ls-mobile-menu{border-color:var(--ls-border)!important;color:var(--ls-primary)!important}
+        .ls-app.ls-dark.ls-web .ls-mobile-menu{background:#0A0A0A!important;color:#8FA7A0!important;border-color:#242424!important}
+        /* Remove leftover blue-tinted surfaces from legacy component styles */
+        .ls-app.ls-dark .ls-icon-lavender,
+        .ls-app.ls-dark .ls-icon-blue{background:#0A0A0A!important;color:#8FA7A0!important}
+        .ls-app.ls-dark [style*="background: rgb(245, 248, 251)"],
+        .ls-app.ls-dark [style*="background-color: rgb(245, 248, 251)"]{
+          background:#0A0A0A!important;color:#F5F5F5!important;border-color:#242424!important
+        }
+        .ls-app.ls-dark .ls-card-metrics>div{background:#0A0A0A!important;border-color:#242424!important;color:#F5F5F5!important}
       `}</style>
 
       {!user ? (
@@ -3222,16 +3279,15 @@ export default function App() {
                       <button style={styles.secondary} disabled={!selected.length} onClick={()=>copyCatalogItems(selectedItems)}>Copier ({selected.length})</button>
                       <button style={styles.secondary} disabled={!selected.length} onClick={()=>hideCatalogItems(selectedItems,()=>setAlertTableSelections(current=>({...current,[group.key]:[]})))}>Masquer sélection ({selected.length})</button>
                       <button style={styles.secondary} disabled={!selected.length} onClick={()=>setAlertTableSelections(current=>({...current,[group.key]:[]}))}>Désélectionner</button>
-                      <label className="ls-muted"><input type="checkbox" checked={alertShowReference} onChange={e=>setAlertShowReference(e.target.checked)}/> Afficher référence</label>
                       <label className="ls-muted">Lignes par page <select style={{...styles.field,width:'auto'}} value={pageSize} onChange={e=>{setAlertTablePageSizes(current=>({...current,[group.key]:Number(e.target.value)}));setAlertTablePages(current=>({...current,[group.key]:1}));}}>{[10,20,100].map(n=><option key={n} value={n}>{n}</option>)}</select></label>
                     </div>
                     {group.items.length===0?<p className="ls-muted">Aucun produit dans cette catégorie.</p>:<>
                       <div className="ls-table-wrap"><table className="ls-table"><thead><tr>
                         <th style={styles.th}><input type="checkbox" aria-label="Tout sélectionner" checked={visible.length>0&&visible.every(p=>selected.includes(rowKey(p)))} onChange={e=>setAlertTableSelections(current=>({...current,[group.key]:e.target.checked?Array.from(new Set([...selected,...visible.map(rowKey)])):selected.filter(id=>!visible.some(p=>rowKey(p)===id))}))}/></th>
-                        {alertShowReference&&<th style={styles.th}>Référence</th>}<th style={styles.th}>Désignation</th><th style={styles.th}>Quantité actuelle</th>{group.key==='imminent'&&<th style={styles.th}>Jours restants</th>}<th style={styles.th}>Action</th>
+                        <th style={styles.th}>Désignation</th><th style={styles.th}>Quantité actuelle</th>{group.key==='imminent'&&<th style={styles.th}>Jours restants</th>}<th style={styles.th}>Action</th>
                       </tr></thead><tbody>{visible.map((p,i)=><tr key={rowKey(p)||i}>
                         <td style={styles.td}><input type="checkbox" checked={selected.includes(rowKey(p))} onChange={e=>setAlertTableSelections(current=>({...current,[group.key]:e.target.checked?[...selected,rowKey(p)]:selected.filter(id=>id!==rowKey(p))}))}/></td>
-                        {alertShowReference&&<td style={styles.td}>{p.product_ref||'—'}</td>}<td style={styles.td}>{p.name||p.product_name||'—'}</td><td style={styles.td}>{p.current_quantity??'—'}</td>{group.key==='imminent'&&<td style={styles.td}>{p.days_remaining}</td>}
+                        <td style={styles.td}>{p.name||p.product_name||'—'}</td><td style={styles.td}>{p.current_quantity??'—'}</td>{group.key==='imminent'&&<td style={styles.td}>{p.days_remaining}</td>}
                         <td style={styles.td}><button style={{...styles.secondary,padding:'5px 9px',fontSize:12}} onClick={()=>hideProduct(productForHide(p))}>Masquer</button></td>
                       </tr>)}</tbody></table></div>
                       <div className="ls-toolbar" style={{justifyContent:'space-between',marginTop:8}}><span className="ls-muted">Page {safePage} / {pages} · {group.items.length} produit(s)</span><div className="ls-toolbar"><button style={styles.secondary} disabled={safePage<=1} onClick={()=>setAlertTablePages(current=>({...current,[group.key]:safePage-1}))}>Précédent</button><button style={styles.secondary} disabled={safePage>=pages} onClick={()=>setAlertTablePages(current=>({...current,[group.key]:safePage+1}))}>Suivant</button></div></div>
@@ -3280,16 +3336,15 @@ export default function App() {
                   <button style={styles.secondary} disabled={!statsSelection.length} onClick={()=>copyCatalogItems(selectedItems)}>Copier ({statsSelection.length})</button>
                   <button style={styles.secondary} disabled={!statsSelection.length} onClick={()=>hideCatalogItems(selectedItems,()=>setStatsSelection([]))}>Masquer sélection ({statsSelection.length})</button>
                   <button style={styles.secondary} disabled={!statsSelection.length} onClick={()=>setStatsSelection([])}>Désélectionner</button>
-                  <label className="ls-muted"><input type="checkbox" checked={statsShowReference} onChange={e=>setStatsShowReference(e.target.checked)}/> Afficher référence</label>
                   <label className="ls-muted">Lignes par page <select style={{...styles.field,width:'auto'}} value={statsPageSize} onChange={e=>{setStatsPageSize(Number(e.target.value));setStatsPage(1);}}>{[10,20,100].map(n=><option key={n} value={n}>{n}</option>)}</select></label>
                 </div>
                 {sortedDecreases.length===0?<p className="ls-muted">Aucune baisse PDF chargée. Actualisez les données ou vérifiez les imports PDF.</p>:<>
                   <div className="ls-table-wrap"><table className="ls-table"><thead><tr>
                     <th style={styles.th}><input type="checkbox" aria-label="Tout sélectionner" checked={visible.length>0&&visible.every(p=>statsSelection.includes(String(p.product_id||p.id||p.product_ref)))} onChange={e=>setStatsSelection(e.target.checked?Array.from(new Set([...statsSelection,...visible.map(p=>String(p.product_id||p.id||p.product_ref))])):statsSelection.filter(id=>!visible.some(p=>String(p.product_id||p.id||p.product_ref)===id)))}/></th>
-                    {statsShowReference&&<th style={styles.th}>Référence</th>}<th style={styles.th}>Désignation</th><th style={styles.th}>Quantité actuelle</th><th style={styles.th}>Quantité diminuée</th><th style={styles.th}>Action</th>
+                    <th style={styles.th}>Désignation</th><th style={styles.th}>Quantité actuelle</th><th style={styles.th}>Quantité diminuée</th><th style={styles.th}>Action</th>
                   </tr></thead><tbody>{visible.map((p,i)=>{const key=String(p.product_id||p.id||p.product_ref);const product={...p,id:p.product_id||p.id,name:p.name||p.product_name||'Produit',catalog_source:p.catalog_source};return <tr key={key||i}>
                     <td style={styles.td}><input type="checkbox" checked={statsSelection.includes(key)} onChange={e=>setStatsSelection(e.target.checked?[...statsSelection,key]:statsSelection.filter(id=>id!==key))}/></td>
-                    {statsShowReference&&<td style={styles.td}>{p.product_ref||'—'}</td>}<td style={styles.td}>{p.name||p.product_name||'—'}</td>
+                    <td style={styles.td}>{p.name||p.product_name||'—'}</td>
                     <td style={styles.td}>{p.current_quantity??'—'}</td>
                     <td style={styles.td}><div style={{display:'flex',alignItems:'center',gap:8}}><strong>{p.quantity_decreased??'—'}</strong><div style={{height:7,background:'#e9eef5',borderRadius:20,flex:1,overflow:'hidden'}}><div style={{height:'100%',width:Math.min(100,(Number(p.quantity_decreased)||0)/maxDecrease*100)+'%',background:'#d97706'}}/></div></div></td>
                     <td style={styles.td}><button style={{...styles.secondary,padding:'5px 9px',fontSize:12}} onClick={()=>hideProduct(product)}>Masquer</button></td>
@@ -3523,8 +3578,8 @@ export default function App() {
                           return <>
                             <p>Affichage de {visibleRows.length} produit(s) sur {filteredRows.length} résultat(s) filtré(s), parmi {pdfPreview.length} références reconnues. L’aperçu est limité à 10 produits.</p>
                             <div className="ls-table-wrap"><table className="ls-table">
-                              <thead><tr><th style={styles.th}>Référence</th><th style={styles.th}>Désignation</th><th style={styles.th}>Quantité PDF</th></tr></thead>
-                              <tbody>{visibleRows.map((row, index) => <tr key={row.product_ref + index}><td style={styles.td}>{row.product_ref}</td><td style={styles.td}>{row.name}</td><td style={{...styles.td, color: Number(row.quantity) < 0 ? '#b42318' : undefined}}>{row.quantity}</td></tr>)}</tbody>
+                              <thead><tr><th style={styles.th}>Désignation</th><th style={styles.th}>Quantité PDF</th></tr></thead>
+                              <tbody>{visibleRows.map((row, index) => <tr key={row.product_ref + index}><td style={styles.td}>{row.name}</td><td style={{...styles.td, color: Number(row.quantity) < 0 ? '#b42318' : undefined}}>{row.quantity}</td></tr>)}</tbody>
                             </table></div>
                             {filteredRows.length === 0 && <p className="ls-muted">Aucun résultat. Vérifiez l’orthographe ou la référence.</p>}
                           </>;
@@ -3568,13 +3623,13 @@ export default function App() {
                             <div className="ls-table-wrap">
                               <table className="ls-table">
                                 <thead><tr>
-                                  <th style={styles.th}>Référence</th>
+                                  
                                   <th style={styles.th}>Désignation</th>
                                   <th style={styles.th}>Quantité PDF</th>
                                 </tr></thead>
                                 <tbody>{visibleRows.map((row, index) => (
                                   <tr key={row.product_ref + index}>
-                                    <td style={styles.td}>{row.product_ref}</td>
+                                    
                                     <td style={styles.td}>{row.name}</td>
                                     <td style={{ ...styles.td, color: Number(row.quantity) < 0 ? '#b42318' : undefined }}>{row.quantity}</td>
                                   </tr>
@@ -3614,7 +3669,7 @@ export default function App() {
                       <table className="ls-table">
                         <thead>
                           <tr>
-                            <th style={styles.th}>Référence</th>
+                            
                             <th style={styles.th}>Désignation</th>
                             <th style={styles.th}>Quantité</th>
                             <th style={styles.th}>Prix de gros</th>
@@ -3624,7 +3679,7 @@ export default function App() {
                         <tbody>
                           {negativeProducts.filter((product)=>matchesTableSearch(tableSearch, product.name, product.product_ref)).map((product) => (
                             <tr key={product.id}>
-                              <td style={styles.td}>{product.product_ref}</td>
+                              
                               <td style={styles.td}>{product.name}</td>
                               <td
                                 style={{
@@ -3662,7 +3717,7 @@ export default function App() {
                     <div className="ls-table-wrap ls-force-table">
                       <table className="ls-table">
                         <thead><tr>
-                          <th style={styles.th}>Référence</th>
+                          
                           <th style={styles.th}>Désignation</th>
                           <th style={styles.th}>Quantité</th>
                           <th style={styles.th}>Prix de gros</th>
@@ -3671,7 +3726,7 @@ export default function App() {
                         <tbody>
                           {negativeTapisProducts.filter((product)=>matchesTableSearch(tableSearch, product.name, product.product_ref)).map((product) => (
                             <tr key={product.id}>
-                              <td style={styles.td}>{product.product_ref}</td>
+                              
                               <td style={styles.td}>{product.name}</td>
                               <td style={{...styles.td,color:'#b42318',fontWeight:800}}>{product.current_quantity}</td>
                               <td style={styles.td}>{product.wholesale_price ?? '—'} DA</td>
@@ -3728,13 +3783,10 @@ export default function App() {
                           {[10,20,100].map((size)=><option key={size} value={size}>{size}</option>)}
                         </select>
                       </label>
-                      <label className="ls-muted" style={{display:'flex',alignItems:'center',gap:6}}>
-                        <input type="checkbox" checked={showCodeColumn} onChange={(event)=>setShowCodeColumn(event.target.checked)} />Afficher référence
-                      </label>
                     </div>
                     <div className="ls-table-wrap"><table className="ls-table">
                       <thead><tr>
-                        {showCodeColumn && <th style={styles.th}><button onClick={()=>changeSort('product_ref')}>{sortLabel('product_ref','Référence')}</button></th>}
+                        
                         <th style={styles.th}><button onClick={()=>changeSort('name')}>{sortLabel('name','Désignation')}</button></th>
                         <th style={styles.th}><button onClick={()=>changeSort('current_quantity')}>{sortLabel('current_quantity','Quantité')}</button></th>
                         <th style={styles.th}><button onClick={()=>changeSort('wholesale_price')}>{sortLabel('wholesale_price','Prix de gros')}</button></th>
@@ -3743,7 +3795,7 @@ export default function App() {
                       </tr></thead>
                       <tbody>
                         {visible.length ? visible.map((product)=><tr key={product.id}>
-                          {showCodeColumn && <td style={styles.td}><strong>{product.product_ref}</strong></td>}
+                          
                           <td style={styles.td}><span style={{display:'inline-flex',alignItems:'center',gap:8}}>
                             {photoFor(product.id) && <img src={photoFor(product.id)} alt="" onClick={()=>setPhotoPreview({url:photoFor(product.id),name:product.name})} style={{width:38,height:38,objectFit:'cover',borderRadius:6,cursor:'zoom-in'}}/>}
                             {product.name}
@@ -3752,7 +3804,7 @@ export default function App() {
                           <td style={styles.td}>{product.wholesale_price??'—'} DA</td>
                           <td style={styles.td}>{product.retail_price??'—'} DA</td>
                           <td style={styles.td}>{productActions(product)}</td>
-                        </tr>) : <tr><td colSpan={showCodeColumn?6:5} style={{...styles.td,textAlign:'center'}}>Aucun produit trouvé.</td></tr>}
+                        </tr>) : <tr><td colSpan={5} style={{...styles.td,textAlign:'center'}}>Aucun produit trouvé.</td></tr>}
                       </tbody>
                     </table></div>
                     <div className="ls-pagination"><span className="ls-muted">Page {page} sur {total}</span><div className="ls-toolbar" style={{margin:0}}>
@@ -3870,24 +3922,13 @@ export default function App() {
                         ))}
                       </select>
                     </label>
-                    <label className="ls-muted" style={{display:'flex',alignItems:'center',gap:6}}>
-                      <input type="checkbox" checked={showCodeColumn} onChange={(event)=>setShowCodeColumn(event.target.checked)} />
-                      {language === 'ar' ? 'إظهار المرجع' : 'Afficher référence'}
-                    </label>
                   </div>
                 </div>
                 <div className="ls-table-wrap">
                   <table className="ls-table">
                     <thead>
                       <tr>
-                        {showCodeColumn && <th style={styles.th}>
-                          <button onClick={() => changeSort('product_ref')}>
-                            {sortLabel(
-                              'product_ref',
-                              language === 'ar' ? 'المرجع' : 'Référence'
-                            )}
-                          </button>
-                        </th>}
+                        
                         <th style={styles.th}>
                           <button onClick={() => changeSort('name')}>
                             {sortLabel(
@@ -3935,7 +3976,7 @@ export default function App() {
                 {activePage === 'arina' && <section style={{marginTop:24}}>
                   <h2 style={{marginTop:0}}>Africha Shop</h2>
                   <div className="ls-muted" style={{marginBottom:10}}>{africhaSortedProducts.length} produit(s)</div>
-                  <div className="ls-table-wrap"><table className="ls-table"><thead><tr>{showCodeColumn && <th style={styles.th}><button onClick={()=>changeSort('product_ref')}>Référence</button></th>}<th style={styles.th}><button onClick={()=>changeSort('name')}>Désignation</button></th><th style={styles.th}><button onClick={()=>changeSort('current_quantity')}>Quantité</button></th><th style={styles.th}><button onClick={()=>changeSort('wholesale_price')}>Prix de gros</button></th><th style={styles.th}><button onClick={()=>changeSort('retail_price')}>Prix de détail</button></th><th style={styles.th}>Action</th></tr></thead><tbody>{africhaPageProducts.length ? africhaPageProducts.map((product)=><tr key={product.id}>{showCodeColumn && <td style={styles.td}>{product.product_ref}</td>}<td style={styles.td}><span style={{display:'inline-flex',alignItems:'center',gap:8}}>{product.name}</span></td><td style={styles.td}>{isAdmin||showTraderQuantities?product.current_quantity:Number(product.current_quantity)<=0?'Rupture':'Disponible'}</td><td style={styles.td}>{product.wholesale_price??'—'} DA</td><td style={styles.td}>{product.retail_price??'—'} DA</td><td style={styles.td}>{productActions(product)}</td></tr>):<tr><td colSpan={showCodeColumn?6:5} style={styles.td}>Aucun produit Africha Shop trouvé.</td></tr>}</tbody></table></div>
+                  <div className="ls-table-wrap"><table className="ls-table"><thead><tr><th style={styles.th}><button onClick={()=>changeSort('name')}>Désignation</button></th><th style={styles.th}><button onClick={()=>changeSort('current_quantity')}>Quantité</button></th><th style={styles.th}><button onClick={()=>changeSort('wholesale_price')}>Prix de gros</button></th><th style={styles.th}><button onClick={()=>changeSort('retail_price')}>Prix de détail</button></th><th style={styles.th}>Action</th></tr></thead><tbody>{africhaPageProducts.length ? africhaPageProducts.map((product)=><tr key={product.id}><td style={styles.td}><span style={{display:'inline-flex',alignItems:'center',gap:8}}>{product.name}</span></td><td style={styles.td}>{isAdmin||showTraderQuantities?product.current_quantity:Number(product.current_quantity)<=0?'Rupture':'Disponible'}</td><td style={styles.td}>{product.wholesale_price??'—'} DA</td><td style={styles.td}>{product.retail_price??'—'} DA</td><td style={styles.td}>{productActions(product)}</td></tr>):<tr><td colSpan={5} style={styles.td}>Aucun produit Africha Shop trouvé.</td></tr>}</tbody></table></div>
                   <div className="ls-pagination"><span className="ls-muted">Page {Math.min(currentPage,africhaTotalPages)} sur {africhaTotalPages}</span><div className="ls-toolbar" style={{margin:0}}><button style={styles.secondary} disabled={currentPage<=1} onClick={()=>setCurrentPage((n)=>Math.max(1,n-1))}>← Précédent</button><button style={styles.secondary} disabled={currentPage>=africhaTotalPages} onClick={()=>setCurrentPage((n)=>Math.min(africhaTotalPages,n+1))}>Suivant →</button></div></div>
                 </section>}
                 {productCards()}
@@ -3981,7 +4022,7 @@ export default function App() {
                         <table className="ls-table">
                           <thead>
                             <tr>
-                              {showCodeColumn && <th style={styles.th}>Référence</th>}
+                              
                               <th style={styles.th}>Désignation</th>
                               <th style={styles.th}>Quantité</th>
                               <th style={styles.th}>Prix de gros</th>
@@ -3991,7 +4032,7 @@ export default function App() {
                           <tbody>
                             {negativeProducts.map((product) => (
                               <tr key={product.id}>
-                                {showCodeColumn && <td style={styles.td}>{product.product_ref}</td>}
+                                
                                 <td style={styles.td}>{product.name}</td>
                                 <td
                                   style={{
@@ -4132,7 +4173,7 @@ export default function App() {
                         />
                         <strong>{product?.name || 'Produit'}</strong>
                         <div className="ls-muted">
-                          {showCodeColumn ? `Réf. ${product?.product_ref || '—'}` : ''}
+                          
                         </div>
                         <div
                           style={{
@@ -4552,7 +4593,6 @@ export default function App() {
                       <tr>
                         {[
                           'Date',
-                          'Référence',
                           'Ancienne quantité',
                           'Nouvelle quantité',
                           'Motif',
@@ -4569,9 +4609,6 @@ export default function App() {
                         <tr key={item.id}>
                           <td style={styles.td}>
                             {new Date(item.created_at).toLocaleString('fr-FR')}
-                          </td>
-                          <td style={styles.td}>
-                            {item.details?.product_ref || item.entity_id}
                           </td>
                           <td style={styles.td}>
                             {item.details?.old_quantity}
@@ -4621,7 +4658,6 @@ export default function App() {
                   <button style={{...styles.secondary,padding:'6px 11px',fontSize:12}} onClick={hideSelectedTapisSuggestions}>Masquer</button>
                   <button style={{...styles.secondary,padding:'6px 11px',fontSize:12}} onClick={async()=>{const names=tapisSuggestedProducts.filter(p=>selectedTapisSuggestions.includes(p.id)).map(p=>p.name).filter(Boolean);if(!names.length){window.alert('Sélectionnez au moins un produit.');return;}const copied=names.join('\n');try{await navigator.clipboard.writeText(copied);window.alert(names.length+' désignation(s) copiée(s).');}catch(error){window.prompt('Copiez les désignations :',copied);}}}>Copier ({selectedTapisSuggestions.length})</button>
                   <button style={{...styles.secondary,padding:'6px 11px',fontSize:12}} onClick={()=>setSelectedTapisSuggestions([])}>Désélectionner</button>
-                  <label className="ls-muted"><input type="checkbox" checked={tapisAnalysisShowCode} onChange={event=>setTapisAnalysisShowCode(event.target.checked)} /> Afficher référence</label>
                   <label className="ls-muted">Lignes par page <select style={styles.field} value={tapisAnalysisPageSize} onChange={event=>{setTapisAnalysisPageSize(Number(event.target.value));setTapisAnalysisPage(1);}}>{[10,20,100].map(n=><option key={n} value={n}>{n}</option>)}</select></label>
                 </div>
                 <div className="ls-toolbar" style={{marginTop:6}}><ClearableSearchInput className="ls-search" style={styles.field} value={tapisAnalysisSearch} onChange={event=>{setTapisAnalysisSearch(event.target.value);setTapisAnalysisPage(1);}} placeholder="Rechercher une référence ou désignation Tapis…" /></div>
@@ -4646,7 +4682,7 @@ export default function App() {
                         <table className="ls-table">
                           <thead><tr>
                             <th style={styles.th}>Sélection</th>
-                            {tapisAnalysisShowCode && <th style={styles.th}><button style={tableSortButtonStyle} onClick={()=>{setTapisAnalysisSortKey('product_ref');setTapisAnalysisSortDirection(d=>tapisAnalysisSortKey==='product_ref'?(d==='asc'?'desc':'asc'):'asc');setTapisAnalysisPage(1);}}>Référence {tapisAnalysisSortKey==='product_ref'?(tapisAnalysisSortDirection==='asc'?'▲':'▼'):''}</button></th>}
+                            
                             <th style={styles.th}><button style={tableSortButtonStyle} onClick={()=>{setTapisAnalysisSortKey('name');setTapisAnalysisSortDirection(d=>tapisAnalysisSortKey==='name'?(d==='asc'?'desc':'asc'):'asc');setTapisAnalysisPage(1);}}>Désignation {tapisAnalysisSortKey==='name'?(tapisAnalysisSortDirection==='asc'?'▲':'▼'):''}</button></th>
                             <th style={styles.th}><button style={tableSortButtonStyle} onClick={()=>{setTapisAnalysisSortKey('current_quantity');setTapisAnalysisSortDirection(d=>tapisAnalysisSortKey==='current_quantity'?(d==='asc'?'desc':'asc'):'asc');setTapisAnalysisPage(1);}}>Quantité PDF actuelle {tapisAnalysisSortKey==='current_quantity'?(tapisAnalysisSortDirection==='asc'?'▲':'▼'):''}</button></th>
                             <th style={styles.th}><button style={tableSortButtonStyle} onClick={()=>{setTapisAnalysisSortKey('average_daily_decrease');setTapisAnalysisSortDirection(d=>tapisAnalysisSortKey==='average_daily_decrease'?(d==='asc'?'desc':'asc'):'asc');setTapisAnalysisPage(1);}}>Sortie moyenne / jour {tapisAnalysisSortKey==='average_daily_decrease'?(tapisAnalysisSortDirection==='asc'?'▲':'▼'):''}</button></th>
@@ -4657,7 +4693,7 @@ export default function App() {
                           <tbody>{rows.map(product=>(
                             <tr key={product.id || product.product_ref}>
                               <td style={styles.td}><input type="checkbox" checked={selectedTapisSuggestions.includes(product.id)} onChange={event=>setSelectedTapisSuggestions(current=>event.target.checked?[...current,product.id]:current.filter(id=>id!==product.id))}/></td>
-                              {tapisAnalysisShowCode && <td style={styles.td}>{product.product_ref || '—'}</td>}
+                              
                               <td style={styles.td}>{product.name || '—'}</td>
                               <td style={{...styles.td,fontWeight:700,color:Number(product.current_quantity)<0?'#b42318':undefined}}>{product.current_quantity ?? '—'}</td>
                               <td style={styles.td}>{product.average_daily_decrease ?? '—'}</td>
@@ -4697,7 +4733,6 @@ export default function App() {
                     <button style={{...styles.secondary,padding:'6px 11px',fontSize:12}} onClick={hideSelectedTapisStockDecrease}>Masquer</button>
                     <button style={{...styles.secondary,padding:'6px 11px',fontSize:12}} onClick={async()=>{const names=tapisStockDecreaseProducts.filter(p=>selectedTapisStockDecrease.includes(p.product_id)).map(p=>p.product_name).filter(Boolean);if(!names.length){window.alert('Sélectionnez au moins un produit.');return;}const copied=names.join('\n');try{await navigator.clipboard.writeText(copied);window.alert(names.length+' désignation(s) copiée(s).');}catch(error){window.prompt('Copiez les désignations :',copied);}}}>Copier ({selectedTapisStockDecrease.length})</button>
                     <button style={{...styles.secondary,padding:'6px 11px',fontSize:12}} onClick={()=>setSelectedTapisStockDecrease([])}>Désélectionner</button>
-                    <label className="ls-muted"><input type="checkbox" checked={tapisDecreaseShowCode} onChange={event=>setTapisDecreaseShowCode(event.target.checked)} /> Afficher référence</label>
                     <label className="ls-muted">Lignes par page <select style={styles.field} value={tapisDecreasePageSize} onChange={event=>{setTapisDecreasePageSize(Number(event.target.value));setTapisDecreasePage(1);}}>{[10,20,100].map(n=><option key={n} value={n}>{n}</option>)}</select></label>
                     <label className="ls-muted">Comparer avec le PDF d’il y a (jours) <input type="number" min="1" max="3650" step="1" value={tapisDecreaseDays} onChange={event=>{setTapisDecreaseDays(Math.max(1,Math.min(3650,Number(event.target.value)||1)));setTapisDecreasePage(1);}} style={{...styles.field,width:90,marginLeft:6}} /></label>
                     <span className="ls-muted">{tapisStockDecreaseProducts.length} produit(s) en baisse</span>
@@ -4717,7 +4752,7 @@ export default function App() {
                         <thead>
                           <tr>
                             <th style={styles.th}>Sélection</th>
-                            {tapisDecreaseShowCode && <th style={styles.th}><button style={tableSortButtonStyle} onClick={()=>{setTapisDecreaseSortKey('product_ref');setTapisDecreaseSortDirection(d=>tapisDecreaseSortKey==='product_ref'?(d==='asc'?'desc':'asc'):'asc');setTapisDecreasePage(1);}}>Référence {tapisDecreaseSortKey==='product_ref'?(tapisDecreaseSortDirection==='asc'?'▲':'▼'):''}</button></th>}
+                            
                             <th style={styles.th}><button style={tableSortButtonStyle} onClick={()=>{setTapisDecreaseSortKey('product_name');setTapisDecreaseSortDirection(d=>tapisDecreaseSortKey==='product_name'?(d==='asc'?'desc':'asc'):'asc');setTapisDecreasePage(1);}}>Désignation {tapisDecreaseSortKey==='product_name'?(tapisDecreaseSortDirection==='asc'?'▲':'▼'):''}</button></th>
                             <th style={styles.th}><button style={tableSortButtonStyle} onClick={()=>{setTapisDecreaseSortKey('previous_quantity');setTapisDecreaseSortDirection(d=>tapisDecreaseSortKey==='previous_quantity'?(d==='asc'?'desc':'asc'):'asc');setTapisDecreasePage(1);}}>Quantité précédente {tapisDecreaseSortKey==='previous_quantity'?(tapisDecreaseSortDirection==='asc'?'▲':'▼'):''}</button></th>
                             <th style={styles.th}><button style={tableSortButtonStyle} onClick={()=>{setTapisDecreaseSortKey('current_quantity');setTapisDecreaseSortDirection(d=>tapisDecreaseSortKey==='current_quantity'?(d==='asc'?'desc':'asc'):'asc');setTapisDecreasePage(1);}}>Quantité actuelle {tapisDecreaseSortKey==='current_quantity'?(tapisDecreaseSortDirection==='asc'?'▲':'▼'):''}</button></th>
@@ -4745,7 +4780,7 @@ export default function App() {
                                   }
                                 />
                               </td>
-                              {tapisDecreaseShowCode && <td style={styles.td}>{product.product_ref || '—'}</td>}
+                              
                               <td className="stock-decrease-designation" style={styles.td}>{product.product_name || '—'}</td>
                               <td style={styles.td}>
                                 {product.previous_quantity ?? '—'}
@@ -4813,10 +4848,6 @@ export default function App() {
                     }}
                   >Copier ({selectedSuggestions.length})</button>
                   <button style={{...styles.secondary,padding:'6px 11px',fontSize:12}} onClick={() => setSelectedSuggestions([])}>Désélectionner</button>
-                  <label className="ls-muted" style={{display:'flex',alignItems:'center',gap:6,marginLeft:6}}>
-                    <input type="checkbox" checked={analysisShowCode} onChange={(event)=>setAnalysisShowCode(event.target.checked)} />
-                    Afficher référence
-                  </label>
                   <label className="ls-muted" style={{display:'flex',alignItems:'center',gap:6}}>
                     Lignes par page
                     <select style={{...styles.field,width:'auto'}} value={analysisPageSize} onChange={(event)=>{setAnalysisPageSize(Number(event.target.value));setAnalysisPage(1);}}>
@@ -4839,7 +4870,7 @@ export default function App() {
                       <thead>
                         <tr>
                           <th style={styles.th}>Sélection</th>
-                          {analysisShowCode && <th style={styles.th}><button onClick={()=>{setAnalysisSortDirection(analysisSortKey==='product_ref'&&analysisSortDirection==='asc'?'desc':'asc');setAnalysisSortKey('product_ref');setAnalysisPage(1);}}>Référence {analysisSortKey==='product_ref'?(analysisSortDirection==='asc'?'▲':'▼'):''}</button></th>}
+                          
                           <th style={styles.th}><button onClick={()=>{setAnalysisSortDirection(analysisSortKey==='name'&&analysisSortDirection==='asc'?'desc':'asc');setAnalysisSortKey('name');setAnalysisPage(1);}}>Désignation {analysisSortKey==='name'?(analysisSortDirection==='asc'?'▲':'▼'):''}</button></th>
                           <th style={styles.th}><button onClick={()=>{setAnalysisSortDirection(analysisSortKey==='current_quantity'&&analysisSortDirection==='asc'?'desc':'asc');setAnalysisSortKey('current_quantity');setAnalysisPage(1);}}>Dernière quantité CSV {analysisSortKey==='current_quantity'?(analysisSortDirection==='asc'?'▲':'▼'):''}</button></th>
                           <th style={styles.th}><button onClick={()=>{setAnalysisSortDirection(analysisSortKey==='average_daily_decrease'&&analysisSortDirection==='asc'?'desc':'asc');setAnalysisSortKey('average_daily_decrease');setAnalysisPage(1);}}>Baisse moyenne / jour {analysisSortKey==='average_daily_decrease'?(analysisSortDirection==='asc'?'▲':'▼'):''}</button></th>
@@ -4868,7 +4899,7 @@ export default function App() {
                                 }
                               />
                             </td>
-                            {analysisShowCode && <td style={styles.td}>{product.product_ref || '—'}</td>}
+                            
                             <td style={styles.td}>{product.name || '—'}</td>
                             <td style={styles.td}>
                               {product.current_quantity ?? '—'}
@@ -4930,10 +4961,6 @@ export default function App() {
                       catch (error) { window.prompt('Copiez les désignations :', textToCopy); }
                     }}>Copier ({selectedStockDecrease.length})</button>
                     <button style={{...styles.secondary,padding:'6px 11px',fontSize:12}} onClick={() => setSelectedStockDecrease([])}>Désélectionner</button>
-                    <label className="ls-muted" style={{display:'flex',alignItems:'center',gap:6,marginLeft:6}}>
-                      <input type="checkbox" checked={decreaseShowCode} onChange={(event)=>setDecreaseShowCode(event.target.checked)} />
-                      Afficher référence
-                    </label>
                     <label className="ls-muted" style={{display:'flex',alignItems:'center',gap:6}}>
                       Lignes par page
                       <select style={{...styles.field,width:'auto'}} value={decreasePageSize} onChange={(event)=>{setDecreasePageSize(Number(event.target.value));setDecreasePage(1);}}>
@@ -4963,7 +4990,7 @@ export default function App() {
                         <thead>
                           <tr>
                             <th style={styles.th}>Sélection</th>
-                            {decreaseShowCode && <th style={styles.th}><button onClick={()=>{setDecreaseSortDirection(decreaseSortKey==='product_ref'&&decreaseSortDirection==='asc'?'desc':'asc');setDecreaseSortKey('product_ref');setDecreasePage(1);}}>Référence {decreaseSortKey==='product_ref'?(decreaseSortDirection==='asc'?'▲':'▼'):''}</button></th>}
+                            
                             <th style={styles.th}><button onClick={()=>{setDecreaseSortDirection(decreaseSortKey==='product_name'&&decreaseSortDirection==='asc'?'desc':'asc');setDecreaseSortKey('product_name');setDecreasePage(1);}}>Désignation {decreaseSortKey==='product_name'?(decreaseSortDirection==='asc'?'▲':'▼'):''}</button></th>
                             <th style={styles.th}><button onClick={()=>{setDecreaseSortDirection(decreaseSortKey==='previous_quantity'&&decreaseSortDirection==='asc'?'desc':'asc');setDecreaseSortKey('previous_quantity');setDecreasePage(1);}}>Quantité précédente {decreaseSortKey==='previous_quantity'?(decreaseSortDirection==='asc'?'▲':'▼'):''}</button></th>
                             <th style={styles.th}><button onClick={()=>{setDecreaseSortDirection(decreaseSortKey==='current_quantity'&&decreaseSortDirection==='asc'?'desc':'asc');setDecreaseSortKey('current_quantity');setDecreasePage(1);}}>Quantité actuelle {decreaseSortKey==='current_quantity'?(decreaseSortDirection==='asc'?'▲':'▼'):''}</button></th>
@@ -4991,7 +5018,7 @@ export default function App() {
                                   }
                                 />
                               </td>
-                              {decreaseShowCode && <td style={styles.td}>{product.product_ref || '—'}</td>}
+                              
                               <td style={styles.td}>{product.product_name || '—'}</td>
                               <td style={styles.td}>
                                 {product.previous_quantity ?? '—'}
@@ -5056,9 +5083,8 @@ export default function App() {
                 </div>
                 <div className="ls-toolbar" style={{flexWrap:'wrap'}}>
                   <ClearableSearchInput className="ls-search" style={styles.field} value={hiddenSearch} onChange={(event)=>{setHiddenSearch(event.target.value);setHiddenPage(1);}} placeholder="Rechercher un produit masqué…" />
-                  <label className="ls-muted"><input type="checkbox" checked={hiddenShowCode} onChange={(event)=>setHiddenShowCode(event.target.checked)} /> Afficher référence</label>
                   <label className="ls-muted">Lignes par page <select style={styles.field} value={hiddenPageSize} onChange={(event)=>{setHiddenPageSize(Number(event.target.value));setHiddenPage(1);}}>{[10,20,100].map(n=><option key={n} value={n}>{n}</option>)}</select></label>
-                  <label className="ls-muted">Trier par <select style={styles.field} value={hiddenSortKey} onChange={(event)=>{setHiddenSortKey(event.target.value);setHiddenPage(1);}}><option value="name">Désignation</option><option value="product_ref">Référence</option><option value="current_quantity">Quantité</option></select></label>
+                  <label className="ls-muted">Trier par <select style={styles.field} value={hiddenSortKey} onChange={(event)=>{setHiddenSortKey(event.target.value);setHiddenPage(1);}}><option value="name">Désignation</option><option value="current_quantity">Quantité</option></select></label>
                   <button style={styles.secondary} onClick={()=>{setHiddenSortDirection(d=>d==='asc'?'desc':'asc');setHiddenPage(1);}}>{hiddenSortDirection==='asc'?'Croissant ▲':'Décroissant ▼'}</button>
                 </div>
                 {(() => {const filtered=hiddenProducts.filter(product=>matchesTableSearch(hiddenSearch,product.name,product.product_ref));const sorted=[...filtered].sort((a,b)=>{const av=a[hiddenSortKey],bv=b[hiddenSortKey];const c=hiddenSortKey==='current_quantity'?(Number(av)||0)-(Number(bv)||0):String(av??'').localeCompare(String(bv??''),'fr',{numeric:true,sensitivity:'base'});return hiddenSortDirection==='asc'?c:-c;});const pages=Math.max(1,Math.ceil(sorted.length/hiddenPageSize));const safe=Math.min(hiddenPage,pages);const rows=sorted.slice((safe-1)*hiddenPageSize,safe*hiddenPageSize);return <>
@@ -5069,7 +5095,7 @@ export default function App() {
                     <table className="ls-table">
                       <thead>
                         <tr>
-                          {hiddenShowCode && <th style={styles.th}>Référence</th>}
+                          
                           <th style={styles.th}>Désignation</th>
                           <th style={styles.th}>Quantité</th>
                           <th style={styles.th}>Action</th>
@@ -5078,7 +5104,7 @@ export default function App() {
                       <tbody>
                         {rows.map((product) => (
                           <tr key={product.id}>
-                            {hiddenShowCode && <td style={styles.td}>{product.product_ref}</td>}
+                            
                             <td style={styles.td}>{product.name}</td>
                             <td style={styles.td}>
                               {product.current_quantity}
@@ -5142,14 +5168,13 @@ export default function App() {
                 <h2>Code à barre — Étiquettes QR</h2>
                 <p className="ls-muted">Le QR contient le numéro Logicom de REFERENCE 1. Linge et Tapis sont recherchés ensemble sans fusionner leurs tables.</p>
                 <h3 style={{marginTop:20}}>1. Ajouter des produits</h3>
-                <label style={{display:"inline-flex",alignItems:"center",gap:7,margin:"8px 0 10px",fontWeight:600}}><input type="checkbox" checked={showBarcodeReference} onChange={e=>setShowBarcodeReference(e.target.checked)} /> Afficher REFERENCE 1</label>
                 <ClearableSearchInput style={{...styles.field,marginTop:4}} value={barcodeSearch} onChange={(e)=>setBarcodeSearch(e.target.value)} onKeyDown={(e)=>{if(e.key==='Enter'){e.preventDefault();const first=catalogProducts.find(p=>productMatchesSearch(p,barcodeSearch)&&String(p.reference_1||'').trim());if(first)addBarcodeLine(first,barcodeAddQuantities[`${first.catalog_source}:${first.id}`] ?? 1);}}} placeholder="Rechercher par désignation, référence ou numéro Logicom…" />
-                {barcodeSearch.trim() && <div className="ls-table-wrap" style={{marginTop:10}}><table className="ls-table barcode-picker-table"><colgroup>{showBarcodeReference ? <><col style={{width:"30%"}}/><col style={{width:"24%"}}/><col style={{width:"18%"}}/><col style={{width:"15%"}}/><col style={{width:"13%"}}/></> : <><col style={{width:"43%"}}/><col style={{width:"24%"}}/><col style={{width:"19%"}}/><col style={{width:"14%"}}/></>}</colgroup><thead><tr><th style={styles.th}>Désignation</th>{showBarcodeReference && <th style={styles.th}>REFERENCE 1</th>}<th style={styles.th}>Famille</th><th style={styles.th}>Nombre</th><th style={styles.th}>Action</th></tr></thead><tbody>
-                  {catalogProducts.filter(p=>productMatchesSearch(p,barcodeSearch)).slice(0,30).map(p=><tr key={`${p.catalog_source}:${p.id}`}><td style={styles.td}><strong>{p.name}</strong></td>{showBarcodeReference && <td style={styles.td}>{p.reference_1 || <span style={{color:'#b42318'}}>Manquante</span>}</td>}<td style={styles.td}>{p.catalog_source==='tapis_products'?'Tapis':'Catalogue principal'}</td><td style={styles.td}><div className="label-qty-control"><input type="number" min="1" max="500" step="1" style={{...styles.field,width:90}} value={barcodeAddQuantities[`${p.catalog_source}:${p.id}`] ?? '1'} onChange={e=>setBarcodeAddQuantities(current=>({...current,[`${p.catalog_source}:${p.id}`]:e.target.value}))}/><button type="button" className="label-qty-plus" aria-label="Augmenter le nombre" onClick={()=>setBarcodeAddQuantities(current=>({...current,[`${p.catalog_source}:${p.id}`]:String(Math.min(500,Math.max(1,Number(current[`${p.catalog_source}:${p.id}`]||1))+1))}))}>+</button></div></td><td style={styles.td}><button type="button" style={styles.button} disabled={!p.reference_1} onClick={()=>addBarcodeLine(p,barcodeAddQuantities[`${p.catalog_source}:${p.id}`] ?? 1)}>Ajouter</button></td></tr>)}
-                  {catalogProducts.filter(p=>productMatchesSearch(p,barcodeSearch)).length===0 && <tr><td style={styles.td} colSpan={showBarcodeReference ? 5 : 4}>Aucun produit trouvé.</td></tr>}
+                {barcodeSearch.trim() && <div className="ls-table-wrap" style={{marginTop:10}}><table className="ls-table barcode-picker-table"><colgroup><col style={{width:"43%"}}/><col style={{width:"24%"}}/><col style={{width:"19%"}}/><col style={{width:"14%"}}/></colgroup><thead><tr><th style={styles.th}>Désignation</th><th style={styles.th}>Famille</th><th style={styles.th}>Nombre</th><th style={styles.th}>Action</th></tr></thead><tbody>
+                  {catalogProducts.filter(p=>productMatchesSearch(p,barcodeSearch)).slice(0,30).map(p=><tr key={`${p.catalog_source}:${p.id}`}><td style={styles.td}><strong>{p.name}</strong></td><td style={styles.td}>{p.catalog_source==='tapis_products'?'Tapis':'Catalogue principal'}</td><td style={styles.td}><div className="label-qty-control"><input type="number" min="1" max="500" step="1" style={{...styles.field,width:90}} value={barcodeAddQuantities[`${p.catalog_source}:${p.id}`] ?? '1'} onChange={e=>setBarcodeAddQuantities(current=>({...current,[`${p.catalog_source}:${p.id}`]:e.target.value}))}/><button type="button" className="label-qty-plus" aria-label="Augmenter le nombre" onClick={()=>setBarcodeAddQuantities(current=>({...current,[`${p.catalog_source}:${p.id}`]:String(Math.min(500,Math.max(1,Number(current[`${p.catalog_source}:${p.id}`]||1))+1))}))}>+</button></div></td><td style={styles.td}><button type="button" style={styles.button} disabled={!p.reference_1} onClick={()=>addBarcodeLine(p,barcodeAddQuantities[`${p.catalog_source}:${p.id}`] ?? 1)}>Ajouter</button></td></tr>)}
+                  {catalogProducts.filter(p=>productMatchesSearch(p,barcodeSearch)).length===0 && <tr><td style={styles.td} colSpan={4}>Aucun produit trouvé.</td></tr>}
                 </tbody></table></div>}
                 <h3 style={{marginTop:24}}>2. Produits choisis ({barcodeLines.length})</h3>
-                {barcodeLines.length===0 ? <p className="ls-muted">Aucun produit ajouté.</p> : <div className="ls-table-wrap"><table className="ls-table barcode-picker-table"><colgroup>{showBarcodeReference ? <><col style={{width:"35%"}}/><col style={{width:"25%"}}/><col style={{width:"23%"}}/><col style={{width:"17%"}}/></> : <><col style={{width:"48%"}}/><col style={{width:"32%"}}/><col style={{width:"20%"}}/></>}</colgroup><thead><tr><th style={styles.th}>Désignation</th>{showBarcodeReference && <th style={styles.th}>REFERENCE 1</th>}<th style={styles.th}>Nombre d’étiquettes</th><th style={styles.th}>Action</th></tr></thead><tbody>{barcodeLines.map(line=><tr key={`${line.catalog_source}:${line.id}`}><td style={styles.td}>{line.name}</td>{showBarcodeReference && <td style={styles.td}>{line.reference_1}</td>}<td style={styles.td}><div className="label-qty-control"><input type="number" min="1" max="500" step="1" style={{...styles.field,width:110}} value={line.quantity} onChange={e=>updateBarcodeLineQuantity(line,e.target.value)}/><button type="button" className="label-qty-plus" aria-label="Augmenter le nombre d’étiquettes" onClick={()=>updateBarcodeLineQuantity(line,Math.min(500,Math.max(1,Number(line.quantity)||1)+1))}>+</button></div></td><td style={styles.td}><button type="button" style={styles.secondary} onClick={()=>setBarcodeLines(current=>current.filter(item=>!(String(item.id)===String(line.id)&&item.catalog_source===line.catalog_source)))}>Retirer</button></td></tr>)}</tbody></table></div>}
+                {barcodeLines.length===0 ? <p className="ls-muted">Aucun produit ajouté.</p> : <div className="ls-table-wrap"><table className="ls-table barcode-picker-table"><colgroup><col style={{width:"48%"}}/><col style={{width:"32%"}}/><col style={{width:"20%"}}/></colgroup><thead><tr><th style={styles.th}>Désignation</th><th style={styles.th}>Nombre d’étiquettes</th><th style={styles.th}>Action</th></tr></thead><tbody>{barcodeLines.map(line=><tr key={`${line.catalog_source}:${line.id}`}><td style={styles.td}>{line.name}</td><td style={styles.td}><div className="label-qty-control"><input type="number" min="1" max="500" step="1" style={{...styles.field,width:110}} value={line.quantity} onChange={e=>updateBarcodeLineQuantity(line,e.target.value)}/><button type="button" className="label-qty-plus" aria-label="Augmenter le nombre d’étiquettes" onClick={()=>updateBarcodeLineQuantity(line,Math.min(500,Math.max(1,Number(line.quantity)||1)+1))}>+</button></div></td><td style={styles.td}><button type="button" style={styles.secondary} onClick={()=>setBarcodeLines(current=>current.filter(item=>!(String(item.id)===String(line.id)&&item.catalog_source===line.catalog_source)))}>Retirer</button></td></tr>)}</tbody></table></div>}
                 <p className="ls-muted">Dimensions selon Paramètres → Dimensions des documents PDF. QR à gauche, désignation à droite. Limite : 500 étiquettes par PDF.</p>
                 <div className="ls-toolbar"><button type="button" style={styles.button} disabled={pdfBusy||barcodeLines.length===0||barcodeLines.reduce((sum,line)=>sum+Math.max(0,Number(line.quantity)||0),0)>500} onClick={makeBarcodePdf}>{pdfBusy?'Préparation…':'Générer et télécharger le PDF QR'}</button><button type="button" style={styles.secondary} onClick={()=>{setBarcodeLines([]);setBarcodeSearch('');setBarcodeAddQuantities({});}}>Vider la sélection</button></div>
               </section>

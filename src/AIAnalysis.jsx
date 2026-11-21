@@ -36,7 +36,6 @@ function readAll(table, select, orderColumn) {
 export default function AIAnalysis() {
   const [module, setModule] = useState('LINGE');
   const [rowsPerPage, setRowsPerPage] = useState(20);
-  const [showReference, setShowReference] = useState(true);
   const [sortState, setSortState] = useState({ key: '', direction: 'asc' });
   const [selectedRows, setSelectedRows] = useState([]);
   const [section, setSection] = useState('forecast');
@@ -168,7 +167,7 @@ export default function AIAnalysis() {
 
   const panel = { background: 'var(--ls-card, #fff)', color: 'var(--ls-text, #102b46)', border: '1px solid var(--ls-border, #e2e8f0)', borderRadius: 14, padding: 16, minWidth: 0 };
   const button = { border: '1px solid var(--ls-border, #d5dfeb)', borderRadius: 9, padding: '8px 12px', background: 'var(--ls-card-soft, #fff)', color: 'var(--ls-text, #102b46)', cursor: 'pointer', fontWeight: 700 };
-  const activeButton = { ...button, background: '#102b46', color: '#fff', borderColor: '#102b46' };
+  const activeButton = { ...button, background: 'var(--ls-primary, #0E5E6F)', color: '#fff', borderColor: 'var(--ls-primary, #0E5E6F)' };
   const th = { textAlign: 'left', padding: '10px 9px', background: 'var(--ls-table-head, #f1f5f9)', color: 'var(--ls-text-muted, #526477)', fontSize: 12, whiteSpace: 'nowrap' };
   const td = { padding: '10px 9px', borderTop: '1px solid var(--ls-table-line, #edf1f5)', verticalAlign: 'top', fontSize: 13, color: 'var(--ls-text, #102b46)' };
   const visibleFeedback = Object.entries(feedback);
@@ -186,7 +185,7 @@ export default function AIAnalysis() {
           <h2 style={{marginTop:0,marginBottom:6}}>Analyse intelligente</h2>
           <p className="ls-muted" style={{margin:0}}>Lecture et analyse uniquement. Aucune écriture ni modification de la base de données.</p>
         </div>
-        <div style={{display:'flex',gap:8,alignItems:'center',flexWrap:'wrap'}}><span style={{background:'var(--ls-card-soft, #ecfdf3)',color:'var(--ls-text, #027a48)',padding:'6px 10px',borderRadius:20,fontSize:12,fontWeight:800}}>LECTURE SEULE · READ ONLY</span><button style={button} onClick={()=>setReloadKey(v=>v+1)} disabled={loading}>Actualiser</button></div>
+        <div style={{display:'flex',gap:8,alignItems:'center',flexWrap:'wrap'}}><span style={{background:'var(--ls-card-soft, #F5F1E7)',color:'var(--ls-text, #027a48)',padding:'6px 10px',borderRadius:20,fontSize:12,fontWeight:800}}>LECTURE SEULE · READ ONLY</span><button style={button} onClick={()=>setReloadKey(v=>v+1)} disabled={loading}>Actualiser</button></div>
       </div>
 
       <div style={{display:'flex',gap:8,flexWrap:'wrap',margin:'16px 0'}}>
@@ -209,15 +208,14 @@ export default function AIAnalysis() {
         </div>
         <div className="ls-toolbar" style={{flexWrap:'wrap',marginBottom:10}}>
           <label className="ls-muted">Lignes par page <select value={rowsPerPage} onChange={e=>setRowsPerPage(Number(e.target.value))} style={{width:'auto'}}>{[10,20,100].map(n=><option key={n} value={n}>{n}</option>)}</select></label>
-          <label className="ls-muted"><input type="checkbox" checked={showReference} onChange={e=>setShowReference(e.target.checked)}/> Afficher référence</label>
           <button type="button" onClick={()=>setSelectedRows([])}>Désélectionner</button>
         </div>
         <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Rechercher par référence ou désignation…" style={{width:'100%',maxWidth:420,boxSizing:'border-box',padding:'10px 12px',border:'1px solid var(--ls-border, #d5dfeb)',borderRadius:9,marginBottom:12}} />
 
         {section==='forecast' && <>
           <p className="ls-muted">Suggestions de réapprovisionnement actuelles de l’application, calculées par les fonctions existantes sans modification. Consultation uniquement : aucune commande ni modification du stock.</p>
-          <div style={{overflowX:'auto'}}><table className="ls-table" style={{width:'100%'}}><thead><tr>{['Désignation','Référence','Stock actuel','Baisse moyenne / jour','Jours restants','Quantité suggérée','Date de dernière lecture'].map(x=><th key={x} style={th}>{x}</th>)}</tr></thead><tbody>
-            {filteredForecasts.slice(0,300).map((p,i)=><tr key={p.id || p.product_ref || i}><td style={td}>{p.name || '—'}</td><td style={td}>{p.product_ref || '—'}</td><td style={td}>{p.current_quantity ?? '—'}</td><td style={td}>{p.average_daily_decrease == null ? '—' : Number(p.average_daily_decrease).toFixed(2)}</td><td style={td}>{p.days_remaining == null ? '—' : Number(p.days_remaining).toFixed(1)}</td><td style={td}><strong>{p.suggested_order_quantity ?? '—'}</strong></td><td style={td}>{p.last_snapshot_date || '—'}</td></tr>)}
+          <div style={{overflowX:'auto'}}><table className="ls-table" style={{width:'100%'}}><thead><tr>{['Désignation','Stock actuel','Baisse moyenne / jour','Jours restants','Quantité suggérée','Date de dernière lecture'].map(x=><th key={x} style={th}>{x}</th>)}</tr></thead><tbody>
+            {filteredForecasts.slice(0,300).map((p,i)=><tr key={p.id || p.product_ref || i}><td style={td}>{p.name || '—'}</td><td style={td}>{p.current_quantity ?? '—'}</td><td style={td}>{p.average_daily_decrease == null ? '—' : Number(p.average_daily_decrease).toFixed(2)}</td><td style={td}>{p.days_remaining == null ? '—' : Number(p.days_remaining).toFixed(1)}</td><td style={td}><strong>{p.suggested_order_quantity ?? '—'}</strong></td><td style={td}>{p.last_snapshot_date || '—'}</td></tr>)}
           </tbody></table></div>
           <p className="ls-muted">Affichage {Math.min(filteredForecasts.length,300)} sur {filteredForecasts.length} suggestions.</p>
         </>}
@@ -228,10 +226,10 @@ export default function AIAnalysis() {
             {filteredNegatives.slice(0,100).map((item,idx)=><article key={item.product_ref+'-'+item.month_no+'-'+idx} style={panel}>
               <div style={{display:'flex',justifyContent:'space-between',gap:8,flexWrap:'wrap'}}>
                 <strong>{item.name} <span className="ls-muted">({item.product_ref})</span></strong>
-                <span style={{color:'#b42318',fontWeight:800}}>{item.negative_quantity} · {MONTH_NAMES[Number(item.month_no)-1] || ('Mois '+item.month_no)}</span>
+                <span style={{color:'var(--ls-accent, #D9622B)',fontWeight:800}}>{item.negative_quantity} · {MONTH_NAMES[Number(item.month_no)-1] || ('Mois '+item.month_no)}</span>
               </div>
-              <div style={{overflowX:'auto',marginTop:8}}><table className="ls-table" style={{width:'100%'}}><thead><tr>{['Candidat','Référence','Score /100','Prix de détail','Ventes du même mois','Stock actuel','Votre évaluation'].map(x=><th key={x} style={th}>{x}</th>)}</tr></thead><tbody>
-                {item.candidates.map(c=>{const key=module+':'+item.product_ref+':'+item.month_no+':'+c.product_ref;return <tr key={c.product_ref}><td style={td}>{c.name}</td><td style={td}>{c.product_ref}</td><td style={td}>{c.score.toFixed(1)}/100</td><td style={td}>{c.retail_price ?? '—'}</td><td style={td}>{c.monthSales}</td><td style={td}>{c.current_quantity ?? '—'}</td><td style={td}><div style={{display:'flex',gap:5,flexWrap:'wrap'}}><button style={{...button,padding:'5px 8px',fontSize:11}} onClick={()=>setFeedback(v=>({...v,[key]:'مرشح Correct'}))}>Correct</button><button style={{...button,padding:'5px 8px',fontSize:11}} onClick={()=>setFeedback(v=>({...v,[key]:'غير Correct'}))}>Incorrect</button>{feedback[key]&&<small>{feedback[key]}</small>}</div></td></tr>;})}
+              <div style={{overflowX:'auto',marginTop:8}}><table className="ls-table" style={{width:'100%'}}><thead><tr>{['Candidat','Score /100','Prix de détail','Ventes du même mois','Stock actuel','Votre évaluation'].map(x=><th key={x} style={th}>{x}</th>)}</tr></thead><tbody>
+                {item.candidates.map(c=>{const key=module+':'+item.product_ref+':'+item.month_no+':'+c.product_ref;return <tr key={c.product_ref}><td style={td}>{c.name}</td><td style={td}>{c.score.toFixed(1)}/100</td><td style={td}>{c.retail_price ?? '—'}</td><td style={td}>{c.monthSales}</td><td style={td}>{c.current_quantity ?? '—'}</td><td style={td}><div style={{display:'flex',gap:5,flexWrap:'wrap'}}><button style={{...button,padding:'5px 8px',fontSize:11}} onClick={()=>setFeedback(v=>({...v,[key]:'مرشح Correct'}))}>Correct</button><button style={{...button,padding:'5px 8px',fontSize:11}} onClick={()=>setFeedback(v=>({...v,[key]:'غير Correct'}))}>Incorrect</button>{feedback[key]&&<small>{feedback[key]}</small>}</div></td></tr>;})}
               </tbody></table></div>
             </article>)}
           </div>
@@ -240,8 +238,8 @@ export default function AIAnalysis() {
 
         {section==='stopped' && <>
           <p className="ls-muted">La détection utilise le dernier mois complet (octobre 2026) et compare les deux derniers mois aux quatre mois précédents. Le stock actuel est un indicateur, pas une preuve de la cause de l’arrêt.</p>
-          <div style={{overflowX:'auto'}}><table className="ls-table" style={{width:'100%'}}><thead><tr>{['Désignation','Référence','Dernier mois de vente','Durée d’arrêt','Stock actuel','Moyenne précédente','Moyenne récente','Statut'].map(x=><th key={x} style={th}>{x}</th>)}</tr></thead><tbody>
-            {filteredStopped.slice(0,300).map(p=><tr key={p.product_ref}><td style={td}>{p.name}</td><td style={td}>{p.product_ref}</td><td style={td}>{MONTH_NAMES[p.lastSaleMonth-1]}</td><td style={td}>{p.gap} Mois</td><td style={td}>{p.stock}</td><td style={td}>{p.priorAvg.toFixed(1)}</td><td style={td}>{p.recentAvg.toFixed(1)}</td><td style={td}>{p.status}{p.decline?' · Baisse notable':''}</td></tr>)}
+          <div style={{overflowX:'auto'}}><table className="ls-table" style={{width:'100%'}}><thead><tr>{['Désignation','Dernier mois de vente','Durée d’arrêt','Stock actuel','Moyenne précédente','Moyenne récente','Statut'].map(x=><th key={x} style={th}>{x}</th>)}</tr></thead><tbody>
+            {filteredStopped.slice(0,300).map(p=><tr key={p.product_ref}><td style={td}>{p.name}</td><td style={td}>{MONTH_NAMES[p.lastSaleMonth-1]}</td><td style={td}>{p.gap} Mois</td><td style={td}>{p.stock}</td><td style={td}>{p.priorAvg.toFixed(1)}</td><td style={td}>{p.recentAvg.toFixed(1)}</td><td style={td}>{p.status}{p.decline?' · Baisse notable':''}</td></tr>)}
           </tbody></table></div>
           <p className="ls-muted">Affichage {Math.min(filteredStopped.length,300)} sur {filteredStopped.length} produits.</p>
         </>}
