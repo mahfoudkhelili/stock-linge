@@ -168,8 +168,52 @@ export default function AIAnalysis() {
   const panel = { background: 'var(--ls-card, #fff)', color: 'var(--ls-text, #102b46)', border: '1px solid var(--ls-border, #e2e8f0)', borderRadius: 14, padding: 16, minWidth: 0 };
   const button = { border: '1px solid var(--ls-border, #d5dfeb)', borderRadius: 9, padding: '8px 12px', background: 'var(--ls-card-soft, #fff)', color: 'var(--ls-text, #102b46)', cursor: 'pointer', fontWeight: 700 };
   const activeButton = { ...button, background: 'var(--ls-primary, #0E5E6F)', color: '#fff', borderColor: 'var(--ls-primary, #0E5E6F)' };
-  const th = { textAlign: 'left', padding: '10px 9px', background: 'var(--ls-table-head, #f1f5f9)', color: 'var(--ls-text-muted, #526477)', fontSize: 12, whiteSpace: 'nowrap' };
-  const td = { padding: '10px 9px', borderTop: '1px solid var(--ls-table-line, #edf1f5)', verticalAlign: 'top', fontSize: 13, color: 'var(--ls-text, #102b46)' };
+  const th = { textAlign: 'left', padding: '12px 10px', background: '#f1f5f9', color: '#526477', fontSize: 12, whiteSpace: 'nowrap', cursor: 'pointer', userSelect: 'none' };
+  function changeSort(key) { setSortState(current => ({ key, direction: current.key === key && current.direction === 'asc' ? 'desc' : 'asc' })); }
+  function sortRows(items, table) {
+    const prefix = table + ':';
+    if (!sortState.key.startsWith(prefix)) return items;
+    const key = sortState.key.slice(prefix.length);
+    return [...items].sort((a, b) => {
+      const av = a?.[key], bv = b?.[key];
+      if (av == null && bv == null) return 0;
+      if (av == null) return 1;
+      if (bv == null) return -1;
+      const an = Number(av), bn = Number(bv);
+      const result = av !== '' && bv !== '' && Number.isFinite(an) && Number.isFinite(bn)
+        ? an - bn : String(av).localeCompare(String(bv), 'fr', { numeric: true, sensitivity: 'base' });
+      return sortState.direction === 'asc' ? result : -result;
+    });
+  }
+  function sortHeader(label, key, table) {
+    const active = sortState.key === table + ':' + key;
+    return <th key={key} style={th} onClick={() => changeSort(table + ':' + key)} title="Cliquer pour trier">{label}{active ? (sortState.direction === 'asc' ? ' ▲' : ' ▼') : ' ↕'}</th>;
+  }
+  function exportPdf(title, headers, dataRows) {
+    const popup = window.open('', '_blank');
+    if (!popup) {
+      window.alert('Autorisez les fenêtres pop-up pour exporter le PDF.');
+      return;
+    }
+    const escapeHtml = value => String(value ?? '—').replace(/[&<>"']/g, char => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    })[char]);
+    const body = dataRows.map(row => '<tr>' + row.map(value => '<td>' + escapeHtml(value) + '</td>').join('') + '</tr>').join('');
+    const generatedAt = new Date().toLocaleString('fr-FR');
+    popup.document.open();
+    popup.document.write(
+      '<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>' + escapeHtml(title) + '</title>' +
+      '<style>@page{size:landscape;margin:14mm 10mm 16mm}*{box-sizing:border-box}body{font-family:Arial,sans-serif;color:#172b3a;font-size:10px}h1{font-size:19px;margin:0 0 6px}.meta{color:#64748b;margin-bottom:14px;font-size:10px}table{width:100%;border-collapse:collapse}thead{display:table-header-group}tr{break-inside:avoid}th{background:#eaf0f5;color:#243b53;font-weight:700;text-align:left}th,td{border:1px solid #d7e0e8;padding:6px 7px;vertical-align:top;overflow-wrap:anywhere}tbody tr:nth-child(even){background:#f8fafc}.footer{margin-top:10px;color:#64748b;font-size:9px}@media print{.footer{position:fixed;bottom:-9mm}}</style>' +
+      '</head><body><h1>' + escapeHtml(title) + '</h1>' +
+      '<div class="meta">Africha Hamiz Assistant · ' + escapeHtml(module) + ' · Généré le ' + escapeHtml(generatedAt) + ' · ' + dataRows.length + ' ligne(s)</div>' +
+      '<table><thead><tr>' + headers.map(h => '<th>' + escapeHtml(h) + '</th>').join('') + '</tr></thead><tbody>' + body + '</tbody></table>' +
+      '<div class="footer">Rapport de consultation uniquement — aucune donnée n’a été modifiée.</div>' +
+      '<script>window.onload=function(){window.focus();window.print();};</scr' + 'ipt></body></html>'
+    );
+    popup.document.close();
+  }
+  const pdfButton = { ...button, borderColor: 'var(--ls-primary, #0E5E6F)', color: 'var(--ls-primary, #0E5E6F)' };
+  const td = { padding: '12px 10px', borderTop: '1px solid #edf1f5', verticalAlign: 'middle' };
   const visibleFeedback = Object.entries(feedback);
   async function copyFeedback() {
     const text = visibleFeedback.map(([key,value]) => key + ': ' + value).join('\n') + (note ? '\nملاحظات: ' + note : '');
@@ -214,22 +258,24 @@ export default function AIAnalysis() {
 
         {section==='forecast' && <>
           <p className="ls-muted">Suggestions de réapprovisionnement actuelles de l’application, calculées par les fonctions existantes sans modification. Consultation uniquement : aucune commande ni modification du stock.</p>
-          <div style={{overflowX:'auto'}}><table className="ls-table" style={{width:'100%'}}><thead><tr>{['Désignation','Stock actuel','Baisse moyenne / jour','Jours restants','Quantité suggérée','Date de dernière lecture'].map(x=><th key={x} style={th}>{x}</th>)}</tr></thead><tbody>
-            {filteredForecasts.slice(0,300).map((p,i)=><tr key={p.id || p.product_ref || i}><td style={td}>{p.name || '—'}</td><td style={td}>{p.current_quantity ?? '—'}</td><td style={td}>{p.average_daily_decrease == null ? '—' : Number(p.average_daily_decrease).toFixed(2)}</td><td style={td}>{p.days_remaining == null ? '—' : Number(p.days_remaining).toFixed(1)}</td><td style={td}><strong>{p.suggested_order_quantity ?? '—'}</strong></td><td style={td}>{p.last_snapshot_date || '—'}</td></tr>)}
+          <div style={{display:'flex',justifyContent:'flex-end',marginBottom:8}}><button type="button" style={pdfButton} onClick={()=>exportPdf('Prévision de la demande — '+module,['Désignation','Stock actuel','Baisse moyenne / jour','Jours restants','Quantité suggérée','Date de dernière lecture'],sortRows(filteredForecasts,'forecast').map(p=>[p.name,p.current_quantity,p.average_daily_decrease == null ? '—' : Number(p.average_daily_decrease).toFixed(2),p.days_remaining == null ? '—' : Number(p.days_remaining).toFixed(1),p.suggested_order_quantity,p.last_snapshot_date]))}>Exporter PDF</button></div>
+          <div className="ls-table-wrap"><table className="ls-table" style={{width:'100%'}}><thead><tr>{[['Désignation','name'],['Stock actuel','current_quantity'],['Baisse moyenne / jour','average_daily_decrease'],['Jours restants','days_remaining'],['Quantité suggérée','suggested_order_quantity'],['Date de dernière lecture','last_snapshot_date']].map(([label,key])=>sortHeader(label,key,'forecast'))}</tr></thead><tbody>
+            {sortRows(filteredForecasts,'forecast').slice(0,300).map((p,i)=><tr key={p.id || p.product_ref || i}><td style={td}>{p.name || '—'}</td><td style={td}>{p.current_quantity ?? '—'}</td><td style={td}>{p.average_daily_decrease == null ? '—' : Number(p.average_daily_decrease).toFixed(2)}</td><td style={td}>{p.days_remaining == null ? '—' : Number(p.days_remaining).toFixed(1)}</td><td style={td}><strong>{p.suggested_order_quantity ?? '—'}</strong></td><td style={td}>{p.last_snapshot_date || '—'}</td></tr>)}
           </tbody></table></div>
           <p className="ls-muted">Affichage {Math.min(filteredForecasts.length,300)} sur {filteredForecasts.length} suggestions.</p>
         </>}
 
         {section==='negative' && <>
           <p className="ls-muted">Chaque cas présente les 5 meilleurs candidats de la même base. Le classement est expérimental et ne confirme pas automatiquement une correspondance.</p>
+          <div style={{display:'flex',justifyContent:'flex-end',marginBottom:8}}><button type="button" style={pdfButton} onClick={()=>exportPdf('Ventes négatives et rapprochement — '+module,['Produit concerné','Mois','Quantité négative','Candidat','Score /100','Prix de détail','Ventes du même mois','Stock actuel'],filteredNegatives.flatMap(item=>sortRows(item.candidates,'candidate').map(c=>[item.name+' ('+item.product_ref+')',MONTH_NAMES[Number(item.month_no)-1] || item.month_no,item.negative_quantity,c.name,Number(c.score).toFixed(1),c.retail_price,c.monthSales,c.current_quantity])))}>Exporter PDF</button></div>
           <div style={{display:'grid',gap:12}}>
             {filteredNegatives.slice(0,100).map((item,idx)=><article key={item.product_ref+'-'+item.month_no+'-'+idx} style={panel}>
               <div style={{display:'flex',justifyContent:'space-between',gap:8,flexWrap:'wrap'}}>
                 <strong>{item.name} <span className="ls-muted">({item.product_ref})</span></strong>
                 <span style={{color:'var(--ls-accent, #D9622B)',fontWeight:800}}>{item.negative_quantity} · {MONTH_NAMES[Number(item.month_no)-1] || ('Mois '+item.month_no)}</span>
               </div>
-              <div style={{overflowX:'auto',marginTop:8}}><table className="ls-table" style={{width:'100%'}}><thead><tr>{['Candidat','Score /100','Prix de détail','Ventes du même mois','Stock actuel','Votre évaluation'].map(x=><th key={x} style={th}>{x}</th>)}</tr></thead><tbody>
-                {item.candidates.map(c=>{const key=module+':'+item.product_ref+':'+item.month_no+':'+c.product_ref;return <tr key={c.product_ref}><td style={td}>{c.name}</td><td style={td}>{c.score.toFixed(1)}/100</td><td style={td}>{c.retail_price ?? '—'}</td><td style={td}>{c.monthSales}</td><td style={td}>{c.current_quantity ?? '—'}</td><td style={td}><div style={{display:'flex',gap:5,flexWrap:'wrap'}}><button style={{...button,padding:'5px 8px',fontSize:11}} onClick={()=>setFeedback(v=>({...v,[key]:'مرشح Correct'}))}>Correct</button><button style={{...button,padding:'5px 8px',fontSize:11}} onClick={()=>setFeedback(v=>({...v,[key]:'غير Correct'}))}>Incorrect</button>{feedback[key]&&<small>{feedback[key]}</small>}</div></td></tr>;})}
+              <div className="ls-table-wrap" style={{marginTop:8}}><table className="ls-table" style={{width:'100%'}}><thead><tr>{[['Candidat','name'],['Score /100','score'],['Prix de détail','retail_price'],['Ventes du même mois','monthSales'],['Stock actuel','current_quantity']].map(([label,key])=>sortHeader(label,key,'candidate'))}<th style={th}>Votre évaluation</th></tr></thead><tbody>
+                {sortRows(item.candidates,'candidate').map(c=>{const key=module+':'+item.product_ref+':'+item.month_no+':'+c.product_ref;return <tr key={c.product_ref}><td style={td}>{c.name}</td><td style={td}>{c.score.toFixed(1)}/100</td><td style={td}>{c.retail_price ?? '—'}</td><td style={td}>{c.monthSales}</td><td style={td}>{c.current_quantity ?? '—'}</td><td style={td}><div style={{display:'flex',gap:5,flexWrap:'wrap'}}><button style={{...button,padding:'5px 8px',fontSize:11}} onClick={()=>setFeedback(v=>({...v,[key]:'مرشح Correct'}))}>Correct</button><button style={{...button,padding:'5px 8px',fontSize:11}} onClick={()=>setFeedback(v=>({...v,[key]:'غير Correct'}))}>Incorrect</button>{feedback[key]&&<small>{feedback[key]}</small>}</div></td></tr>;})}
               </tbody></table></div>
             </article>)}
           </div>
@@ -238,8 +284,9 @@ export default function AIAnalysis() {
 
         {section==='stopped' && <>
           <p className="ls-muted">La détection utilise le dernier mois complet (octobre 2026) et compare les deux derniers mois aux quatre mois précédents. Le stock actuel est un indicateur, pas une preuve de la cause de l’arrêt.</p>
-          <div style={{overflowX:'auto'}}><table className="ls-table" style={{width:'100%'}}><thead><tr>{['Désignation','Dernier mois de vente','Durée d’arrêt','Stock actuel','Moyenne précédente','Moyenne récente','Statut'].map(x=><th key={x} style={th}>{x}</th>)}</tr></thead><tbody>
-            {filteredStopped.slice(0,300).map(p=><tr key={p.product_ref}><td style={td}>{p.name}</td><td style={td}>{MONTH_NAMES[p.lastSaleMonth-1]}</td><td style={td}>{p.gap} Mois</td><td style={td}>{p.stock}</td><td style={td}>{p.priorAvg.toFixed(1)}</td><td style={td}>{p.recentAvg.toFixed(1)}</td><td style={td}>{p.status}{p.decline?' · Baisse notable':''}</td></tr>)}
+          <div style={{display:'flex',justifyContent:'flex-end',marginBottom:8}}><button type="button" style={pdfButton} onClick={()=>exportPdf('Arrêt / baisse des ventes — '+module,['Désignation','Dernier mois de vente','Durée d’arrêt','Stock actuel','Moyenne précédente','Moyenne récente','Statut'],sortRows(filteredStopped,'stopped').map(p=>[p.name,MONTH_NAMES[p.lastSaleMonth-1],p.gap+' mois',p.stock,p.priorAvg.toFixed(1),p.recentAvg.toFixed(1),p.status+(p.decline?' · Baisse notable':'')]))}>Exporter PDF</button></div>
+          <div className="ls-table-wrap"><table className="ls-table" style={{width:'100%'}}><thead><tr>{[['Désignation','name'],['Dernier mois de vente','lastSaleMonth'],['Durée d’arrêt','gap'],['Stock actuel','stock'],['Moyenne précédente','priorAvg'],['Moyenne récente','recentAvg'],['Statut','status']].map(([label,key])=>sortHeader(label,key,'stopped'))}</tr></thead><tbody>
+            {sortRows(filteredStopped,'stopped').slice(0,300).map(p=><tr key={p.product_ref}><td style={td}>{p.name}</td><td style={td}>{MONTH_NAMES[p.lastSaleMonth-1]}</td><td style={td}>{p.gap} Mois</td><td style={td}>{p.stock}</td><td style={td}>{p.priorAvg.toFixed(1)}</td><td style={td}>{p.recentAvg.toFixed(1)}</td><td style={td}>{p.status}{p.decline?' · Baisse notable':''}</td></tr>)}
           </tbody></table></div>
           <p className="ls-muted">Affichage {Math.min(filteredStopped.length,300)} sur {filteredStopped.length} produits.</p>
         </>}
