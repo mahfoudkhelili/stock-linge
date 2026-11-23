@@ -2268,13 +2268,12 @@ export default function App() {
   }
   function getMoquetteLabelData(product) {
     const words = String(product.name || '').trim().split(/\s+/);
-    // La largeur est la première valeur numérique située après le mot COULOIR
-    // (ex. « COULOIR ESPLANA 83 AU ML » ou « COULOIR 0 NOMADE … »).
+    // Même extraction de largeur que le tableau Prix couloir.
     const moquetteIndex = words.findIndex((word) => /^COULOIR$/i.test(word));
     const width = moquetteIndex >= 0
       ? (words.slice(moquetteIndex + 1).find((word) => /^\d+(?:[.,]\d+)?$/.test(word)) || '')
       : '';
-    // Le prix de l'étiquette Prix moquette est le Prix de détail du produit.
+    // Le prix de l'étiquette Prix moquette mosquée est le Prix de détail du produit.
     const retailPrice = product.retail_price;
     const price = retailPrice == null || String(retailPrice).trim() === '' ? '' : String(retailPrice).trim();
     return { width, price };
@@ -5457,7 +5456,7 @@ export default function App() {
                     {moquetteLines.map(line=>{const data=getMoquetteLabelData(line);return <tr key={`${line.catalog_source}:${line.id}`}><td style={styles.td}>{line.name}</td><td style={styles.td}>{data.width||'—'}</td><td style={styles.td}>{data.price||'—'}</td><td style={styles.td}><input type="number" min="1" max="500" style={{...styles.field,width:78}} value={line.quantity} onChange={e=>updateMoquetteLineQuantity(line,e.target.value)}/></td><td style={styles.td}><button type="button" style={styles.secondary} onClick={()=>setMoquetteLines(current=>current.filter(item=>!(String(item.id)===String(line.id)&&item.catalog_source===line.catalog_source)))}>Retirer</button></td></tr>})}
                   </tbody></table></div>}
                   <div className="ls-toolbar" style={{marginTop:12}}>
-                    <button type="button" style={styles.button} disabled={pdfBusy||moquetteLines.length===0||moquetteLines.reduce((sum,line)=>sum+Math.max(0,Number(line.quantity)||0),0)>500} onClick={makeMoquettePdf}>{pdfBusy?'Préparation…':'Générer PDF Prix moquette mosquée mosquée'}</button>
+                    <button type="button" style={styles.button} disabled={pdfBusy||moquetteLines.length===0||moquetteLines.reduce((sum,line)=>sum+Math.max(0,Number(line.quantity)||0),0)>500} onClick={makeMoquettePdf}>{pdfBusy?'Préparation…':'Générer PDF Prix moquette mosquée'}</button>
                     <button type="button" style={styles.secondary} onClick={()=>{setMoquetteLines([]);setMoquetteSearch('');}}>Vider la sélection</button>
                   </div>
                 </div>
