@@ -2215,9 +2215,9 @@ export default function App() {
           }
           doc.text(nameText, 50, 31, { align: 'center' });
 
-          // Largeur : on conserve la taille précédente et l'unité mm.
+          // Largeur : taille réduite pour rester visuellement sous la désignation.
           doc.setFont('helvetica', 'normal');
-          doc.setFontSize(18);
+          doc.setFontSize(14);
           doc.text('LARGEUR : ' + data.width + ' mm', 8, 52);
 
           // Prix : 5 fois la taille initiale (60 pt), gras et italique.
