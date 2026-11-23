@@ -2209,12 +2209,12 @@ export default function App() {
           doc.setFontSize(25);
           const nameText = String(product.name || '');
           const nameLines = doc.splitTextToSize(nameText, 88).slice(0, 2);
-          doc.text(nameLines, 50, 25, { align: 'center', lineHeightFactor: 1.0 });
+          doc.text(nameLines, 50, 30, { align: 'center', lineHeightFactor: 1.0 });
 
           // Largeur : taille réduite pour rester visuellement sous la désignation.
           doc.setFont('helvetica', 'normal');
           doc.setFontSize(14);
-          doc.text('LARGEUR : ' + data.width + ' mm', 8, 52);
+          doc.text('LARGEUR : ' + data.width + ' mm', 8, 60);
 
           // Prix : 5 fois la taille initiale (60 pt), gras et italique.
           const priceText = 'PRIX : ' + data.price + ' DA / m';
@@ -2225,7 +2225,7 @@ export default function App() {
             priceFontSize -= 1;
             doc.setFontSize(priceFontSize);
           }
-          doc.text(priceText, 50, 81, { align: 'center' });
+          doc.text(priceText, 50, 79, { align: 'center' });
 
           // Mention des réseaux sociaux en bas, à la taille du nom de la boutique.
           doc.setFont('helvetica', 'normal');
