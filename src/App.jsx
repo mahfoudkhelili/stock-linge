@@ -240,7 +240,7 @@ export default function App() {
       const { data, error } = await supabase
         .from('products')
         .select(
-          'id, product_ref, reference_1, name, detail, current_quantity, wholesale_price, retail_price, min_stock_level, is_hidden, is_active, is_in_latest_pdf'
+          'id, product_ref, reference_1, name, current_quantity, wholesale_price, retail_price, min_stock_level, is_hidden, is_active, is_in_latest_pdf'
         )
         .eq('is_active', true)
         .eq('is_hidden', false)
@@ -266,7 +266,7 @@ export default function App() {
     const { data: inactiveArinaProducts, error: inactiveArinaError } = await supabase
       .from('products')
       .select(
-        'id, product_ref, reference_1, name, detail, current_quantity, wholesale_price, retail_price, min_stock_level, is_hidden, is_active, is_in_latest_pdf'
+        'id, product_ref, reference_1, name, current_quantity, wholesale_price, retail_price, min_stock_level, is_hidden, is_active, is_in_latest_pdf'
       )
       .eq('is_active', false)
       .eq('is_hidden', false)
@@ -289,7 +289,7 @@ export default function App() {
     while (true) {
       const { data: tapisPage, error: tapisError } = await supabase
         .from('tapis_products')
-        .select('id, product_ref, reference_1, name, detail, current_quantity, wholesale_price, retail_price, min_stock_level, is_hidden, is_active, is_in_latest_pdf')
+        .select('id, product_ref, reference_1, name, current_quantity, wholesale_price, retail_price, min_stock_level, is_hidden, is_active, is_in_latest_pdf')
         .eq('is_active', true)
         .eq('is_hidden', false)
         .order('name')
