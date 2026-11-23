@@ -226,6 +226,12 @@ export default function App() {
   const [scannerTarget, setScannerTarget] = useState(null);
   const [scannerStatus, setScannerStatus] = useState('');
   const scannerVideoRef = useRef(null);
+  const [tapisTickets, setTapisTickets] = useState([]);
+  const [ticketDraft, setTicketDraft] = useState({type:'',denomination:'',dimension:'',dessin:'',couleur:'',code_barres:''});
+  const [ticketPhoto, setTicketPhoto] = useState('');
+  const [ticketMessage, setTicketMessage] = useState('');
+  const [ticketBusy, setTicketBusy] = useState(false);
+  const ticketFileRef = useRef(null);
   const [printSettings, setPrintSettings] = useState({ invoice_width_cm: 10, invoice_height_cm: 15, label_width_cm: 5, label_height_cm: 3 });
   const [printSettingsMessage, setPrintSettingsMessage] = useState('');
   const [pdfBusy, setPdfBusy] = useState(false);
@@ -2506,6 +2512,41 @@ export default function App() {
     start(); return cleanup;
   }, [scannerTarget, catalogProducts]);
 
+
+  async function loadTapisTickets() {
+    const {data,error}=await supabase.from('tapis_ticket_catalog').select('id,type,denomination,dimension,dessin,couleur,code_barres,created_at').order('created_at',{ascending:false}).limit(500);
+    if(error) setTicketMessage('Erreur : '+error.message); else setTapisTickets(data||[]);
+  }
+  async function readTapisTicket(file) {
+    if(!file)return;
+    setTicketPhoto(URL.createObjectURL(file)); setTicketBusy(true); setTicketMessage('Lecture OCR en cours…');
+    try {
+      if(!window.Tesseract) await new Promise((resolve,reject)=>{
+        const script=document.createElement('script'); script.src='https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';
+        script.onload=resolve; script.onerror=()=>reject(new Error('Impossible de charger le moteur OCR.')); document.head.appendChild(script);
+      });
+      const result=await window.Tesseract.recognize(file,'eng',{logger:()=>{}});
+      const txt=result.data.text||'', lines=txt.split(/\r?\n/).map(x=>x.trim()).filter(Boolean);
+      const code=(txt.match(/\b\d{10,14}\b/)||[])[0]||'';
+      const dim=(txt.match(/\b\d{2,3}\s*[xX×]\s*\d{2,3}\b/)||[])[0]||'';
+      setTicketDraft({type:lines.find(x=>/ECLAT|MANISA/i.test(x))||'',denomination:lines.find(x=>/TAPIS|ENS/i.test(x))||'',dimension:dim.replace(/\s/g,''),dessin:lines.find(x=>/\b[A-Z0-9]{4,8}\b/i.test(x)&&!/ECLAT|MANISA|TAPIS|ENS/i.test(x))||'',couleur:lines.find(x=>/ECRU|BRONZ|BEIGE|GRIS|NOIR|BLANC|IVOIRE/i.test(x))||'',code_barres:code});
+      setTicketMessage('قراءة أولية فقط. راجع وصحّح كل المعلومات، خاصة الرقم العمودي بجانب QR، قبل الحفظ.');
+    } catch(e){setTicketMessage(e.message||'تعذرت قراءة الصورة؛ يمكنك إدخال المعلومات يدوياً.');}
+    finally{setTicketBusy(false);}
+  }
+  async function saveTapisTicket() {
+    const v=Object.fromEntries(Object.entries(ticketDraft).map(([k,x])=>[k,String(x||'').trim()]));
+    if(Object.values(v).some(x=>!x)){setTicketMessage('أكمل جميع الخانات.');return;}
+    if(!/^\d{10,14}$/.test(v.code_barres)){setTicketMessage('رقم التعريف العمودي يجب أن يكون من 10 إلى 14 رقماً.');return;}
+    const {data:old,error:check}=await supabase.from('tapis_ticket_catalog').select('id').eq('code_barres',v.code_barres).maybeSingle();
+    if(check){setTicketMessage('تعذر التحقق: '+check.message);return;}
+    if(old){setTicketMessage('هذا التيكي مسجل من قبل، لم تتم إضافة تكرار.');return;}
+    const {error}=await supabase.from('tapis_ticket_catalog').insert({...v,created_by:user.id,source_label:'camera'});
+    if(error){setTicketMessage('فشل الحفظ: '+error.message);return;}
+    setTicketMessage('تم تسجيل التيكي بنجاح.'); setTicketDraft({type:'',denomination:'',dimension:'',dessin:'',couleur:'',code_barres:''}); setTicketPhoto('');
+    if(ticketFileRef.current)ticketFileRef.current.value=''; await loadTapisTickets();
+  }
+
   function navigateTo(page) {
     setScannerTarget(null);
     setActivePage(page);
@@ -2526,6 +2567,7 @@ export default function App() {
       loadTapisStockDecreaseAnalysis();
     }
     if (page === 'tapis-analysis') { loadTapisSuggestedProducts(); loadTapisStockDecreaseAnalysis(); }
+    if (page === 'tapis') loadTapisTickets();
     if (page === 'history' && canViewPage('history')) loadStockHistory();
     if (page === 'requests') loadReplenishmentRequests();
     if (page === 'notes') loadProductNotes();
@@ -2574,6 +2616,7 @@ export default function App() {
       icon: '⌁',
       admin: true,
     },
+    { id: 'tapis', label: 'Tapis', icon: '▧', adminOnly: true },
     {
       id: 'tapis-analysis',
       label: language === 'ar' ? 'Analyse Tapis' : 'Analyse Tapis',
@@ -4824,6 +4867,24 @@ export default function App() {
               </section>
             )}
 
+
+
+            {activePage === 'tapis' && isAdmin && (
+              <section className="ls-panel">
+                <h2 style={{marginTop:0}}>Catalogue des tickets Tapis</h2>
+                <p className="ls-muted">Scanner le ticket, vérifier les informations, puis enregistrer. Catalogue indépendant du stock officiel.</p>
+                <button type="button" style={styles.button} onClick={()=>ticketFileRef.current?.click()} disabled={ticketBusy}>{ticketBusy?'Lecture en cours…':'📷 Scanner ticket'}</button>
+                <input ref={ticketFileRef} type="file" accept="image/*" capture="environment" style={{display:'none'}} onChange={e=>readTapisTicket(e.target.files?.[0])}/>
+                {ticketPhoto && <img src={ticketPhoto} alt="Ticket photographié" style={{display:'block',width:'100%',maxWidth:340,maxHeight:260,objectFit:'contain',marginTop:12,borderRadius:10}}/>}
+                {ticketMessage && <p className="ls-message" role="status">{ticketMessage}</p>}
+                <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(180px,1fr))',gap:12,marginTop:14}}>
+                  { [['type','Type'],['denomination','Dénomination'],['dimension','Dimension'],['dessin','Dessin'],['couleur','Couleur'],['code_barres','N° vertical à côté du QR']].map(([k,label])=><label key={k} style={{display:'grid',gap:5,fontWeight:600}}>{label}<input style={styles.field} value={ticketDraft[k]} onChange={e=>setTicketDraft(v=>({...v,[k]:e.target.value}))}/></label>)}
+                </div>
+                <div style={{display:'flex',gap:10,marginTop:14,flexWrap:'wrap'}}><button type="button" style={styles.button} onClick={saveTapisTicket}>Valider et enregistrer</button><button type="button" style={styles.secondary} onClick={()=>{setTicketDraft({type:'',denomination:'',dimension:'',dessin:'',couleur:'',code_barres:''});setTicketPhoto('');setTicketMessage('');}}>Effacer</button></div>
+                <h3 style={{marginTop:24}}>Tickets enregistrés ({tapisTickets.length})</h3>
+                <div style={{overflowX:'auto'}}><table className="ls-table"><thead><tr>{['Type','Dénomination','Dimension','Dessin','Couleur','N° vertical'].map(x=><th style={styles.th} key={x}>{x}</th>)}</tr></thead><tbody>{tapisTickets.map(x=><tr key={x.id}>{[x.type,x.denomination,x.dimension,x.dessin,x.couleur,x.code_barres].map((v,i)=><td style={styles.td} key={i}>{v}</td>)}</tr>)}</tbody></table></div>
+              </section>
+            )}
 
             {activePage === 'tapis-analysis' && canViewPage('tapis-analysis') && (
               <section className="ls-panel">
