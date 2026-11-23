@@ -2526,7 +2526,12 @@ export default function App() {
         script.onload=resolve; script.onerror=()=>reject(new Error('Impossible de charger le moteur OCR.')); document.head.appendChild(script);
       });
       const result=await window.Tesseract.recognize(file,'eng',{logger:()=>{}});
-      const txt=result.data.text||'', lines=txt.split(/\r?\n/).map(x=>x.trim()).filter(Boolean);
+      const img=new Image(); img.src=URL.createObjectURL(file);
+      await new Promise((resolve,reject)=>{img.onload=resolve;img.onerror=reject;});
+      const canvas=document.createElement('canvas'); canvas.width=img.height; canvas.height=img.width;
+      const ctx=canvas.getContext('2d'); ctx.translate(canvas.width/2,canvas.height/2); ctx.rotate(Math.PI/2); ctx.drawImage(img,-img.width/2,-img.height/2);
+      const rotated=await window.Tesseract.recognize(canvas,'eng',{logger:()=>{}});
+      const txt=[result.data.text||'',rotated.data.text||''].join('\n'), lines=txt.split(/\r?\n/).map(x=>x.trim()).filter(Boolean);
       const code=(txt.match(/\b\d{10,14}\b/)||[])[0]||'';
       const dim=(txt.match(/\b\d{2,3}\s*[xX×]\s*\d{2,3}\b/)||[])[0]||'';
       setTicketDraft({type:lines.find(x=>/ECLAT|MANISA/i.test(x))||'',denomination:lines.find(x=>/TAPIS|ENS/i.test(x))||'',dimension:dim.replace(/\s/g,''),dessin:lines.find(x=>/\b[A-Z0-9]{4,8}\b/i.test(x)&&!/ECLAT|MANISA|TAPIS|ENS/i.test(x))||'',couleur:lines.find(x=>/ECRU|BRONZ|BEIGE|GRIS|NOIR|BLANC|IVOIRE/i.test(x))||'',code_barres:code});
@@ -2674,7 +2679,7 @@ export default function App() {
   ];
 
   const isAdmin = user?.profile?.role === 'admin';
-  const canViewPage = (pageId) => isAdmin || (['sales', 'labels', 'barcode'].includes(pageId) ? pagePermissions[pageId] === true : pagePermissions[pageId] === true || (!navItems?.find?.((item) => item.id === pageId)?.admin && !navItems?.find?.((item) => item.id === pageId)?.adminOnly && pagePermissions[pageId] !== false));
+  const canViewPage = (pageId) => pageId === 'tapis' ? isAdmin : isAdmin || (['sales', 'labels', 'barcode'].includes(pageId) ? pagePermissions[pageId] === true : pagePermissions[pageId] === true || (!navItems?.find?.((item) => item.id === pageId)?.admin && !navItems?.find?.((item) => item.id === pageId)?.adminOnly && pagePermissions[pageId] !== false));
   const normalizeName = (value) =>
     String(value || '')
       .toLocaleUpperCase('fr')
@@ -2817,6 +2822,7 @@ export default function App() {
   ).length;
 
   const visibleNavItems = navItems
+    .filter((item) => item.id !== 'tapis' || isAdmin)
     .filter((item) => (!item.admin || isAdmin || pagePermissions[item.id] === true) && (!item.adminOnly || isAdmin || pagePermissions[item.id] === true))
     .filter((item) => !hiddenPages.includes(item.id))
     .filter((item) => isAdmin || pagePermissions[item.id] !== false)
