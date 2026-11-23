@@ -2169,9 +2169,16 @@ export default function App() {
   }
   function getCouloirLabelData(product) {
     const words = String(product.name || '').trim().split(/\s+/);
-    const width = words.length >= 3 && /^COULOIR$/i.test(words[0]) ? words[2] : '';
-    const detail = String(product.detail ?? product.details ?? '').match(/:\s*([0-9][0-9\s.,]*)/);
-    return { width, price: detail ? detail[1].trim() : '' };
+    // La largeur est la première valeur numérique située après le mot COULOIR
+    // (ex. « COULOIR ESPLANA 83 AU ML » ou « COULOIR 0 NOMADE … »).
+    const couloirIndex = words.findIndex((word) => /^COULOIR$/i.test(word));
+    const width = couloirIndex >= 0
+      ? (words.slice(couloirIndex + 1).find((word) => /^\d+(?:[.,]\d+)?$/.test(word)) || '')
+      : '';
+    // Le prix de l'étiquette Prix couloir est le Prix de détail du produit.
+    const retailPrice = product.retail_price;
+    const price = retailPrice == null || String(retailPrice).trim() === '' ? '' : String(retailPrice).trim();
+    return { width, price };
   }
   async function makeCouloirPdf() {
     if (pdfBusy) return;
