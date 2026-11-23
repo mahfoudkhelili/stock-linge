@@ -216,6 +216,9 @@ export default function App() {
   const [couloirSearch, setCouloirSearch] = useState('');
   const [couloirLines, setCouloirLines] = useState([]);
   const [couloirAddQuantities, setCouloirAddQuantities] = useState({});
+  const [moquetteSearch, setMoquetteSearch] = useState('');
+  const [moquetteLines, setMoquetteLines] = useState([]);
+  const [moquetteAddQuantities, setMoquetteAddQuantities] = useState({});
   const [hideLabelPrice, setHideLabelPrice] = useState(false);
   const [barcodeSearch, setBarcodeSearch] = useState('');
   const [barcodeLines, setBarcodeLines] = useState([]);
@@ -2246,6 +2249,101 @@ export default function App() {
       window.setTimeout(() => URL.revokeObjectURL(pdfUrl), 60000);
       setMessage('PDF Prix couloir prêt au téléchargement : ' + total + ' étiquette(s).');
     } catch (error) { window.alert('Erreur création PDF Prix couloir : ' + (error?.message || error)); }
+    finally { setPdfBusy(false); }
+  }
+
+
+  function addMoquetteLine(product, requestedQuantity = 1) {
+    if (!product) return;
+    const quantity = Math.floor(Number(requestedQuantity));
+    if (!Number.isFinite(quantity) || quantity <= 0) { window.alert('Saisissez un nombre d’étiquettes supérieur à zéro.'); return; }
+    setMoquetteLines((current) => {
+      const exists = current.find((line) => String(line.id) === String(product.id) && line.catalog_source === product.catalog_source);
+      return exists ? current.map((line) => String(line.id) === String(product.id) && line.catalog_source === product.catalog_source ? { ...line, quantity: Math.min(500, Number(line.quantity || 0) + quantity) } : line) : [...current, { ...product, quantity: Math.min(500, quantity) }];
+    });
+  }
+  function updateMoquetteLineQuantity(product, value) {
+    const quantity = value === '' ? '' : Math.max(1, Math.min(500, Math.floor(Number(value) || 1)));
+    setMoquetteLines((current) => current.map((line) => String(line.id) === String(product.id) && line.catalog_source === product.catalog_source ? { ...line, quantity } : line));
+  }
+  function getMoquetteLabelData(product) {
+    const words = String(product.name || '').trim().split(/\s+/);
+    // La largeur est la première valeur numérique située après le mot COULOIR
+    // (ex. « COULOIR ESPLANA 83 AU ML » ou « COULOIR 0 NOMADE … »).
+    const moquetteIndex = words.findIndex((word) => /^COULOIR$/i.test(word));
+    const width = moquetteIndex >= 0
+      ? (words.slice(moquetteIndex + 1).find((word) => /^\d+(?:[.,]\d+)?$/.test(word)) || '')
+      : '';
+    // Le prix de l'étiquette Prix moquette est le Prix de détail du produit.
+    const retailPrice = product.retail_price;
+    const price = retailPrice == null || String(retailPrice).trim() === '' ? '' : String(retailPrice).trim();
+    return { width, price };
+  }
+  async function makeMoquettePdf() {
+    if (pdfBusy) return;
+    const chosen = moquetteLines.filter((line) => Number(line.quantity) > 0);
+    const total = chosen.reduce((sum, line) => sum + Math.floor(Number(line.quantity)), 0);
+    if (!total) { window.alert('Choisissez au moins un produit et un nombre d’étiquettes.'); return; }
+    if (total > 500) { window.alert('Limite de sécurité : 500 étiquettes par PDF.'); return; }
+    const missing = chosen.find((line) => { const data = getMoquetteLabelData(line); return !data.width || !data.price; });
+    if (missing) { window.alert('LARGEUR ou PRIX introuvable dans la désignation/DETAIL de : ' + missing.name); return; }
+    setPdfBusy(true);
+    try {
+      const { jsPDF } = await import('jspdf');
+      const width = 100, height = 100;
+      const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: [width, height] });
+      let page = 0;
+      for (const product of chosen) {
+        const data = getMoquetteLabelData(product);
+        for (let copy = 0; copy < Math.floor(Number(product.quantity)); copy++) {
+          if (page++) doc.addPage([width, height], 'portrait');
+          // Nom de la boutique tout en haut de l'étiquette.
+          doc.setFont('helvetica', 'normal');
+          doc.setFontSize(12);
+          doc.text('Africha Shop Hamiz', 50, 8, { align: 'center' });
+
+          // Désignation sur deux lignes maximum, centrée, avec une taille fixe de 25 pt.
+          doc.setFont('helvetica', 'bold');
+          doc.setFontSize(25);
+          const nameText = String(product.name || '');
+          const nameLines = doc.splitTextToSize(nameText, 88).slice(0, 2);
+          doc.text(nameLines, 50, 30, { align: 'center', lineHeightFactor: 1.0 });
+
+          // Largeur : taille réduite pour rester visuellement sous la désignation.
+          doc.setFont('helvetica', 'normal');
+          doc.setFontSize(14);
+          doc.text('LARGEUR : ' + data.width + ' mm', 8, 60);
+
+          // Prix : 5 fois la taille initiale (60 pt), gras et italique.
+          const priceText = 'PRIX : ' + data.price + ' DA / m²';
+          doc.setFont('helvetica', 'bolditalic');
+          let priceFontSize = 60;
+          doc.setFontSize(priceFontSize);
+          while (doc.getTextWidth(priceText) > 92 && priceFontSize > 30) {
+            priceFontSize -= 1;
+            doc.setFontSize(priceFontSize);
+          }
+          doc.text(priceText, 50, 79, { align: 'center' });
+
+          // Mention des réseaux sociaux en bas, à la taille du nom de la boutique.
+          doc.setFont('helvetica', 'normal');
+          doc.setFontSize(12);
+          doc.text('FB/ INSTA : AFRICHA SHOP', 50, 97, { align: 'center' });
+        }
+      }
+      // Téléchargement direct via Blob : évite l'ouverture d'une page PDF vide sur mobile.
+      const pdfBlob = doc.output('blob');
+      const pdfUrl = URL.createObjectURL(pdfBlob);
+      const downloadLink = document.createElement('a');
+      downloadLink.href = pdfUrl;
+      downloadLink.download = 'prix-moquette-mosquee-' + new Date().toISOString().slice(0, 10) + '.pdf';
+      downloadLink.style.display = 'none';
+      document.body.appendChild(downloadLink);
+      downloadLink.click();
+      downloadLink.remove();
+      window.setTimeout(() => URL.revokeObjectURL(pdfUrl), 60000);
+      setMessage('PDF Prix moquette mosquée prêt au téléchargement : ' + total + ' étiquette(s).');
+    } catch (error) { window.alert('Erreur création PDF Prix moquette mosquée : ' + (error?.message || error)); }
     finally { setPdfBusy(false); }
   }
 
@@ -5344,6 +5442,23 @@ export default function App() {
                   <div className="ls-toolbar" style={{marginTop:12}}>
                     <button type="button" style={styles.button} disabled={pdfBusy||couloirLines.length===0||couloirLines.reduce((sum,line)=>sum+Math.max(0,Number(line.quantity)||0),0)>500} onClick={makeCouloirPdf}>{pdfBusy?'Préparation…':'Générer PDF Prix couloir'}</button>
                     <button type="button" style={styles.secondary} onClick={()=>{setCouloirLines([]);setCouloirSearch('');}}>Vider la sélection</button>
+                  </div>
+                </div>
+                <div style={{marginTop:30,paddingTop:20,borderTop:'1px solid #dbe3ec'}}>
+                  <h2>Prix moquette mosquée</h2>
+                  <p className="ls-muted">Étiquettes carrées 100 × 100 mm. Nom du produit, largeur extraite de la désignation et prix extrait de DETAIL.</p>
+                  <ClearableSearchInput style={{...styles.field,marginTop:4}} value={moquetteSearch} onChange={(e)=>setMoquetteSearch(e.target.value)} onKeyDown={(e)=>{if(e.key==='Enter'){e.preventDefault();const first=catalogProducts.find(p=>productMatchesSearch(p,moquetteSearch));if(first)addMoquetteLine(first,1);}}} placeholder="Rechercher un produit moquette…"/>
+                  {moquetteSearch.trim() && <div className="ls-table-wrap ls-force-table" style={{marginTop:10}}><table className="ls-table"><colgroup><col style={{width:'48%'}}/><col style={{width:'32%'}}/><col style={{width:'20%'}}/></colgroup><thead><tr><th style={styles.th}>Désignation</th><th style={styles.th}>Quantité</th><th style={styles.th}>Action</th></tr></thead><tbody>
+                    {/* Prix moquette mosquée search table: Désignation, Quantité, Action */}
+                  {catalogProducts.filter(p=>productMatchesSearch(p,moquetteSearch)).slice(0,30).map(p=><tr key={`${p.catalog_source}:${p.id}`}><td style={styles.td}><strong>{p.name}{p.catalog_source==='tapis_products'?<small style={{marginInlineStart:7,color:'#64748b'}}>Tapis</small>:null}</strong></td><td style={styles.td}><div className="label-qty-control"><input type="number" min="1" max="500" step="1" aria-label={`Quantité à ajouter pour ${p.name}`} style={{...styles.field,width:90}} value={moquetteAddQuantities[`${p.catalog_source}:${p.id}`] ?? '1'} onChange={e=>setMoquetteAddQuantities(current=>({...current,[`${p.catalog_source}:${p.id}`]:e.target.value}))}/><button type="button" className="label-qty-plus" aria-label={`Augmenter la quantité pour ${p.name}`} onClick={()=>setMoquetteAddQuantities(current=>({...current,[`${p.catalog_source}:${p.id}`]:String(Math.min(500,Math.max(1,Number(current[`${p.catalog_source}:${p.id}`]||1))+1))}))}>+</button></div></td><td style={styles.td}><button type="button" style={styles.button} onClick={()=>addMoquetteLine(p,moquetteAddQuantities[`${p.catalog_source}:${p.id}`] ?? 1)}>Ajouter</button></td></tr>)}
+                    {catalogProducts.filter(p=>productMatchesSearch(p,moquetteSearch)).length===0 && <tr><td style={styles.td} colSpan={3}>Aucun produit trouvé.</td></tr>}
+                  </tbody></table></div>}
+                  {moquetteLines.length>0 && <div className="ls-table-wrap" style={{marginTop:14}}><table className="ls-table"><thead><tr><th style={styles.th}>Désignation</th><th style={styles.th}>LARGEUR</th><th style={styles.th}>PRIX</th><th style={styles.th}>Nombre</th><th style={styles.th}>Action</th></tr></thead><tbody>
+                    {moquetteLines.map(line=>{const data=getMoquetteLabelData(line);return <tr key={`${line.catalog_source}:${line.id}`}><td style={styles.td}>{line.name}</td><td style={styles.td}>{data.width||'—'}</td><td style={styles.td}>{data.price||'—'}</td><td style={styles.td}><input type="number" min="1" max="500" style={{...styles.field,width:78}} value={line.quantity} onChange={e=>updateMoquetteLineQuantity(line,e.target.value)}/></td><td style={styles.td}><button type="button" style={styles.secondary} onClick={()=>setMoquetteLines(current=>current.filter(item=>!(String(item.id)===String(line.id)&&item.catalog_source===line.catalog_source)))}>Retirer</button></td></tr>})}
+                  </tbody></table></div>}
+                  <div className="ls-toolbar" style={{marginTop:12}}>
+                    <button type="button" style={styles.button} disabled={pdfBusy||moquetteLines.length===0||moquetteLines.reduce((sum,line)=>sum+Math.max(0,Number(line.quantity)||0),0)>500} onClick={makeMoquettePdf}>{pdfBusy?'Préparation…':'Générer PDF Prix moquette mosquée mosquée'}</button>
+                    <button type="button" style={styles.secondary} onClick={()=>{setMoquetteLines([]);setMoquetteSearch('');}}>Vider la sélection</button>
                   </div>
                 </div>
                 <h3 style={{marginTop:28}}>Mes documents d’étiquettes / Historique</h3>
