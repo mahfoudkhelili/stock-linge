@@ -213,6 +213,8 @@ export default function App() {
   const [salesLines, setSalesLines] = useState([]);
   const [labelSearch, setLabelSearch] = useState('');
   const [labelLines, setLabelLines] = useState([]);
+  const [couloirSearch, setCouloirSearch] = useState('');
+  const [couloirLines, setCouloirLines] = useState([]);
   const [hideLabelPrice, setHideLabelPrice] = useState(false);
   const [barcodeSearch, setBarcodeSearch] = useState('');
   const [barcodeLines, setBarcodeLines] = useState([]);
@@ -238,7 +240,7 @@ export default function App() {
       const { data, error } = await supabase
         .from('products')
         .select(
-          'id, product_ref, reference_1, name, current_quantity, wholesale_price, retail_price, min_stock_level, is_hidden, is_active, is_in_latest_pdf'
+          'id, product_ref, reference_1, name, detail, current_quantity, wholesale_price, retail_price, min_stock_level, is_hidden, is_active, is_in_latest_pdf'
         )
         .eq('is_active', true)
         .eq('is_hidden', false)
@@ -264,7 +266,7 @@ export default function App() {
     const { data: inactiveArinaProducts, error: inactiveArinaError } = await supabase
       .from('products')
       .select(
-        'id, product_ref, reference_1, name, current_quantity, wholesale_price, retail_price, min_stock_level, is_hidden, is_active, is_in_latest_pdf'
+        'id, product_ref, reference_1, name, detail, current_quantity, wholesale_price, retail_price, min_stock_level, is_hidden, is_active, is_in_latest_pdf'
       )
       .eq('is_active', false)
       .eq('is_hidden', false)
@@ -287,7 +289,7 @@ export default function App() {
     while (true) {
       const { data: tapisPage, error: tapisError } = await supabase
         .from('tapis_products')
-        .select('id, product_ref, reference_1, name, current_quantity, wholesale_price, retail_price, min_stock_level, is_hidden, is_active, is_in_latest_pdf')
+        .select('id, product_ref, reference_1, name, detail, current_quantity, wholesale_price, retail_price, min_stock_level, is_hidden, is_active, is_in_latest_pdf')
         .eq('is_active', true)
         .eq('is_hidden', false)
         .order('name')
@@ -2152,6 +2154,56 @@ export default function App() {
     } catch (error) { window.alert('Erreur création PDF QR : ' + (error?.message || error)); }
     finally { setPdfBusy(false); }
   }
+  function addCouloirLine(product, requestedQuantity = 1) {
+    if (!product) return;
+    const quantity = Math.floor(Number(requestedQuantity));
+    if (!Number.isFinite(quantity) || quantity <= 0) { window.alert('Saisissez un nombre d’étiquettes supérieur à zéro.'); return; }
+    setCouloirLines((current) => {
+      const exists = current.find((line) => String(line.id) === String(product.id) && line.catalog_source === product.catalog_source);
+      return exists ? current.map((line) => String(line.id) === String(product.id) && line.catalog_source === product.catalog_source ? { ...line, quantity: Math.min(500, Number(line.quantity || 0) + quantity) } : line) : [...current, { ...product, quantity: Math.min(500, quantity) }];
+    });
+  }
+  function updateCouloirLineQuantity(product, value) {
+    const quantity = value === '' ? '' : Math.max(1, Math.min(500, Math.floor(Number(value) || 1)));
+    setCouloirLines((current) => current.map((line) => String(line.id) === String(product.id) && line.catalog_source === product.catalog_source ? { ...line, quantity } : line));
+  }
+  function getCouloirLabelData(product) {
+    const words = String(product.name || '').trim().split(/\s+/);
+    const width = words.length >= 3 && /^COULOIR$/i.test(words[0]) ? words[2] : '';
+    const detail = String(product.detail ?? product.details ?? '').match(/:\s*([0-9][0-9\s.,]*)/);
+    return { width, price: detail ? detail[1].trim() : '' };
+  }
+  async function makeCouloirPdf() {
+    if (pdfBusy) return;
+    const chosen = couloirLines.filter((line) => Number(line.quantity) > 0);
+    const total = chosen.reduce((sum, line) => sum + Math.floor(Number(line.quantity)), 0);
+    if (!total) { window.alert('Choisissez au moins un produit et un nombre d’étiquettes.'); return; }
+    if (total > 500) { window.alert('Limite de sécurité : 500 étiquettes par PDF.'); return; }
+    const missing = chosen.find((line) => { const data = getCouloirLabelData(line); return !data.width || !data.price; });
+    if (missing) { window.alert('LARGEUR ou PRIX introuvable dans la désignation/DETAIL de : ' + missing.name); return; }
+    setPdfBusy(true);
+    try {
+      const { jsPDF } = await import('jspdf');
+      const width = 100, height = 100;
+      const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: [width, height] });
+      let page = 0;
+      for (const product of chosen) {
+        const data = getCouloirLabelData(product);
+        for (let copy = 0; copy < Math.floor(Number(product.quantity)); copy++) {
+          if (page++) doc.addPage([width, height], 'portrait');
+          const nameLines = doc.splitTextToSize(String(product.name || ''), 90).slice(0, 3);
+          doc.setFont('helvetica', 'bold'); doc.setFontSize(12);
+          doc.text(nameLines, 50, 27, { align: 'center', lineHeightFactor: 1.15 });
+          doc.setFontSize(12); doc.text('LARGEUR : ' + data.width, 8, 57);
+          doc.text('PRIX : ' + data.price, 8, 78);
+        }
+      }
+      doc.save('prix-couloir-' + new Date().toISOString().slice(0, 10) + '.pdf');
+      setMessage('PDF Prix couloir téléchargé : ' + total + ' étiquette(s).');
+    } catch (error) { window.alert('Erreur création PDF Prix couloir : ' + (error?.message || error)); }
+    finally { setPdfBusy(false); }
+  }
+
   function updateLabelLineQuantity(product, value) {
     const quantity = value === '' ? '' : Math.max(1, Math.min(500, Math.floor(Number(value) || 1)));
     setLabelLines((current) => current.map((line) =>
@@ -5231,6 +5283,22 @@ export default function App() {
                   <button style={styles.button} disabled={pdfBusy || labelLines.length===0 || labelLines.reduce((sum,line)=>sum+Math.max(0,Number(line.quantity)||0),0)>500} onClick={()=>makePdf('labels','download')}>{pdfBusy?'Enregistrement…':'Enregistrer et télécharger PDF'}</button>
                   <button style={styles.secondary} disabled={pdfBusy || labelLines.length===0 || labelLines.reduce((sum,line)=>sum+Math.max(0,Number(line.quantity)||0),0)>500} onClick={()=>makePdf('labels','share')}>{pdfBusy?'Préparation…':'Enregistrer et partager PDF'}</button>
                   <button type="button" style={styles.secondary} disabled={pdfBusy || (labelLines.length===0 && !labelDocumentTitle && !labelSearch)} onClick={()=>{setLabelLines([]);setLabelSearch('');setLabelDocumentTitle('');setLabelAddQuantities({});}}>Nouveau document</button>
+                </div>
+                <div style={{marginTop:30,paddingTop:20,borderTop:'1px solid #dbe3ec'}}>
+                  <h2>Prix couloir</h2>
+                  <p className="ls-muted">Étiquettes carrées 100 × 100 mm. Nom du produit, largeur extraite de la désignation et prix extrait de DETAIL.</p>
+                  <ClearableSearchInput style={{...styles.field,marginTop:4}} value={couloirSearch} onChange={(e)=>setCouloirSearch(e.target.value)} onKeyDown={(e)=>{if(e.key==='Enter'){e.preventDefault();const first=catalogProducts.find(p=>productMatchesSearch(p,couloirSearch));if(first)addCouloirLine(first,1);}}} placeholder="Rechercher un produit couloir…"/>
+                  {couloirSearch.trim() && <div className="ls-table-wrap" style={{marginTop:10}}><table className="ls-table"><thead><tr><th style={styles.th}>Désignation</th><th style={styles.th}>Famille</th><th style={styles.th}>Action</th></tr></thead><tbody>
+                    {catalogProducts.filter(p=>productMatchesSearch(p,couloirSearch)).slice(0,30).map(p=><tr key={`${p.catalog_source}:${p.id}`}><td style={styles.td}><strong>{p.name}</strong></td><td style={styles.td}>{p.catalog_source==='tapis_products'?'Tapis':'Catalogue principal'}</td><td style={styles.td}><button type="button" style={styles.button} onClick={()=>addCouloirLine(p,1)}>Ajouter</button></td></tr>)}
+                    {catalogProducts.filter(p=>productMatchesSearch(p,couloirSearch)).length===0 && <tr><td style={styles.td} colSpan={3}>Aucun produit trouvé.</td></tr>}
+                  </tbody></table></div>}
+                  {couloirLines.length>0 && <div className="ls-table-wrap" style={{marginTop:14}}><table className="ls-table"><thead><tr><th style={styles.th}>Désignation</th><th style={styles.th}>LARGEUR</th><th style={styles.th}>PRIX</th><th style={styles.th}>Nombre</th><th style={styles.th}>Action</th></tr></thead><tbody>
+                    {couloirLines.map(line=>{const data=getCouloirLabelData(line);return <tr key={`${line.catalog_source}:${line.id}`}><td style={styles.td}>{line.name}</td><td style={styles.td}>{data.width||'—'}</td><td style={styles.td}>{data.price||'—'}</td><td style={styles.td}><input type="number" min="1" max="500" style={{...styles.field,width:78}} value={line.quantity} onChange={e=>updateCouloirLineQuantity(line,e.target.value)}/></td><td style={styles.td}><button type="button" style={styles.secondary} onClick={()=>setCouloirLines(current=>current.filter(item=>!(String(item.id)===String(line.id)&&item.catalog_source===line.catalog_source)))}>Retirer</button></td></tr>})}
+                  </tbody></table></div>}
+                  <div className="ls-toolbar" style={{marginTop:12}}>
+                    <button type="button" style={styles.button} disabled={pdfBusy||couloirLines.length===0||couloirLines.reduce((sum,line)=>sum+Math.max(0,Number(line.quantity)||0),0)>500} onClick={makeCouloirPdf}>{pdfBusy?'Préparation…':'Générer PDF Prix couloir'}</button>
+                    <button type="button" style={styles.secondary} onClick={()=>{setCouloirLines([]);setCouloirSearch('');}}>Vider la sélection</button>
+                  </div>
                 </div>
                 <h3 style={{marginTop:28}}>Mes documents d’étiquettes / Historique</h3>
                 {documentsLoading ? <p className="ls-muted">Chargement de l’historique…</p> : savedPdfDocuments.filter(d=>d.doc_type==='labels').length===0 ? <p className="ls-muted">Aucun document enregistré.</p> : <><div className="ls-toolbar" style={{marginBottom:10}}><label style={{display:'inline-flex',alignItems:'center',gap:6}}><input type="checkbox" checked={savedPdfDocuments.filter(d=>d.doc_type==='labels').length>0 && selectedLabelDocuments.length===savedPdfDocuments.filter(d=>d.doc_type==='labels').length} onChange={e=>setSelectedLabelDocuments(e.target.checked?savedPdfDocuments.filter(d=>d.doc_type==='labels').map(d=>d.id):[])} /> Tout sélectionner</label><button type="button" style={styles.secondary} disabled={!selectedLabelDocuments.length} onClick={()=>deleteSelectedPdfDocuments('labels',selectedLabelDocuments,setSelectedLabelDocuments)}>Supprimer la sélection ({selectedLabelDocuments.length})</button></div><div className="ls-table-wrap"><table className="ls-table"><thead><tr><th style={styles.th}>Choix</th><th style={styles.th}>Date</th><th style={styles.th}>Document</th><th style={styles.th}>Nombre d’étiquettes</th><th style={styles.th}>Consulter</th><th style={styles.th}>Action</th></tr></thead><tbody>{savedPdfDocuments.filter(d=>d.doc_type==='labels').map(d=><tr key={d.id}><td style={styles.td}><input type="checkbox" checked={selectedLabelDocuments.includes(d.id)} onChange={e=>setSelectedLabelDocuments(current=>e.target.checked?[...current,d.id]:current.filter(id=>id!==d.id))} /></td><td style={styles.td}>{d.document_date}</td><td style={styles.td}>{d.title || 'Étiquettes prix'}</td><td style={styles.td}>{Number(d.total||0)}</td><td style={styles.td}><details><summary style={{cursor:'pointer',fontWeight:700}}>Voir les étiquettes</summary><div style={{minWidth:220,paddingTop:8}}>{(Array.isArray(d.items)?d.items:[]).map((item,index)=><div key={item.product_id || index} style={{padding:'6px 0',borderBottom:'1px solid #e5eaf0'}}><strong>{item.name}</strong><div className="ls-muted">{item.quantity} étiquette(s) · {Number(item.retail_price||0).toFixed(2)} DA</div></div>)}</div></details></td><td style={styles.td}><button type="button" style={styles.secondary} onClick={()=>deleteSavedPdfDocument(d.id)}>Supprimer</button></td></tr>)}</tbody></table></div></>}
