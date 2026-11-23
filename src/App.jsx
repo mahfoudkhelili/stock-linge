@@ -2204,9 +2204,9 @@ export default function App() {
           doc.setFontSize(12);
           doc.text('Africha Shop Hamiz', 50, 8, { align: 'center' });
 
-          // Désignation centrée et en gras, légèrement réduite (30 pt).
+          // Désignation centrée et en gras, réduite à 25 pt pour tester.
           doc.setFont('helvetica', 'bold');
-          doc.setFontSize(30);
+          doc.setFontSize(25);
           const nameLines = doc.splitTextToSize(String(product.name || ''), 88).slice(0, 2);
           doc.text(nameLines, 50, nameLines.length > 1 ? 23 : 29, {
             align: 'center',
