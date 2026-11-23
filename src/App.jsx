@@ -2268,11 +2268,8 @@ export default function App() {
   }
   function getMoquetteLabelData(product) {
     const words = String(product.name || '').trim().split(/\s+/);
-    // Même extraction de largeur que le tableau Prix couloir.
-    const moquetteIndex = words.findIndex((word) => /^COULOIR$/i.test(word));
-    const width = moquetteIndex >= 0
-      ? (words.slice(moquetteIndex + 1).find((word) => /^\d+(?:[.,]\d+)?$/.test(word)) || '')
-      : '';
+    // Pour les moquettes, la largeur est le premier nombre autonome de la désignation (ex. PLAZA 400 AU M).
+    const width = words.find((word) => /^\d+(?:[.,]\d+)?$/.test(word)) || '';
     // Le prix de l'étiquette Prix moquette mosquée est le Prix de détail du produit.
     const retailPrice = product.retail_price;
     const price = retailPrice == null || String(retailPrice).trim() === '' ? '' : String(retailPrice).trim();
