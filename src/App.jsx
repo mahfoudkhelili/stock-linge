@@ -2204,14 +2204,16 @@ export default function App() {
           doc.setFontSize(12);
           doc.text('Africha Shop Hamiz', 50, 8, { align: 'center' });
 
-          // Désignation centrée et en gras, réduite à 25 pt pour tester.
+          // Désignation sur une seule ligne, centrée au milieu de l'étiquette.
           doc.setFont('helvetica', 'bold');
-          doc.setFontSize(25);
-          const nameLines = doc.splitTextToSize(String(product.name || ''), 88).slice(0, 2);
-          doc.text(nameLines, 50, nameLines.length > 1 ? 23 : 29, {
-            align: 'center',
-            lineHeightFactor: 1.05,
-          });
+          let nameFontSize = 25;
+          const nameText = String(product.name || '');
+          doc.setFontSize(nameFontSize);
+          while (doc.getTextWidth(nameText) > 88 && nameFontSize > 12) {
+            nameFontSize -= 1;
+            doc.setFontSize(nameFontSize);
+          }
+          doc.text(nameText, 50, 31, { align: 'center' });
 
           // Largeur : on conserve la taille précédente et l'unité mm.
           doc.setFont('helvetica', 'normal');
