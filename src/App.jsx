@@ -2198,11 +2198,35 @@ export default function App() {
         const data = getCouloirLabelData(product);
         for (let copy = 0; copy < Math.floor(Number(product.quantity)); copy++) {
           if (page++) doc.addPage([width, height], 'portrait');
-          const nameLines = doc.splitTextToSize(String(product.name || ''), 90).slice(0, 3);
-          doc.setFont('helvetica', 'bold'); doc.setFontSize(12);
-          doc.text(nameLines, 50, 27, { align: 'center', lineHeightFactor: 1.15 });
-          doc.setFontSize(12); doc.text('LARGEUR : ' + data.width, 8, 57);
-          doc.text('PRIX : ' + data.price, 8, 78);
+          // En-tête fixe de la boutique.
+          doc.setFont('helvetica', 'normal');
+          doc.setFontSize(12);
+          doc.text('Africha Shop Hamiz', 50, 15, { align: 'center' });
+
+          // Désignation centrée, en gras, sur deux lignes maximum (18 pt = 1,5 × 12).
+          doc.setFont('helvetica', 'bold');
+          doc.setFontSize(18);
+          const nameLines = doc.splitTextToSize(String(product.name || ''), 88).slice(0, 2);
+          doc.text(nameLines, 50, nameLines.length > 1 ? 34 : 39, {
+            align: 'center',
+            lineHeightFactor: 1.15,
+          });
+
+          // Largeur avec unité mm, à 1,5 fois la taille initiale.
+          doc.setFont('helvetica', 'normal');
+          doc.setFontSize(18);
+          doc.text('LARGEUR : ' + data.width + ' mm', 8, 63);
+
+          // Prix en gras, à 3 fois la taille initiale, avec unité de vente.
+          doc.setFont('helvetica', 'bold');
+          const priceText = 'PRIX : ' + data.price + ' DA / m';
+          let priceFontSize = 36;
+          doc.setFontSize(priceFontSize);
+          while (doc.getTextWidth(priceText) > 90 && priceFontSize > 24) {
+            priceFontSize -= 1;
+            doc.setFontSize(priceFontSize);
+          }
+          doc.text(priceText, 50, 89, { align: 'center' });
         }
       }
       doc.save('prix-couloir-' + new Date().toISOString().slice(0, 10) + '.pdf');
