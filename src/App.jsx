@@ -215,6 +215,7 @@ export default function App() {
   const [labelLines, setLabelLines] = useState([]);
   const [couloirSearch, setCouloirSearch] = useState('');
   const [couloirLines, setCouloirLines] = useState([]);
+  const [couloirAddQuantities, setCouloirAddQuantities] = useState({});
   const [hideLabelPrice, setHideLabelPrice] = useState(false);
   const [barcodeSearch, setBarcodeSearch] = useState('');
   const [barcodeLines, setBarcodeLines] = useState([]);
@@ -2203,11 +2204,11 @@ export default function App() {
           doc.setFontSize(12);
           doc.text('Africha Shop Hamiz', 50, 8, { align: 'center' });
 
-          // Désignation centrée et en gras : 3 fois la taille initiale (36 pt).
+          // Désignation centrée et en gras, légèrement réduite (30 pt).
           doc.setFont('helvetica', 'bold');
-          doc.setFontSize(36);
+          doc.setFontSize(30);
           const nameLines = doc.splitTextToSize(String(product.name || ''), 88).slice(0, 2);
-          doc.text(nameLines, 50, nameLines.length > 1 ? 25 : 32, {
+          doc.text(nameLines, 50, nameLines.length > 1 ? 23 : 29, {
             align: 'center',
             lineHeightFactor: 1.05,
           });
@@ -5324,8 +5325,8 @@ export default function App() {
                   <h2>Prix couloir</h2>
                   <p className="ls-muted">Étiquettes carrées 100 × 100 mm. Nom du produit, largeur extraite de la désignation et prix extrait de DETAIL.</p>
                   <ClearableSearchInput style={{...styles.field,marginTop:4}} value={couloirSearch} onChange={(e)=>setCouloirSearch(e.target.value)} onKeyDown={(e)=>{if(e.key==='Enter'){e.preventDefault();const first=catalogProducts.find(p=>productMatchesSearch(p,couloirSearch));if(first)addCouloirLine(first,1);}}} placeholder="Rechercher un produit couloir…"/>
-                  {couloirSearch.trim() && <div className="ls-table-wrap" style={{marginTop:10}}><table className="ls-table"><thead><tr><th style={styles.th}>Désignation</th><th style={styles.th}>Famille</th><th style={styles.th}>Action</th></tr></thead><tbody>
-                    {catalogProducts.filter(p=>productMatchesSearch(p,couloirSearch)).slice(0,30).map(p=><tr key={`${p.catalog_source}:${p.id}`}><td style={styles.td}><strong>{p.name}</strong></td><td style={styles.td}>{p.catalog_source==='tapis_products'?'Tapis':'Catalogue principal'}</td><td style={styles.td}><button type="button" style={styles.button} onClick={()=>addCouloirLine(p,1)}>Ajouter</button></td></tr>)}
+                  {couloirSearch.trim() && <div className="ls-table-wrap ls-force-table" style={{marginTop:10}}><table className="ls-table"><colgroup><col style={{width:'48%'}}/><col style={{width:'32%'}}/><col style={{width:'20%'}}/></colgroup><thead><tr><th style={styles.th}>Désignation</th><th style={styles.th}>Quantité</th><th style={styles.th}>Action</th></tr></thead><tbody>
+                    {catalogProducts.filter(p=>productMatchesSearch(p,couloirSearch)).slice(0,30).map(p=><tr key={`${p.catalog_source}:${p.id}`}><td style={styles.td}><strong>{p.name}{p.catalog_source==='tapis_products'?<small style={{marginInlineStart:7,color:'#64748b'}}>Tapis</small>:null}</strong></td><td style={styles.td}><div className="label-qty-control"><input type="number" min="1" max="500" step="1" aria-label={`Quantité à ajouter pour ${p.name}`} style={{...styles.field,width:90}} value={couloirAddQuantities[`${p.catalog_source}:${p.id}`] ?? '1'} onChange={e=>setCouloirAddQuantities(current=>({...current,[`${p.catalog_source}:${p.id}`]:e.target.value}))}/><button type="button" className="label-qty-plus" aria-label={`Augmenter la quantité pour ${p.name}`} onClick={()=>setCouloirAddQuantities(current=>({...current,[`${p.catalog_source}:${p.id}`]:String(Math.min(500,Math.max(1,Number(current[`${p.catalog_source}:${p.id}`]||1))+1))}))}>+</button></div></td><td style={styles.td}><button type="button" style={styles.button} onClick={()=>addCouloirLine(p,couloirAddQuantities[`${p.catalog_source}:${p.id}`] ?? 1)}>Ajouter</button></td></tr>)}
                     {catalogProducts.filter(p=>productMatchesSearch(p,couloirSearch)).length===0 && <tr><td style={styles.td} colSpan={3}>Aucun produit trouvé.</td></tr>}
                   </tbody></table></div>}
                   {couloirLines.length>0 && <div className="ls-table-wrap" style={{marginTop:14}}><table className="ls-table"><thead><tr><th style={styles.th}>Désignation</th><th style={styles.th}>LARGEUR</th><th style={styles.th}>PRIX</th><th style={styles.th}>Nombre</th><th style={styles.th}>Action</th></tr></thead><tbody>
