@@ -2235,8 +2235,18 @@ export default function App() {
           doc.text('FB/ INSTA : AFRICHA SHOP', 50, 97, { align: 'center' });
         }
       }
-      doc.save('prix-couloir-' + new Date().toISOString().slice(0, 10) + '.pdf');
-      setMessage('PDF Prix couloir téléchargé : ' + total + ' étiquette(s).');
+      // Téléchargement direct via Blob : évite l'ouverture d'une page PDF vide sur mobile.
+      const pdfBlob = doc.output('blob');
+      const pdfUrl = URL.createObjectURL(pdfBlob);
+      const downloadLink = document.createElement('a');
+      downloadLink.href = pdfUrl;
+      downloadLink.download = 'prix-couloir-' + new Date().toISOString().slice(0, 10) + '.pdf';
+      downloadLink.style.display = 'none';
+      document.body.appendChild(downloadLink);
+      downloadLink.click();
+      downloadLink.remove();
+      window.setTimeout(() => URL.revokeObjectURL(pdfUrl), 60000);
+      setMessage('PDF Prix couloir prêt au téléchargement : ' + total + ' étiquette(s).');
     } catch (error) { window.alert('Erreur création PDF Prix couloir : ' + (error?.message || error)); }
     finally { setPdfBusy(false); }
   }
