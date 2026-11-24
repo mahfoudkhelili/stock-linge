@@ -209,7 +209,9 @@ function MosqueSimulation() {
     return {points,labelPoint,partial:band.width<rollWidth-1e-7,length:displayCalculation.lengths[i]};
   });
   // Keep text parallel to the rows but never upside down as the Qibla arrow rotates.
-  const labelRotationRaw=((angle-90)%180+180)%180-90;
+  // Screen Y is inverted, so the row direction is (-sin(angle), -cos(angle)).
+  // Use its true screen-space angle; the previous sign caused text to tilt across rows.
+  const labelRotationRaw=((-angle-90)%180+180)%180-90;
   const labelRotation=labelRotationRaw<=-89.9?90:labelRotationRaw;
   const planScale=valid?Math.min(270/Math.max(L,0.01),150/Math.max(W,0.01)):1;
   const screenPoint=([x,y])=>[160+x*planScale,95-y*planScale];
