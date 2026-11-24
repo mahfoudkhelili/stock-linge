@@ -152,13 +152,6 @@ function MosqueSimulation() {
     const toRoom=(u,v)=>[u*Math.cos(rad)-v*Math.sin(rad),u*Math.sin(rad)+v*Math.cos(rad)];
     return [toRoom(u1,v),toRoom(u2,v)];
   };
-  const displayRows = selectedRows || ceilRows;
-  const displayStrips = Array.from({length:displayRows},(_,i)=>{
-    const width=Math.max(0,Math.min(maxV,minV+(i+1)*rollWidth)-(minV+i*rollWidth));
-    return {segment:stripSegment(minV+i*rollWidth+width/2),partial:width<rollWidth-1e-7};
-  });
-  const planScale = valid ? Math.min(270/L,150/W) : 1;
-  const screenPoint = ([x,y])=>[160+x*planScale,95+y*planScale];
   const calculate = (rows) => {
     const widths=Array.from({length:rows},(_,i)=>Math.max(0,Math.min(maxV,minV+(i+1)*rollWidth)-(minV+i*rollWidth)));
     const lengths=widths.map((width,i)=>bandLength(minV+i*rollWidth,minV+i*rollWidth+width));
@@ -182,6 +175,13 @@ function MosqueSimulation() {
   const onConfirm=()=>{setConfirmed(true);setRowChoice(null);};
   const selected = rowChoice==='lower' ? lower : rowChoice==='upper' ? upper : null;
   const selectedRows = rowChoice==='lower' ? fullRows : ceilRows;
+  const displayRows = selectedRows || ceilRows;
+  const displayStrips = Array.from({length:displayRows},(_,i)=>{
+    const width=Math.max(0,Math.min(maxV,minV+(i+1)*rollWidth)-(minV+i*rollWidth));
+    return {segment:stripSegment(minV+i*rollWidth+width/2),partial:width<rollWidth-1e-7};
+  });
+  const planScale = valid ? Math.min(270/L,150/W) : 1;
+  const screenPoint = ([x,y])=>[160+x*planScale,95+y*planScale];
   const finalStripWidth = rowChoice==='upper' && remainder>0 ? remainder : rollWidth;
   return (
     <section className="ls-panel">
