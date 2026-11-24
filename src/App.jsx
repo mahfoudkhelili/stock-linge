@@ -184,16 +184,15 @@ function MosqueSimulation() {
   const displayStrips=displayCalculation.bands.map((band,i)=>{
     let polygon=clipAt(localCorners,band.lo,true);if(polygon.length)polygon=clipAt(polygon,band.hi,false);
     const points=polygon.map(toRoom);
-    // Put each measurement at the midpoint of the longest edge parallel to its row (the major base).
-    let majorEdge=null;
+    // Exact polygon centroid: centered both along the row and between its two boundaries.
+    let twiceArea=0,cx=0,cy=0;
     for(let k=0;k<polygon.length;k++){
       const a=polygon[k],b=polygon[(k+1)%polygon.length];
-      if(Math.abs(a[1]-b[1])<1e-6){
-        const edgeLength=Math.abs(a[0]-b[0]);
-        if(!majorEdge||edgeLength>majorEdge.length)majorEdge={length:edgeLength,point:[(a[0]+b[0])/2,(a[1]+b[1])/2]};
-      }
+      const cross=a[0]*b[1]-b[0]*a[1];
+      twiceArea+=cross;cx+=(a[0]+b[0])*cross;cy+=(a[1]+b[1])*cross;
     }
-    const labelPoint=toRoom(majorEdge?majorEdge.point:(polygon.length?[polygon.reduce((sum,p)=>sum+p[0],0)/polygon.length,polygon.reduce((sum,p)=>sum+p[1],0)/polygon.length]:[0,0]));
+    const centroid=Math.abs(twiceArea)>1e-8?[cx/(3*twiceArea),cy/(3*twiceArea)]:[0,0];
+    const labelPoint=toRoom(centroid);
     return {points,labelPoint,partial:band.width<rollWidth-1e-7,length:displayCalculation.lengths[i]};
   });
   // Keep text parallel to the rows but never upside down as the Qibla arrow rotates.
