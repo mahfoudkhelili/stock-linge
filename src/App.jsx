@@ -101,6 +101,14 @@ function DashboardIcon({ name, className = '' }) {
 function MosqueSimulation() {
   const [roomLength, setRoomLength] = useState('20');
   const [roomWidth, setRoomWidth] = useState('12');
+  const [roomMode,setRoomMode]=useState(null);
+  const [irregularStage,setIrregularStage]=useState('draw');
+  const [irregularPoints,setIrregularPoints]=useState([]);
+  const [irregularClosed,setIrregularClosed]=useState(false);
+  const [irregularLengths,setIrregularLengths]=useState([]);
+  const [irregularAngle,setIrregularAngle]=useState(0);
+  const [irregularDragging,setIrregularDragging]=useState(false);
+  const irregularPlanRef=useRef(null);
   const [angle, setAngle] = useState(0);
   const [confirmed, setConfirmed] = useState(false);
   const [rowChoice, setRowChoice] = useState(null);
@@ -218,10 +226,58 @@ function MosqueSimulation() {
   const roomScreenPoints=roomCorners.map(screenPoint);
   const arrowLength=Math.min(78,Math.max(24,Math.max(L,W)*planScale*.38));
   const finalStripWidth=rowChoice==='upper'&&remainder>0?remainder:rollWidth;
+  if(roomMode==='irregular'){
+    const centroid=irregularPoints.length?irregularPoints.reduce((a,p)=>[a[0]+p[0]/irregularPoints.length,a[1]+p[1]/irregularPoints.length],[0,0]):[160,110];
+    const positions=irregularClosed?irregularPoints.map((p,i)=>{const q=irregularPoints[(i+1)%irregularPoints.length],mx=(p[0]+q[0])/2,my=(p[1]+q[1])/2,dx=q[0]-p[0],dy=q[1]-p[1],len=Math.hypot(dx,dy)||1;let nx=dy/len,ny=-dx/len;if(nx*(mx-centroid[0])+ny*(my-centroid[1])<0){nx=-nx;ny=-ny;}return{x:Math.max(2,Math.min(264,mx+nx*25-28)),y:Math.max(2,Math.min(184,my+ny*25-17)};}):[];
+    const addPoint=e=>{if(irregularClosed)return;const r=e.currentTarget.getBoundingClientRect();setIrregularPoints(old=>[...old,[Math.max(8,Math.min(312,(e.clientX-r.left)/r.width*320)),Math.max(8,Math.min(212,(e.clientY-r.top)/r.height*220))]]);};
+    const validLengths=irregularClosed&&irregularLengths.length===irregularPoints.length&&irregularLengths.every(v=>Number(v)>0&&Number(v)<=500);
+    const moveArrow=e=>{const r=irregularPlanRef.current?.getBoundingClientRect();if(!r)return;const x=(e.clientX-r.left)/r.width*320-160,y=110-(e.clientY-r.top)/r.height*220;if(Math.hypot(x,y)<10)return;let d=Math.atan2(y,x)*180/Math.PI;if(d<0)d+=360;const snaps=[0,90,180,270,360];let best=0,diff=999;snaps.forEach(v=>{const z=Math.min(Math.abs(d-v),360-Math.abs(d-v));if(z<diff){diff=z;best=v;}});setIrregularAngle(diff<=5?best:Math.round(d*10)/10);if(diff<=5&&typeof navigator!=='undefined'&&navigator.vibrate)navigator.vibrate(35);};
+    const rad2=irregularAngle*Math.PI/180,arrow=65;
+    return <section className="ls-panel">
+      <h2 style={{marginTop:0}}>Simulation mosquée</h2>
+      <p className="ls-muted">قاعة غير منتظمة — ارسم حدود القاعة، ثم أدخل قياس كل ضلع في المربع الموجود بجانبه.</p>
+      <button type="button" style={{...styles.secondary,marginBottom:12}} onClick={()=>setRoomMode(null)}>رجوع لاختيار نوع القاعة</button>
+      {irregularStage==='draw'?<>
+        <strong>1. ارسم حدود القاعة</strong>
+        <p className="ls-muted">اضغط داخل الرسم لإضافة الزوايا بالترتيب. الرسم تقريبي، والأطوال الحقيقية تدخلها في المربعات بجانب الأضلاع.</p>
+        <div style={{border:'1px solid var(--ls-border,#cbd5e1)',borderRadius:12,overflow:'hidden',background:'var(--ls-card,#fff)'}}>
+          <svg viewBox="0 0 320 220" width="100%" style={{display:'block',touchAction:'manipulation',cursor:irregularClosed?'default':'crosshair'}} onClick={addPoint}>
+            {irregularPoints.length>=2&&<polyline points={irregularPoints.map(p=>p.join(',')).join(' ')+(irregularClosed?' '+irregularPoints[0].join(','):'')} fill={irregularClosed?'#607A9B22':'none'} stroke="#607A9B" strokeWidth="2.5"/>}
+            {irregularPoints.map((p,i)=><g key={i}><circle cx={p[0]} cy={p[1]} r="5" fill="#607A9B"/><text x={p[0]} y={p[1]-9} fontSize="10" textAnchor="middle" fill="currentColor">{i+1}</text></g>)}
+            {irregularClosed&&positions.map((p,i)=><foreignObject key={i} x={p.x} y={p.y} width="56" height="36"><input xmlns="http://www.w3.org/1999/xhtml" type="number" min="0.01" step="0.01" inputMode="decimal" placeholder="متر" value={irregularLengths[i]||''} onChange={e=>setIrregularLengths(old=>old.map((v,j)=>j===i?e.target.value:v))} style={{width:54,height:32,boxSizing:'border-box',padding:3,border:'1.5px solid #607A9B',borderRadius:7,background:'#fff',color:'#172033',fontSize:12,textAlign:'center'}}/></foreignObject>)}
+          </svg>
+        </div>
+        <div style={{display:'flex',gap:8,flexWrap:'wrap',marginTop:10}}>
+          {!irregularClosed&&<button type="button" style={styles.button} disabled={irregularPoints.length<3} onClick={()=>{setIrregularClosed(true);setIrregularLengths(Array(irregularPoints.length).fill(''));}}>إغلاق الشكل وإظهار مربعات الأطوال</button>}
+          <button type="button" style={styles.secondary} onClick={()=>{setIrregularPoints([]);setIrregularClosed(false);setIrregularLengths([]);}}>مسح الرسم</button>
+        </div>
+        {irregularClosed&&<><p className="ls-muted">كل مربع ملاصق لضلع معيّن. أدخل الأطوال بالمتر.</p><button type="button" style={{...styles.button,width:'100%'}} disabled={!validLengths} onClick={()=>setIrregularStage('qibla')}>موافق — اختيار اتجاه القبلة</button></>}
+      </>:<>
+        <strong>2. اختار اتجاه القبلة</strong>
+        <p className="ls-muted">اسحب السهم لتحديد اتجاه القبلة.</p>
+        <div ref={irregularPlanRef} onPointerDown={e=>{setIrregularDragging(true);e.currentTarget.setPointerCapture?.(e.pointerId);moveArrow(e);}} onPointerMove={e=>{if(irregularDragging)moveArrow(e);}} onPointerUp={()=>setIrregularDragging(false)} onPointerCancel={()=>setIrregularDragging(false)} style={{border:'1px solid var(--ls-border,#cbd5e1)',borderRadius:12,touchAction:'none'}}>
+          <svg viewBox="0 0 320 220" width="100%">
+            <polygon points={irregularPoints.map(p=>p.join(',')).join(' ')} fill="#607A9B22" stroke="#607A9B" strokeWidth="2.5"/>
+            <path d={"M160 110 L"+(160+Math.cos(rad2)*arrow)+" "+(110-Math.sin(rad2)*arrow)} stroke="#D69E36" strokeWidth="4"/>
+          </svg>
+        </div>
+        <p className="ls-muted">اتجاه القبلة: {irregularAngle}°</p>
+        <input type="range" min="0" max="359" value={irregularAngle%360} onChange={e=>setIrregularAngle(Number(e.target.value))} style={{width:'100%'}}/>
+        <button type="button" style={styles.secondary} onClick={()=>setIrregularStage('draw')}>رجوع لتعديل الأطوال</button>
+        <button type="button" style={styles.button} onClick={()=>setIrregularStage('review')}>موافق</button>
+      </>}
+      {irregularStage==='review'&&<div style={{marginTop:14,padding:12,border:'1px solid var(--ls-border,#cbd5e1)',borderRadius:10}}><strong>تم تحديد شكل القاعة واتجاه القبلة</strong><p className="ls-muted">الأطوال: {irregularLengths.map((v,i)=>'ضلع '+(i+1)+': '+v+' م').join(' — ')}.</p><p className="ls-muted">اتجاه القبلة: {irregularAngle}°. يلزم ضبط هندسة المضلع بالأطوال الحقيقية قبل عرض حساب السجاد، حتى لا نعطيك نتيجة غير دقيقة.</p></div>}
+    </section>;
+  }
+
   return (
     <section className="ls-panel">
       <h2 style={{marginTop:0}}>Simulation mosquée</h2>
-      <p className="ls-muted">Calcul de la quantité de moquette selon les dimensions de la salle et l’orientation de la Qibla. Largeur du rouleau : 1,33 m.</p>
+      <p className="ls-muted">اختار نوع شكل قاعة الصلاة.</p>
+      {roomMode===null?<div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(220px,1fr))',gap:12}}>
+        <button type="button" onClick={()=>setRoomMode('regular')} style={{...styles.secondary,padding:16,textAlign:'left',minHeight:96}}><strong style={{display:'block',fontSize:16,marginBottom:6}}>قاعة منتظمة</strong><span className="ls-muted">مستطيل أو مربع — الطول والعرض فقط.</span></button>
+        <button type="button" onClick={()=>{setRoomMode('irregular');setIrregularStage('draw');}} style={{...styles.secondary,padding:16,textAlign:'left',minHeight:96}}><strong style={{display:'block',fontSize:16,marginBottom:6}}>قاعة غير منتظمة</strong><span className="ls-muted">ارسم الحدود وأدخل الأطوال بجانب الأضلاع.</span></button>
+      </div>:<><button type="button" style={{...styles.secondary,marginBottom:12}} onClick={()=>setRoomMode(null)}>رجوع لاختيار نوع القاعة</button><p className="ls-muted">قاعة منتظمة — أدخل الطول والعرض.</p>
       <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(180px,1fr))',gap:12}}>
         <label style={{display:'grid',gap:6,fontWeight:700}}>Longueur de la salle (m)
           <input type="number" min="0.1" step="0.01" style={styles.field} value={roomLength} onChange={e=>{setRoomLength(e.target.value);setConfirmed(false);setRowChoice(null);}}/>
@@ -295,6 +351,7 @@ function MosqueSimulation() {
         </div>
       )}
       <p className="ls-muted" style={{marginTop:18,fontSize:12}}>ملاحظة: هذه محاكاة أولية. الحساب يعتمد على تقاطع صفوف بعرض 1.33 م مع حدود القاعة؛ راجع القص النهائي ميدانياً قبل الشراء، خصوصاً عند الزوايا المائلة.</p>
+      </>}
     </section>
   );
 }
