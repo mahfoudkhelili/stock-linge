@@ -97,6 +97,146 @@ function DashboardIcon({ name, className = '' }) {
   return <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{paths[name] || paths.products}</svg>;
 }
 
+
+function MosqueSimulation() {
+  const [roomLength, setRoomLength] = useState('20');
+  const [roomWidth, setRoomWidth] = useState('12');
+  const [angle, setAngle] = useState(0);
+  const [confirmed, setConfirmed] = useState(false);
+  const [rowChoice, setRowChoice] = useState(null);
+  const [dragging, setDragging] = useState(false);
+  const planRef = useRef(null);
+  const rollWidth = 1.33;
+  const styles = {
+    field:{width:'100%',padding:'11px 12px',border:'1px solid var(--ls-border,#cbd5e1)',borderRadius:9,background:'var(--ls-card,#fff)',color:'var(--ls-text,inherit)',fontSize:16,boxSizing:'border-box'},
+    button:{border:0,borderRadius:9,padding:'11px 16px',background:'#607A9B',color:'#fff',fontWeight:700,cursor:'pointer'},
+    secondary:{border:'1px solid var(--ls-border,#cbd5e1)',borderRadius:9,padding:'10px 14px',background:'var(--ls-card,#fff)',color:'var(--ls-text,inherit)',cursor:'pointer'}
+  };
+  const L = Number(roomLength), W = Number(roomWidth);
+  const valid = Number.isFinite(L) && Number.isFinite(W) && L > 0 && W > 0 && L <= 500 && W <= 500;
+  const rad = angle * Math.PI / 180;
+  const corners = valid ? [[-L/2,-W/2],[L/2,-W/2],[L/2,W/2],[-L/2,W/2]].map(([x,y]) => [x*Math.cos(rad)+y*Math.sin(rad), -x*Math.sin(rad)+y*Math.cos(rad)]) : [];
+  const minV = corners.length ? Math.min(...corners.map(p=>p[1])) : 0;
+  const maxV = corners.length ? Math.max(...corners.map(p=>p[1])) : 0;
+  const across = maxV-minV;
+  const fullRows = Math.floor((across + 1e-8) / rollWidth);
+  const remainder = Math.max(0, across-fullRows*rollWidth);
+  const ceilRows = Math.ceil((across - 1e-8) / rollWidth);
+  const clipAt = (poly, boundary, keepGreater) => {
+    const out=[];
+    for(let i=0;i<poly.length;i++){
+      const a=poly[i], b=poly[(i+1)%poly.length];
+      const ina=keepGreater ? a[1]>=boundary-1e-9 : a[1]<=boundary+1e-9;
+      const inb=keepGreater ? b[1]>=boundary-1e-9 : b[1]<=boundary+1e-9;
+      if(ina) out.push(a);
+      if(ina!==inb){const t=(boundary-a[1])/(b[1]-a[1]);out.push([a[0]+t*(b[0]-a[0]),boundary]);}
+    }
+    return out;
+  };
+  const bandLength = (lo,hi) => {
+    let p=clipAt(corners,lo,true); if(p.length) p=clipAt(p,hi,false);
+    if(p.length<2) return 0;
+    return Math.max(...p.map(x=>x[0]))-Math.min(...p.map(x=>x[0]));
+  };
+  const calculate = (rows) => {
+    const lengths=Array.from({length:rows},(_,i)=>bandLength(minV+i*rollWidth,Math.min(maxV,minV+(i+1)*rollWidth)));
+    const total=lengths.reduce((a,b)=>a+b,0);
+    return {lengths,total,area:total*rollWidth};
+  };
+  const lower = calculate(fullRows);
+  const upper = calculate(ceilRows);
+  const setAngleFromPointer = (event) => {
+    const rect=planRef.current?.getBoundingClientRect(); if(!rect) return;
+    const x=(event.clientX-rect.left)/rect.width*320-160;
+    const y=95-(event.clientY-rect.top)/rect.height*190;
+    if(Math.hypot(x,y)<12) return;
+    let deg=Math.atan2(y,x)*180/Math.PI;
+    if(deg<0) deg+=180;
+    if(deg>=180) deg-=180;
+    setAngle(Math.round(deg*10)/10);
+  };
+  const fmt = n => Number(n||0).toLocaleString('fr-FR',{maximumFractionDigits:2});
+  const onConfirm=()=>{setConfirmed(true);setRowChoice(null);};
+  const selected = rowChoice==='lower' ? lower : rowChoice==='upper' ? upper : null;
+  const selectedRows = rowChoice==='lower' ? fullRows : ceilRows;
+  const finalStripWidth = rowChoice==='upper' && remainder>0 ? remainder : rollWidth;
+  return (
+    <section className="ls-panel">
+      <h2 style={{marginTop:0}}>Simulation mosquée</h2>
+      <p className="ls-muted">Calcul de la quantité de moquette selon les dimensions de la salle et l’orientation de la Qibla. Largeur du rouleau : 1,33 m.</p>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(180px,1fr))',gap:12}}>
+        <label style={{display:'grid',gap:6,fontWeight:700}}>Longueur de la salle (m)
+          <input type="number" min="0.1" step="0.01" style={styles.field} value={roomLength} onChange={e=>{setRoomLength(e.target.value);setConfirmed(false);setRowChoice(null);}}/>
+        </label>
+        <label style={{display:'grid',gap:6,fontWeight:700}}>Largeur de la salle (m)
+          <input type="number" min="0.1" step="0.01" style={styles.field} value={roomWidth} onChange={e=>{setRoomWidth(e.target.value);setConfirmed(false);setRowChoice(null);}}/>
+        </label>
+      </div>
+      <div style={{marginTop:18}}>
+        <strong>Choisir la direction de la Qibla</strong>
+        <p className="ls-muted" style={{margin:'5px 0 10px'}}>اسحب السهم داخل مخطط القاعة لتحديد اتجاه القبلة. خطوط السجاد تكون موازية للسهم.</p>
+        <div ref={planRef} onPointerDown={e=>{setDragging(true);e.currentTarget.setPointerCapture?.(e.pointerId);setAngleFromPointer(e);}} onPointerMove={e=>{if(dragging)setAngleFromPointer(e);}} onPointerUp={()=>setDragging(false)} onPointerCancel={()=>setDragging(false)} style={{width:'100%',maxWidth:520,touchAction:'none',border:'1px solid var(--ls-border,#cbd5e1)',borderRadius:12,overflow:'hidden',background:'var(--ls-card,#fff)',cursor:'crosshair'}}>
+          <svg viewBox="0 0 320 190" width="100%" role="img" aria-label="Plan de la salle et direction de la Qibla">
+            <rect x="25" y="20" width="270" height="150" rx="4" fill="#94a3b8" fillOpacity=".08" stroke="currentColor" strokeWidth="1.5"/>
+            <g transform={\`translate(160 95) rotate(\${-angle})\`}>
+              {Array.from({length:11},(_,i)=><line key={i} x1={-145+i*29} y1="-95" x2={-145+i*29} y2="95" stroke="#607A9B" strokeWidth="2" opacity=".72"/>)}
+            </g>
+            <path d={\`M160 95 L\${160+78*Math.cos(rad)} \${95-78*Math.sin(rad)}\`} stroke="#D69E36" strokeWidth="4" strokeLinecap="round"/>
+            <path d={\`M\${160+78*Math.cos(rad)} \${95-78*Math.sin(rad)} l-13 -3 l5 12\`} fill="none" stroke="#D69E36" strokeWidth="3" strokeLinecap="round"/>
+            <circle cx="160" cy="95" r="5" fill="#D69E36"/>
+            <text x="160" y="12" textAnchor="middle" fontSize="10" fill="currentColor">Salle de prière</text>
+            <text x="244" y="30" fontSize="10" fill="#D69E36">Qibla</text>
+          </svg>
+        </div>
+        <div style={{display:'flex',justifyContent:'space-between',gap:10,alignItems:'center',marginTop:8,flexWrap:'wrap'}}>
+          <span className="ls-muted">Angle sélectionné : <strong>{fmt(angle)}°</strong></span>
+          <button type="button" style={styles.secondary} onClick={()=>{setAngle(0);setConfirmed(false);setRowChoice(null);}}>Réinitialiser l’angle</button>
+        </div>
+      </div>
+      <button type="button" style={{...styles.button,marginTop:16}} disabled={!valid} onClick={onConfirm}>موافق — حساب الكمية</button>
+      {!valid && <p className="ls-message">أدخل طولاً وعرضاً صحيحين أكبر من صفر.</p>}
+      {confirmed && valid && (
+        <div style={{marginTop:20,borderTop:'1px solid var(--ls-border,#e2e8f0)',paddingTop:16}}>
+          <h3 style={{marginTop:0}}>Résultat du calcul</h3>
+          <p className="ls-muted">المسافة العمودية على اتجاه القبلة داخل القاعة: <strong>{fmt(across)} م</strong>. عدد الصفوف النظري: <strong>{fmt(across/rollWidth)}</strong>.</p>
+          {remainder < 0.01 ? (
+            <div style={{padding:14,border:'1px solid #16a34a',borderRadius:10}}>
+              <strong>{fullRows} صفوف كاملة</strong>
+              <p style={{margin:'6px 0 0'}}>الطول الإجمالي: {fmt(lower.total)} م طولي — المساحة: {fmt(lower.area)} م².</p>
+            </div>
+          ) : (
+            <>
+              <p>كاين عرض متبقّي قدره <strong>{fmt(remainder)} م</strong>. اختار طريقة التغطية:</p>
+              <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(220px,1fr))',gap:12}}>
+                <button type="button" onClick={()=>setRowChoice('lower')} style={{...styles.secondary,textAlign:'left',padding:14,border:rowChoice==='lower'?'2px solid #607A9B':undefined}}>
+                  <strong>{fullRows} صفوف كاملة</strong><br/>
+                  <span>يبقى فراغ بعرض {fmt(remainder)} م</span>
+                </button>
+                <button type="button" onClick={()=>setRowChoice('upper')} style={{...styles.secondary,textAlign:'left',padding:14,border:rowChoice==='upper'?'2px solid #607A9B':undefined}}>
+                  <strong>{ceilRows} صفوف مع قص الصف الأخير</strong><br/>
+                  <span>عرض الصف الأخير {fmt(remainder)} م بعد القص</span>
+                </button>
+              </div>
+            </>
+          )}
+          {selected && (
+            <div style={{marginTop:14,padding:14,border:'1px solid var(--ls-border,#cbd5e1)',borderRadius:12}}>
+              <strong>النتيجة حسب اختيارك: {selectedRows} صفوف</strong>
+              <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(145px,1fr))',gap:10,marginTop:12}}>
+                <div><div className="ls-muted">Longueur totale à acheter</div><strong style={{fontSize:22}}>{fmt(selected.total)} m</strong></div>
+                <div><div className="ls-muted">Surface de moquette achetée</div><strong style={{fontSize:22}}>{fmt(selected.area)} m²</strong></div>
+                <div><div className="ls-muted">Largeur de la dernière bande</div><strong style={{fontSize:22}}>{fmt(finalStripWidth)} m</strong></div>
+              </div>
+              <p className="ls-muted" style={{marginBottom:0}}>أطوال الشرائط المقدّرة: {selected.lengths.map(fmt).join(' + ')} متر.</p>
+            </div>
+          )}
+        </div>
+      )}
+      <p className="ls-muted" style={{marginTop:18,fontSize:12}}>ملاحظة: هذه نسخة محاكاة أولية. الحساب يستعمل أطوال الشرائط الناتجة عن تقاطع مخطط القاعة مع كل شريط بعرض 1.33 م؛ يجب مراجعة المخطط والقص النهائي ميدانياً قبل الشراء، خصوصاً عند الزوايا المائلة.</p>
+    </section>
+  );
+}
+
 export default function App() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -2622,6 +2762,7 @@ export default function App() {
       admin: true,
     },
     { id: 'tapis', label: 'Tapis', icon: '▧', adminOnly: true },
+    { id: 'mosque-simulation', label: 'Simulation mosquée', icon: '▦', adminOnly: true },
     {
       id: 'tapis-analysis',
       label: language === 'ar' ? 'Analyse Tapis' : 'Analyse Tapis',
@@ -4891,6 +5032,8 @@ export default function App() {
                 <div style={{overflowX:'auto'}}><table className="ls-table"><thead><tr>{['Type','Dénomination','Dimension','Dessin','Couleur','N° vertical'].map(x=><th style={styles.th} key={x}>{x}</th>)}</tr></thead><tbody>{tapisTickets.map(x=><tr key={x.id}>{[x.type,x.denomination,x.dimension,x.dessin,x.couleur,x.code_barres].map((v,i)=><td style={styles.td} key={i}>{v}</td>)}</tr>)}</tbody></table></div>
               </section>
             )}
+
+            {activePage === 'mosque-simulation' && isAdmin && (<MosqueSimulation />)}
 
             {activePage === 'tapis-analysis' && canViewPage('tapis-analysis') && (
               <section className="ls-panel">
