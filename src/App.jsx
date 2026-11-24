@@ -216,7 +216,7 @@ function MosqueSimulation() {
             {confirmed&&displayStrips.map((strip,i)=>strip.points.length>=3&&(
               <g key={i}>
                 <polygon points={strip.points.map(p=>screenPoint(p).join(',')).join(' ')} fill="#607A9B" fillOpacity=".25" stroke="#607A9B" strokeWidth="1.5" strokeDasharray={strip.partial&&!selected?"5 4":undefined}/>
-                <text x={screenPoint(strip.labelPoint)[0]} y={screenPoint(strip.labelPoint)[1]} transform={"rotate("+(-angle)+" "+screenPoint(strip.labelPoint)[0]+" "+screenPoint(strip.labelPoint)[1]+")"} textAnchor="middle" dominantBaseline="middle" fontSize="8" fontWeight="700" fill="#1e293b" stroke="#fff" strokeWidth="2.5" paintOrder="stroke">{fmt(strip.length)}</text>
+                <text x={screenPoint(strip.labelPoint)[0]} y={screenPoint(strip.labelPoint)[1]} transform={"rotate("+(angle-90)+" "+screenPoint(strip.labelPoint)[0]+" "+screenPoint(strip.labelPoint)[1]+")"} textAnchor="middle" dominantBaseline="middle" fontSize="8" fontWeight="700" fill="#1e293b" stroke="#fff" strokeWidth="2.5" paintOrder="stroke">{fmt(strip.length)}</text>
               </g>
             ))}
             <path d={`M160 95 L${160+Math.cos(rad)*arrowLength} ${95-Math.sin(rad)*arrowLength}`} stroke="#D69E36" strokeWidth="4" strokeLinecap="round"/>
