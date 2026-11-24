@@ -184,15 +184,28 @@ function MosqueSimulation() {
   const displayStrips=displayCalculation.bands.map((band,i)=>{
     let polygon=clipAt(localCorners,band.lo,true);if(polygon.length)polygon=clipAt(polygon,band.hi,false);
     const points=polygon.map(toRoom);
-    // Exact polygon centroid: centered both along the row and between its two boundaries.
+    // Center the label between the strip's two boundaries, then move it
+    // along the row away from u=0 (the Qibla-arrow axis) to keep it readable.
     let twiceArea=0,cx=0,cy=0;
     for(let k=0;k<polygon.length;k++){
       const a=polygon[k],b=polygon[(k+1)%polygon.length];
       const cross=a[0]*b[1]-b[0]*a[1];
       twiceArea+=cross;cx+=(a[0]+b[0])*cross;cy+=(a[1]+b[1])*cross;
     }
-    const centroid=Math.abs(twiceArea)>1e-8?[cx/(3*twiceArea),cy/(3*twiceArea)]:[0,0];
-    const labelPoint=toRoom(centroid);
+    const centerV=Math.abs(twiceArea)>1e-8?cy/(3*twiceArea):(band.lo+band.hi)/2;
+    const rowIntersections=[];
+    for(let k=0;k<polygon.length;k++){
+      const a=polygon[k],b=polygon[(k+1)%polygon.length];
+      if((a[1]<=centerV&&b[1]>=centerV)||(b[1]<=centerV&&a[1]>=centerV)){
+        if(Math.abs(b[1]-a[1])<1e-9)rowIntersections.push(a[0],b[0]);
+        else rowIntersections.push(a[0]+(centerV-a[1])*(b[0]-a[0])/(b[1]-a[1]));
+      }
+    }
+    const rowMin=rowIntersections.length?Math.min(...rowIntersections):Math.min(...polygon.map(p=>p[0]));
+    const rowMax=rowIntersections.length?Math.max(...rowIntersections):Math.max(...polygon.map(p=>p[0]));
+    const labelMargin=Math.min(0.22,Math.max(0.08,(rowMax-rowMin)*0.12));
+    const labelU=Math.abs(rowMax-labelMargin)>=Math.abs(rowMin+labelMargin)?rowMax-labelMargin:rowMin+labelMargin;
+    const labelPoint=toRoom([labelU,centerV]);
     return {points,labelPoint,partial:band.width<rollWidth-1e-7,length:displayCalculation.lengths[i]};
   });
   // Keep text parallel to the rows but never upside down as the Qibla arrow rotates.
