@@ -108,6 +108,9 @@ function MosqueSimulation() {
   const [irregularLengths,setIrregularLengths]=useState([]);
   const [irregularAngle,setIrregularAngle]=useState(0);
   const [irregularDragging,setIrregularDragging]=useState(false);
+  const [irregularVertexDragging,setIrregularVertexDragging]=useState(null);
+  const irregularAngleSnapRef=useRef({});
+  const irregularDrawRef=useRef(null);
   const irregularPlanRef=useRef(null);
   const [angle, setAngle] = useState(0);
   const [confirmed, setConfirmed] = useState(false);
@@ -231,6 +234,9 @@ function MosqueSimulation() {
     const positions=irregularClosed?irregularPoints.map((p,i)=>{const q=irregularPoints[(i+1)%irregularPoints.length],mx=(p[0]+q[0])/2,my=(p[1]+q[1])/2,dx=q[0]-p[0],dy=q[1]-p[1],len=Math.hypot(dx,dy)||1;let nx=dy/len,ny=-dx/len;if(nx*(mx-centroid[0])+ny*(my-centroid[1])<0){nx=-nx;ny=-ny;}return{x:Math.max(2,Math.min(264,mx+nx*25-28)),y:Math.max(2,Math.min(184,my+ny*25-17))};}):[];
     const addPoint=e=>{if(irregularClosed)return;const r=e.currentTarget.getBoundingClientRect();setIrregularPoints(old=>[...old,[Math.max(8,Math.min(312,(e.clientX-r.left)/r.width*320)),Math.max(8,Math.min(212,(e.clientY-r.top)/r.height*220))]]);};
     const validLengths=irregularClosed&&irregularLengths.length===irregularPoints.length&&irregularLengths.every(v=>Number(v)>0&&Number(v)<=500);
+    const pointFromEvent=e=>{const r=irregularDrawRef.current?.getBoundingClientRect();if(!r)return null;return [Math.max(8,Math.min(312,(e.clientX-r.left)/r.width*320)),Math.max(8,Math.min(212,(e.clientY-r.top)/r.height*220))];};
+    const vertexAngle=(pts,index)=>{const n=pts.length;if(n<3)return 0;const p=pts[index],a=pts[(index-1+n)%n],b=pts[(index+1)%n];const ax=a[0]-p[0],ay=a[1]-p[1],bx=b[0]-p[0],by=b[1]-p[1];const den=Math.hypot(ax,ay)*Math.hypot(bx,by);if(!den)return 0;return Math.acos(Math.max(-1,Math.min(1,(ax*bx+ay*by)/den)))*180/Math.PI;};
+    const dragVertex=(e,index)=>{if(!irregularVertexDragging&&e.type!=='pointerdown')return;const candidate=pointFromEvent(e);if(!candidate)return;setIrregularPoints(old=>{if(old.length<3)return old;const next=old.map(p=>[...p]);const n=next.length,prev=next[(index-1+n)%n],after=next[(index+1)%n];let target=candidate;const v1=[prev[0]-candidate[0],prev[1]-candidate[1]],v2=[after[0]-candidate[0],after[1]-candidate[1]],den=Math.hypot(...v1)*Math.hypot(...v2);let measured=den?Math.acos(Math.max(-1,Math.min(1,(v1[0]*v2[0]+v1[1]*v2[1])/den)))*180/Math.PI:0;const mid=[(prev[0]+after[0])/2,(prev[1]+after[1])/2],radius=Math.hypot(after[0]-prev[0],after[1]-prev[1])/2;const dist=Math.hypot(candidate[0]-mid[0],candidate[1]-mid[1]);if(Math.abs(measured-90)<=6&&radius>0&&dist>0){target=[mid[0]+(candidate[0]-mid[0])*radius/dist,mid[1]+(candidate[1]-mid[1])*radius/dist];const snapKey=String(index);if(!irregularAngleSnapRef.current[snapKey]&&typeof navigator!=='undefined'&&navigator.vibrate)navigator.vibrate(35);irregularAngleSnapRef.current[snapKey]=true;}else{irregularAngleSnapRef.current[String(index)]=false;}next[index]=target;return next;});};
     const moveArrow=e=>{const r=irregularPlanRef.current?.getBoundingClientRect();if(!r)return;const x=(e.clientX-r.left)/r.width*320-160,y=110-(e.clientY-r.top)/r.height*220;if(Math.hypot(x,y)<10)return;let d=Math.atan2(y,x)*180/Math.PI;if(d<0)d+=360;const snaps=[0,90,180,270,360];let best=0,diff=999;snaps.forEach(v=>{const z=Math.min(Math.abs(d-v),360-Math.abs(d-v));if(z<diff){diff=z;best=v;}});setIrregularAngle(diff<=5?best:Math.round(d*10)/10);if(diff<=5&&typeof navigator!=='undefined'&&navigator.vibrate)navigator.vibrate(35);};
     const rad2=irregularAngle*Math.PI/180,arrow=65;
     return <section className="ls-panel">
@@ -241,9 +247,14 @@ function MosqueSimulation() {
         <strong>1. ارسم حدود القاعة</strong>
         <p className="ls-muted">اضغط داخل الرسم لإضافة الزوايا بالترتيب. الرسم تقريبي، والأطوال الحقيقية تدخلها في المربعات بجانب الأضلاع.</p>
         <div style={{border:'1px solid var(--ls-border,#cbd5e1)',borderRadius:12,overflow:'hidden',background:'var(--ls-card,#fff)'}}>
-          <svg viewBox="0 0 320 220" width="100%" style={{display:'block',touchAction:'manipulation',cursor:irregularClosed?'default':'crosshair'}} onClick={addPoint}>
+          <svg ref={irregularDrawRef} viewBox="0 0 320 220" width="100%" style={{display:'block',touchAction:irregularClosed?'none':'manipulation',cursor:irregularClosed?'grab':'crosshair'}} onClick={addPoint}>
             {irregularPoints.length>=2&&<polyline points={irregularPoints.map(p=>p.join(',')).join(' ')+(irregularClosed?' '+irregularPoints[0].join(','):'')} fill={irregularClosed?'#607A9B22':'none'} stroke="#607A9B" strokeWidth="2.5"/>}
-            {irregularPoints.map((p,i)=><g key={i}><circle cx={p[0]} cy={p[1]} r="5" fill="#607A9B"/><text x={p[0]} y={p[1]-9} fontSize="10" textAnchor="middle" fill="currentColor">{i+1}</text></g>)}
+            {irregularPoints.map((p,i)=><g key={i}>
+              {irregularClosed&&<circle cx={p[0]} cy={p[1]} r="13" fill="#607A9B" fillOpacity=".12" stroke="#607A9B" strokeWidth="1.5" style={{cursor:'grab',touchAction:'none'}} onPointerDown={e=>{e.stopPropagation();setIrregularVertexDragging(i);e.currentTarget.setPointerCapture?.(e.pointerId);dragVertex(e,i);}} onPointerMove={e=>{if(irregularVertexDragging===i)dragVertex(e,i);}} onPointerUp={e=>{e.stopPropagation();setIrregularVertexDragging(null);irregularAngleSnapRef.current[String(i)]=false;}} onPointerCancel={()=>setIrregularVertexDragging(null)}/>}
+              <circle cx={p[0]} cy={p[1]} r={irregularClosed?5:5} fill="#607A9B" pointerEvents="none"/>
+              <text x={p[0]} y={p[1]-9} fontSize="10" textAnchor="middle" fill="currentColor" pointerEvents="none">{i+1}</text>
+              {irregularClosed&&<text x={p[0]+12} y={p[1]-12} fontSize="9" fontWeight="700" fill="#D69E36" stroke="#fff" strokeWidth="2" paintOrder="stroke" pointerEvents="none">{Math.round(vertexAngle(irregularPoints,i)*10)/10}°</text>}
+            </g>)}
             {irregularClosed&&positions.map((p,i)=><foreignObject key={i} x={p.x} y={p.y} width="56" height="36"><input xmlns="http://www.w3.org/1999/xhtml" type="number" min="0.01" step="0.01" inputMode="decimal" placeholder="متر" value={irregularLengths[i]||''} onChange={e=>setIrregularLengths(old=>old.map((v,j)=>j===i?e.target.value:v))} style={{width:54,height:32,boxSizing:'border-box',padding:3,border:'1.5px solid #607A9B',borderRadius:7,background:'#fff',color:'#172033',fontSize:12,textAlign:'center'}}/></foreignObject>)}
           </svg>
         </div>
