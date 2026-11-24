@@ -245,7 +245,7 @@ function MosqueSimulation() {
       <button type="button" style={{...styles.secondary,marginBottom:12}} onClick={()=>setRoomMode(null)}>رجوع لاختيار نوع القاعة</button>
       {irregularStage==='draw'?<>
         <strong>1. ارسم حدود القاعة</strong>
-        <p className="ls-muted">اضغط داخل الرسم لإضافة الزوايا بالترتيب. الرسم تقريبي، والأطوال الحقيقية تدخلها في المربعات بجانب الأضلاع.</p>
+        <p className="ls-muted">اضغط داخل الرسم لإضافة الزوايا بالترتيب. بعد إغلاق الشكل اسحب الدوائر الزرقاء لتعديل الزوايا؛ كي تقرّب زاوية من 90° يفيبري الهاتف ويثبتها على زاوية قائمة.</p>
         <div style={{border:'1px solid var(--ls-border,#cbd5e1)',borderRadius:12,overflow:'hidden',background:'var(--ls-card,#fff)'}}>
           <svg ref={irregularDrawRef} viewBox="0 0 320 220" width="100%" style={{display:'block',touchAction:irregularClosed?'none':'manipulation',cursor:irregularClosed?'grab':'crosshair'}} onClick={addPoint}>
             {irregularPoints.length>=2&&<polyline points={irregularPoints.map(p=>p.join(',')).join(' ')+(irregularClosed?' '+irregularPoints[0].join(','):'')} fill={irregularClosed?'#607A9B22':'none'} stroke="#607A9B" strokeWidth="2.5"/>}
@@ -262,7 +262,7 @@ function MosqueSimulation() {
           {!irregularClosed&&<button type="button" style={styles.button} disabled={irregularPoints.length<3} onClick={()=>{setIrregularClosed(true);setIrregularLengths(Array(irregularPoints.length).fill(''));}}>إغلاق الشكل وإظهار مربعات الأطوال</button>}
           <button type="button" style={styles.secondary} onClick={()=>{setIrregularPoints([]);setIrregularClosed(false);setIrregularLengths([]);}}>مسح الرسم</button>
         </div>
-        {irregularClosed&&<><p className="ls-muted">كل مربع ملاصق لضلع معيّن. أدخل الأطوال بالمتر.</p><button type="button" style={{...styles.button,width:'100%'}} disabled={!validLengths} onClick={()=>setIrregularStage('qibla')}>موافق — اختيار اتجاه القبلة</button></>}
+        {irregularClosed&&<><p className="ls-muted">كل مربع ملاصق لضلع معيّن. أدخل الأطوال بالمتر. الأرقام الذهبية بجانب الرؤوس تبيّن قياس الزوايا، والدوائر الزرقاء قابلة للسحب.</p><button type="button" style={{...styles.button,width:'100%'}} disabled={!validLengths} onClick={()=>setIrregularStage('qibla')}>موافق — اختيار اتجاه القبلة</button></>}
       </>:<>
         <strong>2. اختار اتجاه القبلة</strong>
         <p className="ls-muted">اسحب السهم لتحديد اتجاه القبلة.</p>
