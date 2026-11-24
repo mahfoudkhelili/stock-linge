@@ -106,6 +106,8 @@ function MosqueSimulation() {
   const [irregularPoints,setIrregularPoints]=useState([]);
   const [irregularClosed,setIrregularClosed]=useState(false);
   const [irregularLengths,setIrregularLengths]=useState([]);
+  const [irregularSolved,setIrregularSolved]=useState(null);
+  const [irregularSolveError,setIrregularSolveError]=useState('');
   const [irregularAngle,setIrregularAngle]=useState(0);
   const [irregularDragging,setIrregularDragging]=useState(false);
   const [irregularVertexDragging,setIrregularVertexDragging]=useState(null);
@@ -236,6 +238,22 @@ function MosqueSimulation() {
     const validLengths=irregularClosed&&irregularLengths.length===irregularPoints.length&&irregularLengths.every(v=>Number(v)>0&&Number(v)<=500);
     const pointFromEvent=e=>{const r=irregularDrawRef.current?.getBoundingClientRect();if(!r)return null;return [Math.max(8,Math.min(312,(e.clientX-r.left)/r.width*320)),Math.max(8,Math.min(212,(e.clientY-r.top)/r.height*220))];};
     const vertexAngle=(pts,index)=>{const n=pts.length;if(n<3)return 0;const p=pts[index],a=pts[(index-1+n)%n],b=pts[(index+1)%n];const ax=a[0]-p[0],ay=a[1]-p[1],bx=b[0]-p[0],by=b[1]-p[1];const den=Math.hypot(ax,ay)*Math.hypot(bx,by);if(!den)return 0;return Math.acos(Math.max(-1,Math.min(1,(ax*bx+ay*by)/den)))*180/Math.PI;};
+    const solveRealGeometry=()=>{
+      const target=irregularLengths.map(Number),n=irregularPoints.length;
+      if(n<3||target.length!==n||target.some(v=>!Number.isFinite(v)||v<=0)){setIrregularSolveError('تحقق من إدخال طول صحيح لكل ضلع.');return;}
+      const perimeter=target.reduce((a,b)=>a+b,0),drawn=irregularPoints.reduce((sum,p,i)=>sum+Math.hypot(irregularPoints[(i+1)%n][0]-p[0],irregularPoints[(i+1)%n][1]-p[1]),0);
+      if(Math.max(...target)>perimeter-Math.max(...target)+1e-7){setIrregularSolveError('الأطوال غير قابلة لتكوين مضلع مغلق: أطول ضلع لازم يكون أقصر من مجموع باقي الأضلاع.');return;}
+      if(!drawn){setIrregularSolveError('الرسم غير صالح. أعد رسم حدود القاعة.');return;}
+      const scale=perimeter/drawn,original=irregularPoints.map(p=>[p[0]*scale,p[1]*scale]),pts=original.map(p=>[...p]);
+      for(let iteration=0;iteration<3000;iteration++){
+        for(let i=0;i<n;i++){const j=(i+1)%n,dx=pts[j][0]-pts[i][0],dy=pts[j][1]-pts[i][1],len=Math.hypot(dx,dy)||1e-9,correction=(len-target[i])/len,cx=dx*correction*.5,cy=dy*correction*.5;pts[i][0]+=cx;pts[i][1]+=cy;pts[j][0]-=cx;pts[j][1]-=cy;}
+        const k=iteration<2500?0.0005:0.00003;for(let i=0;i<n;i++){pts[i][0]+=(original[i][0]-pts[i][0])*k;pts[i][1]+=(original[i][1]-pts[i][1])*k;}
+      }
+      const errors=pts.map((p,i)=>Math.abs(Math.hypot(pts[(i+1)%n][0]-p[0],pts[(i+1)%n][1]-p[1])-target[i])),maxError=Math.max(...errors);
+      const area=Math.abs(pts.reduce((s,p,i)=>s+p[0]*pts[(i+1)%n][1]-pts[(i+1)%n][0]*p[1],0))/2;
+      if(maxError>0.025||area<0.01){setIrregularSolveError('الأطوال ما تطابقتش مع شكل الرسم. حرّك الزوايا أو أعد الرسم حتى نقدروا نغلقوا المضلع بدقة. أكبر فرق: '+maxError.toFixed(3)+' م.');return;}
+      setIrregularSolved({points:pts,maxError,area});setIrregularSolveError('');setIrregularStage('review');
+    };
     const dragVertex=(e,index)=>{if(!irregularVertexDragging&&e.type!=='pointerdown')return;const candidate=pointFromEvent(e);if(!candidate)return;setIrregularPoints(old=>{if(old.length<3)return old;const next=old.map(p=>[...p]);const n=next.length,prev=next[(index-1+n)%n],after=next[(index+1)%n];let target=candidate;const v1=[prev[0]-candidate[0],prev[1]-candidate[1]],v2=[after[0]-candidate[0],after[1]-candidate[1]],den=Math.hypot(...v1)*Math.hypot(...v2);let measured=den?Math.acos(Math.max(-1,Math.min(1,(v1[0]*v2[0]+v1[1]*v2[1])/den)))*180/Math.PI:0;const mid=[(prev[0]+after[0])/2,(prev[1]+after[1])/2],radius=Math.hypot(after[0]-prev[0],after[1]-prev[1])/2;const dist=Math.hypot(candidate[0]-mid[0],candidate[1]-mid[1]);if(Math.abs(measured-90)<=6&&radius>0&&dist>0){target=[mid[0]+(candidate[0]-mid[0])*radius/dist,mid[1]+(candidate[1]-mid[1])*radius/dist];const snapKey=String(index);if(!irregularAngleSnapRef.current[snapKey]&&typeof navigator!=='undefined'&&navigator.vibrate)navigator.vibrate(35);irregularAngleSnapRef.current[snapKey]=true;}else{irregularAngleSnapRef.current[String(index)]=false;}next[index]=target;return next;});};
     const moveArrow=e=>{const r=irregularPlanRef.current?.getBoundingClientRect();if(!r)return;const x=(e.clientX-r.left)/r.width*320-160,y=110-(e.clientY-r.top)/r.height*220;if(Math.hypot(x,y)<10)return;let d=Math.atan2(y,x)*180/Math.PI;if(d<0)d+=360;const snaps=[0,90,180,270,360];let best=0,diff=999;snaps.forEach(v=>{const z=Math.min(Math.abs(d-v),360-Math.abs(d-v));if(z<diff){diff=z;best=v;}});setIrregularAngle(diff<=5?best:Math.round(d*10)/10);if(diff<=5&&typeof navigator!=='undefined'&&navigator.vibrate)navigator.vibrate(35);};
     const rad2=irregularAngle*Math.PI/180,arrow=65;
@@ -275,9 +293,9 @@ function MosqueSimulation() {
         <p className="ls-muted">اتجاه القبلة: {irregularAngle}°</p>
         <input type="range" min="0" max="359" value={irregularAngle%360} onChange={e=>setIrregularAngle(Number(e.target.value))} style={{width:'100%'}}/>
         <button type="button" style={styles.secondary} onClick={()=>setIrregularStage('draw')}>رجوع لتعديل الأطوال</button>
-        <button type="button" style={styles.button} onClick={()=>setIrregularStage('review')}>موافق</button>
+        <button type="button" style={styles.button} onClick={solveRealGeometry}>موافق — ضبط الأطوال الحقيقية</button>
       </>}
-      {irregularStage==='review'&&<div style={{marginTop:14,padding:12,border:'1px solid var(--ls-border,#cbd5e1)',borderRadius:10}}><strong>تم تحديد شكل القاعة واتجاه القبلة</strong><p className="ls-muted">الأطوال: {irregularLengths.map((v,i)=>'ضلع '+(i+1)+': '+v+' م').join(' — ')}.</p><p className="ls-muted">اتجاه القبلة: {irregularAngle}°. يلزم ضبط هندسة المضلع بالأطوال الحقيقية قبل عرض حساب السجاد، حتى لا نعطيك نتيجة غير دقيقة.</p></div>}
+      {irregularStage==='review'&&<div style={{marginTop:14,padding:12,border:'1px solid var(--ls-border,#cbd5e1)',borderRadius:10}}><strong>تم تحديد شكل القاعة واتجاه القبلة</strong><p className="ls-muted">الأطوال: {irregularLengths.map((v,i)=>'ضلع '+(i+1)+': '+v+' م').join(' — ')}.</p><p className="ls-muted">اتجاه القبلة: {irregularAngle}°.</p>{irregularSolveError&&<p className="ls-message">{irregularSolveError}</p>}{irregularSolved&&<><p><strong>تم ضبط المضلع بالأطوال الحقيقية.</strong></p><p>المساحة الهندسية: {irregularSolved.area.toFixed(2)} م² — أكبر فرق في الأطوال: {irregularSolved.maxError.toFixed(3)} م.</p><p className="ls-muted">المرحلة التالية: نتحقق من تقاطعات الصفوف مع المضلع قبل اعتماد كمية السجاد.</p></>}</div>}
     </section>;
   }
 
