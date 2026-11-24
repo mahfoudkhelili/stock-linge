@@ -138,6 +138,27 @@ function MosqueSimulation() {
     if(p.length<2) return 0;
     return Math.max(...p.map(x=>x[0]))-Math.min(...p.map(x=>x[0]));
   };
+  const stripSegment = (v) => {
+    const hits=[];
+    for(let i=0;i<corners.length;i++){
+      const a=corners[i], b=corners[(i+1)%corners.length];
+      if(v>=Math.min(a[1],b[1])-1e-8 && v<=Math.max(a[1],b[1])+1e-8){
+        if(Math.abs(b[1]-a[1])<1e-9) hits.push(a[0],b[0]);
+        else {const t=(v-a[1])/(b[1]-a[1]);if(t>=-1e-8&&t<=1+1e-8)hits.push(a[0]+t*(b[0]-a[0]));}
+      }
+    }
+    if(hits.length<2)return null;
+    const u1=Math.min(...hits),u2=Math.max(...hits);
+    const toRoom=(u,v)=>[u*Math.cos(rad)-v*Math.sin(rad),u*Math.sin(rad)+v*Math.cos(rad)];
+    return [toRoom(u1,v),toRoom(u2,v)];
+  };
+  const displayRows = selectedRows || ceilRows;
+  const displayStrips = Array.from({length:displayRows},(_,i)=>{
+    const width=Math.max(0,Math.min(maxV,minV+(i+1)*rollWidth)-(minV+i*rollWidth));
+    return {segment:stripSegment(minV+i*rollWidth+width/2),partial:width<rollWidth-1e-7};
+  });
+  const planScale = valid ? Math.min(270/L,150/W) : 1;
+  const screenPoint = ([x,y])=>[160+x*planScale,95+y*planScale];
   const calculate = (rows) => {
     const widths=Array.from({length:rows},(_,i)=>Math.max(0,Math.min(maxV,minV+(i+1)*rollWidth)-(minV+i*rollWidth)));
     const lengths=widths.map((width,i)=>bandLength(minV+i*rollWidth,minV+i*rollWidth+width));
@@ -178,13 +199,14 @@ function MosqueSimulation() {
         <strong>Choisir la direction de la Qibla</strong>
         <p className="ls-muted" style={{margin:'5px 0 10px'}}>اسحب السهم داخل مخطط القاعة لتحديد اتجاه القبلة. خطوط السجاد تكون موازية للسهم.</p>
         <div ref={planRef} onPointerDown={e=>{setDragging(true);e.currentTarget.setPointerCapture?.(e.pointerId);setAngleFromPointer(e);}} onPointerMove={e=>{if(dragging)setAngleFromPointer(e);}} onPointerUp={()=>setDragging(false)} onPointerCancel={()=>setDragging(false)} style={{width:'100%',maxWidth:520,touchAction:'none',border:'1px solid var(--ls-border,#cbd5e1)',borderRadius:12,overflow:'hidden',background:'var(--ls-card,#fff)',cursor:'crosshair'}}>
-          <svg viewBox="0 0 320 190" width="100%" role="img" aria-label="Plan de la salle et direction de la Qibla">
-            <rect x="25" y="20" width="270" height="150" rx="4" fill="#94a3b8" fillOpacity=".08" stroke="currentColor" strokeWidth="1.5"/>
-            <g transform={`translate(160 95) rotate(${-angle})`}>
-              {Array.from({length:11},(_,i)=><line key={i} x1="-170" y1={-90+i*18} x2="170" y2={-90+i*18} stroke="#607A9B" strokeWidth="2" opacity=".72"/>)}
-            </g>
-            <path d={`M160 95 L${160+78*Math.cos(rad)} ${95-78*Math.sin(rad)}`} stroke="#D69E36" strokeWidth="4" strokeLinecap="round"/>
-            <path d={`M${160+78*Math.cos(rad)} ${95-78*Math.sin(rad)} l-13 -3 l5 12`} fill="none" stroke="#D69E36" strokeWidth="3" strokeLinecap="round"/>
+          <svg viewBox="0 0 320 190" width="100%" role="img" aria-label="Plan de la salle et rangées de moquette parallèles à la Qibla">
+            <rect x={160-L*planScale/2} y={95-W*planScale/2} width={L*planScale} height={W*planScale} rx="2" fill="#94a3b8" fillOpacity=".08" stroke="currentColor" strokeWidth="1.5"/>
+            {confirmed && displayStrips.map((strip,i)=>strip.segment && (() => {
+              const [a,b]=strip.segment.map(screenPoint);
+              return <line key={i} x1={a[0]} y1={a[1]} x2={b[0]} y2={b[1]} stroke="#607A9B" strokeWidth="2.2" strokeDasharray={strip.partial && !selected ? "5 4" : undefined} opacity=".9"/>;
+            })())}
+            <path d={`M160 95 L${160+Math.cos(rad)*Math.min(78,Math.max(24,L*planScale*.38))} ${95-Math.sin(rad)*Math.min(78,Math.max(24,L*planScale*.38))}`} stroke="#D69E36" strokeWidth="4" strokeLinecap="round"/>
+            <path d={`M${160+Math.cos(rad)*Math.min(78,Math.max(24,L*planScale*.38))} ${95-Math.sin(rad)*Math.min(78,Math.max(24,L*planScale*.38))} l-13 -3 l5 12`} fill="none" stroke="#D69E36" strokeWidth="3" strokeLinecap="round"/>
             <circle cx="160" cy="95" r="5" fill="#D69E36"/>
             <text x="160" y="12" textAnchor="middle" fontSize="10" fill="currentColor">Salle de prière</text>
             <text x="244" y="30" fontSize="10" fill="#D69E36">Qibla</text>
