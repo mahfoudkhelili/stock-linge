@@ -145,11 +145,17 @@ function MosqueSimulation() {
     return Math.max(...p.map(x=>x[0]))-Math.min(...p.map(x=>x[0]));
   };
   const calculate=(rows)=>{
-    const widths=Array.from({length:rows},(_,i)=>Math.max(0,Math.min(maxV,minV+(i+1)*rollWidth)-(minV+i*rollWidth)));
-    const lengths=widths.map((width,i)=>bandLength(minV+i*rollWidth,minV+i*rollWidth+width));
+    // Start at the Qibla-facing wall (maximum projection along the Qibla arrow).
+    const bands=Array.from({length:rows},(_,i)=>{
+      const hi=maxV-i*rollWidth;
+      const lo=Math.max(minV,hi-rollWidth);
+      return {lo,hi,width:Math.max(0,hi-lo)};
+    });
+    const widths=bands.map(band=>band.width);
+    const lengths=bands.map(band=>bandLength(band.lo,band.hi));
     const total=lengths.reduce((a,b)=>a+b,0);
     const coveredArea=lengths.reduce((sum,length,i)=>sum+length*widths[i],0);
-    return {lengths,widths,total,purchasedArea:total*rollWidth,coveredArea};
+    return {lengths,widths,total,purchasedArea:total*rollWidth,coveredArea,bands};
   };
   const lower=calculate(fullRows),upper=calculate(ceilRows);
   const setAngleFromPointer=(event)=>{
@@ -172,10 +178,12 @@ function MosqueSimulation() {
   const selected=rowChoice==='lower'?lower:rowChoice==='upper'?upper:null;
   const selectedRows=rowChoice==='lower'?fullRows:ceilRows;
   const displayRows=selectedRows||ceilRows;
-  const displayStrips=Array.from({length:displayRows},(_,i)=>{
-    const lo=minV+i*rollWidth,hi=Math.min(maxV,lo+rollWidth);
-    let polygon=clipAt(localCorners,lo,true);if(polygon.length)polygon=clipAt(polygon,hi,false);
-    return {points:polygon.map(toRoom),partial:hi-lo<rollWidth-1e-7};
+  const displayCalculation=calculate(displayRows);
+  const displayStrips=displayCalculation.bands.map((band,i)=>{
+    let polygon=clipAt(localCorners,band.lo,true);if(polygon.length)polygon=clipAt(polygon,band.hi,false);
+    const points=polygon.map(toRoom);
+    const center=points.length?points.reduce((sum,p)=>[sum[0]+p[0]/points.length,sum[1]+p[1]/points.length],[0,0]):[0,0];
+    return {points,center,partial:band.width<rollWidth-1e-7,length:displayCalculation.lengths[i]};
   });
   const planScale=valid?Math.min(270/Math.max(L,0.01),150/Math.max(W,0.01)):1;
   const screenPoint=([x,y])=>[160+x*planScale,95-y*planScale];
@@ -196,12 +204,15 @@ function MosqueSimulation() {
       </div>
       <div style={{marginTop:18}}>
         <strong>Choisir la direction de la Qibla</strong>
-        <p className="ls-muted" style={{margin:'5px 0 10px'}}>اسحب السهم لتحديد اتجاه القبلة. شكل القاعة يبقى ثابتاً، وصفوف السجاد تدور لتبقى عمودية على السهم، ويبدأ الصف الأول من أول جدار.</p>
+        <p className="ls-muted" style={{margin:'5px 0 10px'}}>اسحب السهم لتحديد اتجاه القبلة. شكل القاعة يبقى ثابتاً، وصفوف السجاد عمودية على السهم، ويبدأ الصف الأول من الجدار الموجود جهة القبلة.</p>
         <div ref={planRef} onPointerDown={e=>{setDragging(true);e.currentTarget.setPointerCapture?.(e.pointerId);setAngleFromPointer(e);}} onPointerMove={e=>{if(dragging)setAngleFromPointer(e);}} onPointerUp={()=>{setDragging(false);lastSnapRef.current=null;}} onPointerCancel={()=>{setDragging(false);lastSnapRef.current=null;}} style={{width:'100%',maxWidth:520,touchAction:'none',border:'1px solid var(--ls-border,#cbd5e1)',borderRadius:12,overflow:'hidden',background:'var(--ls-card,#fff)',cursor:'crosshair'}}>
-          <svg viewBox="0 0 320 190" width="100%" role="img" aria-label="Plan proportionnel fixe avec flèche Qibla et rangées perpendiculaires à la Qibla">
+          <svg viewBox="0 0 320 190" width="100%" role="img" aria-label="Plan fixe, rangées perpendiculaires à la Qibla avec longueur de chaque rangée">
             <polygon points={roomScreenPoints.map(p=>p.join(',')).join(' ')} fill="#94a3b8" fillOpacity=".08" stroke="currentColor" strokeWidth="1.5"/>
             {confirmed&&displayStrips.map((strip,i)=>strip.points.length>=3&&(
-              <polygon key={i} points={strip.points.map(p=>screenPoint(p).join(',')).join(' ')} fill="#607A9B" fillOpacity=".25" stroke="#607A9B" strokeWidth="1.5" strokeDasharray={strip.partial&&!selected?"5 4":undefined}/>
+              <g key={i}>
+                <polygon points={strip.points.map(p=>screenPoint(p).join(',')).join(' ')} fill="#607A9B" fillOpacity=".25" stroke="#607A9B" strokeWidth="1.5" strokeDasharray={strip.partial&&!selected?"5 4":undefined}/>
+                <text x={screenPoint(strip.center)[0]} y={screenPoint(strip.center)[1]} textAnchor="middle" dominantBaseline="middle" fontSize="8" fontWeight="700" fill="#1e293b" stroke="#fff" strokeWidth="2.5" paintOrder="stroke">{fmt(strip.length)} m</text>
+              </g>
             ))}
             <path d={`M160 95 L${160+Math.cos(rad)*arrowLength} ${95-Math.sin(rad)*arrowLength}`} stroke="#D69E36" strokeWidth="4" strokeLinecap="round"/>
             <path d={`M${160+Math.cos(rad)*arrowLength} ${95-Math.sin(rad)*arrowLength} l-13 -3 l5 12`} fill="none" stroke="#D69E36" strokeWidth="3" strokeLinecap="round"/>
