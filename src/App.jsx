@@ -181,15 +181,24 @@ function MosqueSimulation() {
   const selectedRows=rowChoice==='lower'?fullRows:ceilRows;
   const displayRows=selectedRows||ceilRows;
   const displayCalculation=calculate(displayRows);
-  const labelU=minU+(maxU-minU)*0.72;
   const displayStrips=displayCalculation.bands.map((band,i)=>{
     let polygon=clipAt(localCorners,band.lo,true);if(polygon.length)polygon=clipAt(polygon,band.hi,false);
     const points=polygon.map(toRoom);
-    const centerV=polygon.length?polygon.reduce((sum,p)=>sum+p[1]/polygon.length,0):0;
-    // All measurements share one line parallel to the Qibla direction, inside the carpet rows.
-    const labelPoint=toRoom([labelU,centerV]);
+    // Put each measurement at the midpoint of the longest edge parallel to its row (the major base).
+    let majorEdge=null;
+    for(let k=0;k<polygon.length;k++){
+      const a=polygon[k],b=polygon[(k+1)%polygon.length];
+      if(Math.abs(a[1]-b[1])<1e-6){
+        const edgeLength=Math.abs(a[0]-b[0]);
+        if(!majorEdge||edgeLength>majorEdge.length)majorEdge={length:edgeLength,point:[(a[0]+b[0])/2,(a[1]+b[1])/2]};
+      }
+    }
+    const labelPoint=toRoom(majorEdge?majorEdge.point:(polygon.length?[polygon.reduce((sum,p)=>sum+p[0],0)/polygon.length,polygon.reduce((sum,p)=>sum+p[1],0)/polygon.length]:[0,0]));
     return {points,labelPoint,partial:band.width<rollWidth-1e-7,length:displayCalculation.lengths[i]};
   });
+  // Keep text parallel to the rows but never upside down as the Qibla arrow rotates.
+  const labelRotationRaw=((angle-90)%180+180)%180-90;
+  const labelRotation=labelRotationRaw<=-89.9?90:labelRotationRaw;
   const planScale=valid?Math.min(270/Math.max(L,0.01),150/Math.max(W,0.01)):1;
   const screenPoint=([x,y])=>[160+x*planScale,95-y*planScale];
   const roomScreenPoints=roomCorners.map(screenPoint);
@@ -216,7 +225,7 @@ function MosqueSimulation() {
             {confirmed&&displayStrips.map((strip,i)=>strip.points.length>=3&&(
               <g key={i}>
                 <polygon points={strip.points.map(p=>screenPoint(p).join(',')).join(' ')} fill="#607A9B" fillOpacity=".25" stroke="#607A9B" strokeWidth="1.5" strokeDasharray={strip.partial&&!selected?"5 4":undefined}/>
-                <text x={screenPoint(strip.labelPoint)[0]} y={screenPoint(strip.labelPoint)[1]} transform={"rotate("+(angle-90)+" "+screenPoint(strip.labelPoint)[0]+" "+screenPoint(strip.labelPoint)[1]+")"} textAnchor="middle" dominantBaseline="middle" fontSize="8" fontWeight="700" fill="#1e293b" stroke="#fff" strokeWidth="2.5" paintOrder="stroke">{fmt(strip.length)}</text>
+                <text x={screenPoint(strip.labelPoint)[0]} y={screenPoint(strip.labelPoint)[1]} transform={"rotate("+labelRotation+" "+screenPoint(strip.labelPoint)[0]+" "+screenPoint(strip.labelPoint)[1]+")"} textAnchor="middle" dominantBaseline="middle" fontSize="8" fontWeight="700" fill="#1e293b" stroke="#fff" strokeWidth="2.5" paintOrder="stroke">{fmt(strip.length)}</text>
               </g>
             ))}
             <path d={`M160 95 L${160+Math.cos(rad)*arrowLength} ${95-Math.sin(rad)*arrowLength}`} stroke="#D69E36" strokeWidth="4" strokeLinecap="round"/>
