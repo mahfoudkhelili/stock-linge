@@ -113,104 +113,75 @@ function MosqueSimulation() {
     button:{border:0,borderRadius:9,padding:'11px 16px',background:'#607A9B',color:'#fff',fontWeight:700,cursor:'pointer'},
     secondary:{border:'1px solid var(--ls-border,#cbd5e1)',borderRadius:9,padding:'10px 14px',background:'var(--ls-card,#fff)',color:'var(--ls-text,inherit)',cursor:'pointer'}
   };
-  const L = Number(roomLength), W = Number(roomWidth);
-  const valid = Number.isFinite(L) && Number.isFinite(W) && L > 0 && W > 0 && L <= 500 && W <= 500;
-  const rad = angle * Math.PI / 180;
-  const corners = valid ? [[-L/2,-W/2],[L/2,-W/2],[L/2,W/2],[-L/2,W/2]].map(([x,y]) => [x*Math.cos(rad)-y*Math.sin(rad), x*Math.sin(rad)+y*Math.cos(rad)]) : [];
-  const minV = corners.length ? Math.min(...corners.map(p=>p[1])) : 0;
-  const maxV = corners.length ? Math.max(...corners.map(p=>p[1])) : 0;
-  const across = maxV-minV;
-  const fullRows = Math.floor((across + 1e-8) / rollWidth);
-  const remainder = Math.max(0, across-fullRows*rollWidth);
-  const ceilRows = Math.ceil((across - 1e-8) / rollWidth);
-  const clipAt = (poly, boundary, keepGreater) => {
+  const L=Number(roomLength), W=Number(roomWidth);
+  const valid=Number.isFinite(L)&&Number.isFinite(W)&&L>0&&W>0&&L<=500&&W<=500;
+  const rad=angle*Math.PI/180;
+  // Room coordinates remain fixed. Only the Qibla arrow and carpet rows rotate.
+  const roomCorners=valid?[[-L/2,-W/2],[L/2,-W/2],[L/2,W/2],[-L/2,W/2]]:[];
+  // u is along Qibla; v is perpendicular to Qibla (the row-to-row direction).
+  const toLocal=([x,y])=>[x*Math.cos(rad)+y*Math.sin(rad),-x*Math.sin(rad)+y*Math.cos(rad)];
+  const toRoom=([u,v])=>[u*Math.cos(rad)-v*Math.sin(rad),u*Math.sin(rad)+v*Math.cos(rad)];
+  const localCorners=roomCorners.map(toLocal);
+  const minV=localCorners.length?Math.min(...localCorners.map(p=>p[1])):0;
+  const maxV=localCorners.length?Math.max(...localCorners.map(p=>p[1])):0;
+  const across=maxV-minV;
+  const fullRows=Math.floor((across+1e-8)/rollWidth);
+  const remainder=Math.max(0,across-fullRows*rollWidth);
+  const ceilRows=Math.ceil((across-1e-8)/rollWidth);
+  const clipAt=(poly,boundary,keepGreater)=>{
     const out=[];
     for(let i=0;i<poly.length;i++){
-      const a=poly[i], b=poly[(i+1)%poly.length];
-      const ina=keepGreater ? a[1]>=boundary-1e-9 : a[1]<=boundary+1e-9;
-      const inb=keepGreater ? b[1]>=boundary-1e-9 : b[1]<=boundary+1e-9;
-      if(ina) out.push(a);
+      const a=poly[i],b=poly[(i+1)%poly.length];
+      const ina=keepGreater?a[1]>=boundary-1e-9:a[1]<=boundary+1e-9;
+      const inb=keepGreater?b[1]>=boundary-1e-9:b[1]<=boundary+1e-9;
+      if(ina)out.push(a);
       if(ina!==inb){const t=(boundary-a[1])/(b[1]-a[1]);out.push([a[0]+t*(b[0]-a[0]),boundary]);}
     }
     return out;
   };
-  const bandLength = (lo,hi) => {
-    let p=clipAt(corners,lo,true); if(p.length) p=clipAt(p,hi,false);
-    if(p.length<2) return 0;
+  const bandLength=(lo,hi)=>{
+    let p=clipAt(localCorners,lo,true);if(p.length)p=clipAt(p,hi,false);
+    if(p.length<2)return 0;
     return Math.max(...p.map(x=>x[0]))-Math.min(...p.map(x=>x[0]));
   };
-  const stripSegment = (v) => {
-    const hits=[];
-    for(let i=0;i<corners.length;i++){
-      const a=corners[i], b=corners[(i+1)%corners.length];
-      if(v>=Math.min(a[1],b[1])-1e-8 && v<=Math.max(a[1],b[1])+1e-8){
-        if(Math.abs(b[1]-a[1])<1e-9) hits.push(a[0],b[0]);
-        else {const t=(v-a[1])/(b[1]-a[1]);if(t>=-1e-8&&t<=1+1e-8)hits.push(a[0]+t*(b[0]-a[0]));}
-      }
-    }
-    if(hits.length<2)return null;
-    const u1=Math.min(...hits),u2=Math.max(...hits);
-    const toRoom=(u,v)=>[u*Math.cos(rad)+v*Math.sin(rad),-u*Math.sin(rad)+v*Math.cos(rad)];
-    return [toRoom(u1,v),toRoom(u2,v)];
-  };
-  const calculate = (rows) => {
+  const calculate=(rows)=>{
     const widths=Array.from({length:rows},(_,i)=>Math.max(0,Math.min(maxV,minV+(i+1)*rollWidth)-(minV+i*rollWidth)));
     const lengths=widths.map((width,i)=>bandLength(minV+i*rollWidth,minV+i*rollWidth+width));
     const total=lengths.reduce((a,b)=>a+b,0);
     const coveredArea=lengths.reduce((sum,length,i)=>sum+length*widths[i],0);
     return {lengths,widths,total,purchasedArea:total*rollWidth,coveredArea};
   };
-  const lower = calculate(fullRows);
-  const upper = calculate(ceilRows);
-  const setAngleFromPointer = (event) => {
-    const rect=planRef.current?.getBoundingClientRect(); if(!rect) return;
+  const lower=calculate(fullRows),upper=calculate(ceilRows);
+  const setAngleFromPointer=(event)=>{
+    const rect=planRef.current?.getBoundingClientRect();if(!rect)return;
     const x=(event.clientX-rect.left)/rect.width*320-160;
     const y=95-(event.clientY-rect.top)/rect.height*190;
-    if(Math.hypot(x,y)<12) return;
-    let deg=Math.atan2(y,x)*180/Math.PI;
-    if(deg<0) deg+=360;
+    if(Math.hypot(x,y)<12)return;
+    let deg=Math.atan2(y,x)*180/Math.PI;if(deg<0)deg+=360;
     const snapAngles=[0,90,180,270,360];
-    let nearest=snapAngles[0], nearestDiff=Infinity;
-    for(const target of snapAngles){
-      const diff=Math.min(Math.abs(deg-target),360-Math.abs(deg-target));
-      if(diff<nearestDiff){nearestDiff=diff;nearest=target;}
-    }
+    let nearest=0,nearestDiff=Infinity;
+    for(const target of snapAngles){const diff=Math.min(Math.abs(deg-target),360-Math.abs(deg-target));if(diff<nearestDiff){nearestDiff=diff;nearest=target;}}
     const snapped=nearestDiff<=5;
-    const nextAngle=snapped?nearest:Math.round(deg*10)/10;
-    if(snapped){
-      const snapKey=nearest===360?0:nearest;
-      if(lastSnapRef.current!==snapKey){
-        lastSnapRef.current=snapKey;
-        if(typeof navigator!=='undefined'&&typeof navigator.vibrate==='function') navigator.vibrate(35);
-      }
-    } else {
-      lastSnapRef.current=null;
-    }
-    setAngle(nextAngle);
+    const next=snapped?nearest:Math.round(deg*10)/10;
+    if(snapped){const key=nearest===360?0:nearest;if(lastSnapRef.current!==key){lastSnapRef.current=key;if(typeof navigator!=='undefined'&&typeof navigator.vibrate==='function')navigator.vibrate(35);}}
+    else lastSnapRef.current=null;
+    setAngle(next);setConfirmed(false);setRowChoice(null);
   };
-  const fmt = n => Number(n||0).toLocaleString('fr-FR',{maximumFractionDigits:2});
+  const fmt=n=>Number(n||0).toLocaleString('fr-FR',{maximumFractionDigits:2});
   const onConfirm=()=>{setConfirmed(true);setRowChoice(null);};
-  const selected = rowChoice==='lower' ? lower : rowChoice==='upper' ? upper : null;
-  const selectedRows = rowChoice==='lower' ? fullRows : ceilRows;
-  const displayRows = selectedRows || ceilRows;
-  const bounds = corners.length ? {
-    minX: Math.min(...corners.map(p=>p[0])),
-    maxX: Math.max(...corners.map(p=>p[0])),
-    minY: Math.min(...corners.map(p=>p[1])),
-    maxY: Math.max(...corners.map(p=>p[1]))
-  } : {minX:0,maxX:1,minY:0,maxY:1};
-  const planScale = valid ? Math.min(270/Math.max(bounds.maxX-bounds.minX,0.01),150/Math.max(bounds.maxY-bounds.minY,0.01)) : 1;
-  const screenPoint = ([x,y])=>[160+x*planScale,95-y*planScale];
-  const roomScreenPoints = corners.map(screenPoint);
-  const displayStrips = Array.from({length:displayRows},(_,i)=>{
-    const lo=minV+i*rollWidth;
-    const hi=Math.min(maxV,lo+rollWidth);
-    const width=Math.max(0,hi-lo);
-    let polygon=clipAt(corners,lo,true);
-    if(polygon.length) polygon=clipAt(polygon,hi,false);
-    return {points:polygon.map(screenPoint),partial:width<rollWidth-1e-7};
+  const selected=rowChoice==='lower'?lower:rowChoice==='upper'?upper:null;
+  const selectedRows=rowChoice==='lower'?fullRows:ceilRows;
+  const displayRows=selectedRows||ceilRows;
+  const displayStrips=Array.from({length:displayRows},(_,i)=>{
+    const lo=minV+i*rollWidth,hi=Math.min(maxV,lo+rollWidth);
+    let polygon=clipAt(localCorners,lo,true);if(polygon.length)polygon=clipAt(polygon,hi,false);
+    return {points:polygon.map(toRoom),partial:hi-lo<rollWidth-1e-7};
   });
-  const finalStripWidth = rowChoice==='upper' && remainder>0 ? remainder : rollWidth;
+  const planScale=valid?Math.min(270/Math.max(L,0.01),150/Math.max(W,0.01)):1;
+  const screenPoint=([x,y])=>[160+x*planScale,95-y*planScale];
+  const roomScreenPoints=roomCorners.map(screenPoint);
+  const arrowLength=Math.min(78,Math.max(24,Math.max(L,W)*planScale*.38));
+  const finalStripWidth=rowChoice==='upper'&&remainder>0?remainder:rollWidth;
   return (
     <section className="ls-panel">
       <h2 style={{marginTop:0}}>Simulation mosquée</h2>
@@ -225,37 +196,37 @@ function MosqueSimulation() {
       </div>
       <div style={{marginTop:18}}>
         <strong>Choisir la direction de la Qibla</strong>
-        <p className="ls-muted" style={{margin:'5px 0 10px'}}>اسحب السهم لتحديد اتجاه القبلة. شرائط السجاد تُرسم في نفس اتجاه السهم، ويبدأ الشريط الأول من جدار القاعة مباشرة.</p>
+        <p className="ls-muted" style={{margin:'5px 0 10px'}}>اسحب السهم لتحديد اتجاه القبلة. شكل القاعة يبقى ثابتاً، وصفوف السجاد تدور لتصبح موازية للسهم، ويبدأ الصف الأول من أول جدار.</p>
         <div ref={planRef} onPointerDown={e=>{setDragging(true);e.currentTarget.setPointerCapture?.(e.pointerId);setAngleFromPointer(e);}} onPointerMove={e=>{if(dragging)setAngleFromPointer(e);}} onPointerUp={()=>{setDragging(false);lastSnapRef.current=null;}} onPointerCancel={()=>{setDragging(false);lastSnapRef.current=null;}} style={{width:'100%',maxWidth:520,touchAction:'none',border:'1px solid var(--ls-border,#cbd5e1)',borderRadius:12,overflow:'hidden',background:'var(--ls-card,#fff)',cursor:'crosshair'}}>
-          <svg viewBox="0 0 320 190" width="100%" role="img" aria-label="Plan proportionnel de la salle et bandes de moquette orientées selon la Qibla">
+          <svg viewBox="0 0 320 190" width="100%" role="img" aria-label="Plan proportionnel fixe avec flèche Qibla et rangées parallèles à la Qibla">
             <polygon points={roomScreenPoints.map(p=>p.join(',')).join(' ')} fill="#94a3b8" fillOpacity=".08" stroke="currentColor" strokeWidth="1.5"/>
-            {confirmed && displayStrips.map((strip,i)=>strip.points.length>=3 && (
-              <polygon key={i} points={strip.points.map(p=>p.join(',')).join(' ')} fill="#607A9B" fillOpacity=".24" stroke="#607A9B" strokeWidth="1.5" strokeDasharray={strip.partial && !selected ? "5 4" : undefined}/>
+            {confirmed&&displayStrips.map((strip,i)=>strip.points.length>=3&&(
+              <polygon key={i} points={strip.points.map(p=>screenPoint(p).join(',')).join(' ')} fill="#607A9B" fillOpacity=".25" stroke="#607A9B" strokeWidth="1.5" strokeDasharray={strip.partial&&!selected?"5 4":undefined}/>
             ))}
-            <path d={`M160 95 L${160+Math.cos(rad)*Math.min(78,Math.max(24,L*planScale*.38))} ${95-Math.sin(rad)*Math.min(78,Math.max(24,L*planScale*.38))}`} stroke="#D69E36" strokeWidth="4" strokeLinecap="round"/>
-            <path d={`M${160+Math.cos(rad)*Math.min(78,Math.max(24,L*planScale*.38))} ${95-Math.sin(rad)*Math.min(78,Math.max(24,L*planScale*.38))} l-13 -3 l5 12`} fill="none" stroke="#D69E36" strokeWidth="3" strokeLinecap="round"/>
+            <path d={`M160 95 L${160+Math.cos(rad)*arrowLength} ${95-Math.sin(rad)*arrowLength}`} stroke="#D69E36" strokeWidth="4" strokeLinecap="round"/>
+            <path d={`M${160+Math.cos(rad)*arrowLength} ${95-Math.sin(rad)*arrowLength} l-13 -3 l5 12`} fill="none" stroke="#D69E36" strokeWidth="3" strokeLinecap="round"/>
             <circle cx="160" cy="95" r="5" fill="#D69E36"/>
             <text x="160" y="12" textAnchor="middle" fontSize="10" fill="currentColor">Salle de prière</text>
             <text x="244" y="30" fontSize="10" fill="#D69E36">Qibla</text>
           </svg>
         </div>
         <div style={{display:'flex',justifyContent:'space-between',gap:10,alignItems:'center',marginTop:8,flexWrap:'wrap'}}>
-          <span className="ls-muted">Angle sélectionné : <strong>{fmt(angle)}°</strong></span>
+          <span className="ls-muted">Angle sélectionné : <strong>{fmt(angle===360?0:angle)}°</strong></span>
           <button type="button" style={styles.secondary} onClick={()=>{setAngle(0);setConfirmed(false);setRowChoice(null);}}>Réinitialiser l’angle</button>
         </div>
       </div>
       <button type="button" style={{...styles.button,marginTop:16}} disabled={!valid} onClick={onConfirm}>موافق — حساب الكمية</button>
-      {!valid && <p className="ls-message">أدخل طولاً وعرضاً صحيحين أكبر من صفر.</p>}
-      {confirmed && valid && (
+      {!valid&&<p className="ls-message">أدخل طولاً وعرضاً صحيحين أكبر من صفر.</p>}
+      {confirmed&&valid&&(
         <div style={{marginTop:20,borderTop:'1px solid var(--ls-border,#e2e8f0)',paddingTop:16}}>
           <h3 style={{marginTop:0}}>Résultat du calcul</h3>
           <p className="ls-muted">المسافة العمودية على اتجاه القبلة داخل القاعة: <strong>{fmt(across)} م</strong>. عدد الصفوف النظري: <strong>{fmt(across/rollWidth)}</strong>.</p>
-          {remainder < 0.01 ? (
+          {remainder<0.01?(
             <div style={{padding:14,border:'1px solid #16a34a',borderRadius:10}}>
               <strong>{fullRows} صفوف كاملة</strong>
               <p style={{margin:'6px 0 0'}}>الطول الإجمالي: {fmt(lower.total)} م طولي — مساحة الرولات المشتراة: {fmt(lower.purchasedArea)} م² — المساحة المغطاة: {fmt(lower.coveredArea)} م².</p>
             </div>
-          ) : (
+          ):(
             <>
               <p>كاين عرض متبقّي قدره <strong>{fmt(remainder)} م</strong>. اختار طريقة التغطية:</p>
               <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(220px,1fr))',gap:12}}>
@@ -270,7 +241,7 @@ function MosqueSimulation() {
               </div>
             </>
           )}
-          {selected && (
+          {selected&&(
             <div style={{marginTop:14,padding:14,border:'1px solid var(--ls-border,#cbd5e1)',borderRadius:12}}>
               <strong>النتيجة حسب اختيارك: {selectedRows} صفوف</strong>
               <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(145px,1fr))',gap:10,marginTop:12}}>
@@ -284,7 +255,7 @@ function MosqueSimulation() {
           )}
         </div>
       )}
-      <p className="ls-muted" style={{marginTop:18,fontSize:12}}>ملاحظة: هذه نسخة محاكاة أولية. الحساب يستعمل أطوال الشرائط الناتجة عن تقاطع مخطط القاعة مع كل شريط بعرض 1.33 م؛ يجب مراجعة المخطط والقص النهائي ميدانياً قبل الشراء، خصوصاً عند الزوايا المائلة.</p>
+      <p className="ls-muted" style={{marginTop:18,fontSize:12}}>ملاحظة: هذه محاكاة أولية. الحساب يعتمد على تقاطع صفوف بعرض 1.33 م مع حدود القاعة؛ راجع القص النهائي ميدانياً قبل الشراء، خصوصاً عند الزوايا المائلة.</p>
     </section>
   );
 }
