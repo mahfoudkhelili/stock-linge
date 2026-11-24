@@ -180,11 +180,11 @@ function MosqueSimulation() {
         <div ref={planRef} onPointerDown={e=>{setDragging(true);e.currentTarget.setPointerCapture?.(e.pointerId);setAngleFromPointer(e);}} onPointerMove={e=>{if(dragging)setAngleFromPointer(e);}} onPointerUp={()=>setDragging(false)} onPointerCancel={()=>setDragging(false)} style={{width:'100%',maxWidth:520,touchAction:'none',border:'1px solid var(--ls-border,#cbd5e1)',borderRadius:12,overflow:'hidden',background:'var(--ls-card,#fff)',cursor:'crosshair'}}>
           <svg viewBox="0 0 320 190" width="100%" role="img" aria-label="Plan de la salle et direction de la Qibla">
             <rect x="25" y="20" width="270" height="150" rx="4" fill="#94a3b8" fillOpacity=".08" stroke="currentColor" strokeWidth="1.5"/>
-            <g transform={\`translate(160 95) rotate(\${-angle})\`}>
+            <g transform={`translate(160 95) rotate(${-angle})`}>
               {Array.from({length:11},(_,i)=><line key={i} x1="-170" y1={-90+i*18} x2="170" y2={-90+i*18} stroke="#607A9B" strokeWidth="2" opacity=".72"/>)}
             </g>
-            <path d={\`M160 95 L\${160+78*Math.cos(rad)} \${95-78*Math.sin(rad)}\`} stroke="#D69E36" strokeWidth="4" strokeLinecap="round"/>
-            <path d={\`M\${160+78*Math.cos(rad)} \${95-78*Math.sin(rad)} l-13 -3 l5 12\`} fill="none" stroke="#D69E36" strokeWidth="3" strokeLinecap="round"/>
+            <path d={`M160 95 L${160+78*Math.cos(rad)} ${95-78*Math.sin(rad)}`} stroke="#D69E36" strokeWidth="4" strokeLinecap="round"/>
+            <path d={`M${160+78*Math.cos(rad)} ${95-78*Math.sin(rad)} l-13 -3 l5 12`} fill="none" stroke="#D69E36" strokeWidth="3" strokeLinecap="round"/>
             <circle cx="160" cy="95" r="5" fill="#D69E36"/>
             <text x="160" y="12" textAnchor="middle" fontSize="10" fill="currentColor">Salle de prière</text>
             <text x="244" y="30" fontSize="10" fill="#D69E36">Qibla</text>
