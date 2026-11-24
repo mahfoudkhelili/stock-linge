@@ -106,6 +106,7 @@ function MosqueSimulation() {
   const [rowChoice, setRowChoice] = useState(null);
   const [dragging, setDragging] = useState(false);
   const planRef = useRef(null);
+  const lastSnapRef = useRef(null);
   const rollWidth = 1.33;
   const styles = {
     field:{width:'100%',padding:'11px 12px',border:'1px solid var(--ls-border,#cbd5e1)',borderRadius:9,background:'var(--ls-card,#fff)',color:'var(--ls-text,inherit)',fontSize:16,boxSizing:'border-box'},
@@ -167,9 +168,25 @@ function MosqueSimulation() {
     const y=95-(event.clientY-rect.top)/rect.height*190;
     if(Math.hypot(x,y)<12) return;
     let deg=Math.atan2(y,x)*180/Math.PI;
-    if(deg<0) deg+=180;
-    if(deg>=180) deg-=180;
-    setAngle(Math.round(deg*10)/10);
+    if(deg<0) deg+=360;
+    const snapAngles=[0,90,180,270,360];
+    let nearest=snapAngles[0], nearestDiff=Infinity;
+    for(const target of snapAngles){
+      const diff=Math.min(Math.abs(deg-target),360-Math.abs(deg-target));
+      if(diff<nearestDiff){nearestDiff=diff;nearest=target;}
+    }
+    const snapped=nearestDiff<=5;
+    const nextAngle=snapped?nearest:Math.round(deg*10)/10;
+    if(snapped){
+      const snapKey=nearest===360?0:nearest;
+      if(lastSnapRef.current!==snapKey){
+        lastSnapRef.current=snapKey;
+        if(typeof navigator!=='undefined'&&typeof navigator.vibrate==='function') navigator.vibrate(35);
+      }
+    } else {
+      lastSnapRef.current=null;
+    }
+    setAngle(nextAngle);
   };
   const fmt = n => Number(n||0).toLocaleString('fr-FR',{maximumFractionDigits:2});
   const onConfirm=()=>{setConfirmed(true);setRowChoice(null);};
@@ -177,11 +194,22 @@ function MosqueSimulation() {
   const selectedRows = rowChoice==='lower' ? fullRows : ceilRows;
   const displayRows = selectedRows || ceilRows;
   const displayStrips = Array.from({length:displayRows},(_,i)=>{
-    const width=Math.max(0,Math.min(maxV,minV+(i+1)*rollWidth)-(minV+i*rollWidth));
-    return {segment:stripSegment(minV+i*rollWidth+width/2),partial:width<rollWidth-1e-7};
+    const lo=minV+i*rollWidth;
+    const hi=Math.min(maxV,lo+rollWidth);
+    const width=Math.max(0,hi-lo);
+    let polygon=clipAt(corners,lo,true);
+    if(polygon.length) polygon=clipAt(polygon,hi,false);
+    return {points:polygon.map(screenPoint),partial:width<rollWidth-1e-7};
   });
-  const planScale = valid ? Math.min(270/L,150/W) : 1;
-  const screenPoint = ([x,y])=>[160+x*planScale,95+y*planScale];
+  const bounds = corners.length ? {
+    minX: Math.min(...corners.map(p=>p[0])),
+    maxX: Math.max(...corners.map(p=>p[0])),
+    minY: Math.min(...corners.map(p=>p[1])),
+    maxY: Math.max(...corners.map(p=>p[1]))
+  } : {minX:0,maxX:1,minY:0,maxY:1};
+  const planScale = valid ? Math.min(270/Math.max(bounds.maxX-bounds.minX,0.01),150/Math.max(bounds.maxY-bounds.minY,0.01)) : 1;
+  const screenPoint = ([x,y])=>[160+x*planScale,95-y*planScale];
+  const roomScreenPoints = corners.map(screenPoint);
   const finalStripWidth = rowChoice==='upper' && remainder>0 ? remainder : rollWidth;
   return (
     <section className="ls-panel">
@@ -197,14 +225,13 @@ function MosqueSimulation() {
       </div>
       <div style={{marginTop:18}}>
         <strong>Choisir la direction de la Qibla</strong>
-        <p className="ls-muted" style={{margin:'5px 0 10px'}}>اسحب السهم داخل مخطط القاعة لتحديد اتجاه القبلة. خطوط السجاد تكون موازية للسهم.</p>
-        <div ref={planRef} onPointerDown={e=>{setDragging(true);e.currentTarget.setPointerCapture?.(e.pointerId);setAngleFromPointer(e);}} onPointerMove={e=>{if(dragging)setAngleFromPointer(e);}} onPointerUp={()=>setDragging(false)} onPointerCancel={()=>setDragging(false)} style={{width:'100%',maxWidth:520,touchAction:'none',border:'1px solid var(--ls-border,#cbd5e1)',borderRadius:12,overflow:'hidden',background:'var(--ls-card,#fff)',cursor:'crosshair'}}>
-          <svg viewBox="0 0 320 190" width="100%" role="img" aria-label="Plan de la salle et rangées de moquette parallèles à la Qibla">
-            <rect x={160-L*planScale/2} y={95-W*planScale/2} width={L*planScale} height={W*planScale} rx="2" fill="#94a3b8" fillOpacity=".08" stroke="currentColor" strokeWidth="1.5"/>
-            {confirmed && displayStrips.map((strip,i)=>strip.segment && (() => {
-              const [a,b]=strip.segment.map(screenPoint);
-              return <line key={i} x1={a[0]} y1={a[1]} x2={b[0]} y2={b[1]} stroke="#607A9B" strokeWidth="2.2" strokeDasharray={strip.partial && !selected ? "5 4" : undefined} opacity=".9"/>;
-            })())}
+        <p className="ls-muted" style={{margin:'5px 0 10px'}}>اسحب السهم لتحديد اتجاه القبلة. شرائط السجاد تُرسم في نفس اتجاه السهم، ويبدأ الشريط الأول من جدار القاعة مباشرة.</p>
+        <div ref={planRef} onPointerDown={e=>{setDragging(true);e.currentTarget.setPointerCapture?.(e.pointerId);setAngleFromPointer(e);}} onPointerMove={e=>{if(dragging)setAngleFromPointer(e);}} onPointerUp={()=>{setDragging(false);lastSnapRef.current=null;}} onPointerCancel={()=>{setDragging(false);lastSnapRef.current=null;}} style={{width:'100%',maxWidth:520,touchAction:'none',border:'1px solid var(--ls-border,#cbd5e1)',borderRadius:12,overflow:'hidden',background:'var(--ls-card,#fff)',cursor:'crosshair'}}>
+          <svg viewBox="0 0 320 190" width="100%" role="img" aria-label="Plan proportionnel de la salle et bandes de moquette orientées selon la Qibla">
+            <polygon points={roomScreenPoints.map(p=>p.join(',')).join(' ')} fill="#94a3b8" fillOpacity=".08" stroke="currentColor" strokeWidth="1.5"/>
+            {confirmed && displayStrips.map((strip,i)=>strip.points.length>=3 && (
+              <polygon key={i} points={strip.points.map(p=>p.join(',')).join(' ')} fill="#607A9B" fillOpacity=".24" stroke="#607A9B" strokeWidth="1.5" strokeDasharray={strip.partial && !selected ? "5 4" : undefined}/>
+            ))}
             <path d={`M160 95 L${160+Math.cos(rad)*Math.min(78,Math.max(24,L*planScale*.38))} ${95-Math.sin(rad)*Math.min(78,Math.max(24,L*planScale*.38))}`} stroke="#D69E36" strokeWidth="4" strokeLinecap="round"/>
             <path d={`M${160+Math.cos(rad)*Math.min(78,Math.max(24,L*planScale*.38))} ${95-Math.sin(rad)*Math.min(78,Math.max(24,L*planScale*.38))} l-13 -3 l5 12`} fill="none" stroke="#D69E36" strokeWidth="3" strokeLinecap="round"/>
             <circle cx="160" cy="95" r="5" fill="#D69E36"/>
