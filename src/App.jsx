@@ -139,9 +139,11 @@ function MosqueSimulation() {
     return Math.max(...p.map(x=>x[0]))-Math.min(...p.map(x=>x[0]));
   };
   const calculate = (rows) => {
-    const lengths=Array.from({length:rows},(_,i)=>bandLength(minV+i*rollWidth,Math.min(maxV,minV+(i+1)*rollWidth)));
+    const widths=Array.from({length:rows},(_,i)=>Math.max(0,Math.min(maxV,minV+(i+1)*rollWidth)-(minV+i*rollWidth)));
+    const lengths=widths.map((width,i)=>bandLength(minV+i*rollWidth,minV+i*rollWidth+width));
     const total=lengths.reduce((a,b)=>a+b,0);
-    return {lengths,total,area:total*rollWidth};
+    const coveredArea=lengths.reduce((sum,length,i)=>sum+length*widths[i],0);
+    return {lengths,widths,total,purchasedArea:total*rollWidth,coveredArea};
   };
   const lower = calculate(fullRows);
   const upper = calculate(ceilRows);
@@ -179,7 +181,7 @@ function MosqueSimulation() {
           <svg viewBox="0 0 320 190" width="100%" role="img" aria-label="Plan de la salle et direction de la Qibla">
             <rect x="25" y="20" width="270" height="150" rx="4" fill="#94a3b8" fillOpacity=".08" stroke="currentColor" strokeWidth="1.5"/>
             <g transform={\`translate(160 95) rotate(\${-angle})\`}>
-              {Array.from({length:11},(_,i)=><line key={i} x1={-145+i*29} y1="-95" x2={-145+i*29} y2="95" stroke="#607A9B" strokeWidth="2" opacity=".72"/>)}
+              {Array.from({length:11},(_,i)=><line key={i} x1="-170" y1={-90+i*18} x2="170" y2={-90+i*18} stroke="#607A9B" strokeWidth="2" opacity=".72"/>)}
             </g>
             <path d={\`M160 95 L\${160+78*Math.cos(rad)} \${95-78*Math.sin(rad)}\`} stroke="#D69E36" strokeWidth="4" strokeLinecap="round"/>
             <path d={\`M\${160+78*Math.cos(rad)} \${95-78*Math.sin(rad)} l-13 -3 l5 12\`} fill="none" stroke="#D69E36" strokeWidth="3" strokeLinecap="round"/>
@@ -202,7 +204,7 @@ function MosqueSimulation() {
           {remainder < 0.01 ? (
             <div style={{padding:14,border:'1px solid #16a34a',borderRadius:10}}>
               <strong>{fullRows} صفوف كاملة</strong>
-              <p style={{margin:'6px 0 0'}}>الطول الإجمالي: {fmt(lower.total)} م طولي — المساحة: {fmt(lower.area)} م².</p>
+              <p style={{margin:'6px 0 0'}}>الطول الإجمالي: {fmt(lower.total)} م طولي — مساحة الرولات المشتراة: {fmt(lower.purchasedArea)} م² — المساحة المغطاة: {fmt(lower.coveredArea)} م².</p>
             </div>
           ) : (
             <>
@@ -224,7 +226,8 @@ function MosqueSimulation() {
               <strong>النتيجة حسب اختيارك: {selectedRows} صفوف</strong>
               <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(145px,1fr))',gap:10,marginTop:12}}>
                 <div><div className="ls-muted">Longueur totale à acheter</div><strong style={{fontSize:22}}>{fmt(selected.total)} m</strong></div>
-                <div><div className="ls-muted">Surface de moquette achetée</div><strong style={{fontSize:22}}>{fmt(selected.area)} m²</strong></div>
+                <div><div className="ls-muted">Surface achetée (rouleau entier)</div><strong style={{fontSize:22}}>{fmt(selected.purchasedArea)} m²</strong></div>
+                <div><div className="ls-muted">Surface couverte estimée</div><strong style={{fontSize:22}}>{fmt(selected.coveredArea)} m²</strong></div>
                 <div><div className="ls-muted">Largeur de la dernière bande</div><strong style={{fontSize:22}}>{fmt(finalStripWidth)} m</strong></div>
               </div>
               <p className="ls-muted" style={{marginBottom:0}}>أطوال الشرائط المقدّرة: {selected.lengths.map(fmt).join(' + ')} متر.</p>
