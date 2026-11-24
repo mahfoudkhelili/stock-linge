@@ -118,9 +118,9 @@ function MosqueSimulation() {
   const rad=angle*Math.PI/180;
   // Room coordinates remain fixed. Only the Qibla arrow and carpet rows rotate.
   const roomCorners=valid?[[-L/2,-W/2],[L/2,-W/2],[L/2,W/2],[-L/2,W/2]]:[];
-  // u is along Qibla; v is perpendicular to Qibla (the row-to-row direction).
-  const toLocal=([x,y])=>[x*Math.cos(rad)+y*Math.sin(rad),-x*Math.sin(rad)+y*Math.cos(rad)];
-  const toRoom=([u,v])=>[u*Math.cos(rad)-v*Math.sin(rad),u*Math.sin(rad)+v*Math.cos(rad)];
+  // u is perpendicular to Qibla (along each carpet row); v is along Qibla (row-to-row direction).
+  const toLocal=([x,y])=>[-x*Math.sin(rad)+y*Math.cos(rad),x*Math.cos(rad)+y*Math.sin(rad)];
+  const toRoom=([u,v])=>[v*Math.cos(rad)-u*Math.sin(rad),v*Math.sin(rad)+u*Math.cos(rad)];
   const localCorners=roomCorners.map(toLocal);
   const minV=localCorners.length?Math.min(...localCorners.map(p=>p[1])):0;
   const maxV=localCorners.length?Math.max(...localCorners.map(p=>p[1])):0;
@@ -196,9 +196,9 @@ function MosqueSimulation() {
       </div>
       <div style={{marginTop:18}}>
         <strong>Choisir la direction de la Qibla</strong>
-        <p className="ls-muted" style={{margin:'5px 0 10px'}}>اسحب السهم لتحديد اتجاه القبلة. شكل القاعة يبقى ثابتاً، وصفوف السجاد تدور لتصبح موازية للسهم، ويبدأ الصف الأول من أول جدار.</p>
+        <p className="ls-muted" style={{margin:'5px 0 10px'}}>اسحب السهم لتحديد اتجاه القبلة. شكل القاعة يبقى ثابتاً، وصفوف السجاد تدور لتبقى عمودية على السهم، ويبدأ الصف الأول من أول جدار.</p>
         <div ref={planRef} onPointerDown={e=>{setDragging(true);e.currentTarget.setPointerCapture?.(e.pointerId);setAngleFromPointer(e);}} onPointerMove={e=>{if(dragging)setAngleFromPointer(e);}} onPointerUp={()=>{setDragging(false);lastSnapRef.current=null;}} onPointerCancel={()=>{setDragging(false);lastSnapRef.current=null;}} style={{width:'100%',maxWidth:520,touchAction:'none',border:'1px solid var(--ls-border,#cbd5e1)',borderRadius:12,overflow:'hidden',background:'var(--ls-card,#fff)',cursor:'crosshair'}}>
-          <svg viewBox="0 0 320 190" width="100%" role="img" aria-label="Plan proportionnel fixe avec flèche Qibla et rangées parallèles à la Qibla">
+          <svg viewBox="0 0 320 190" width="100%" role="img" aria-label="Plan proportionnel fixe avec flèche Qibla et rangées perpendiculaires à la Qibla">
             <polygon points={roomScreenPoints.map(p=>p.join(',')).join(' ')} fill="#94a3b8" fillOpacity=".08" stroke="currentColor" strokeWidth="1.5"/>
             {confirmed&&displayStrips.map((strip,i)=>strip.points.length>=3&&(
               <polygon key={i} points={strip.points.map(p=>screenPoint(p).join(',')).join(' ')} fill="#607A9B" fillOpacity=".25" stroke="#607A9B" strokeWidth="1.5" strokeDasharray={strip.partial&&!selected?"5 4":undefined}/>
