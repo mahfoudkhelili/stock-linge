@@ -193,14 +193,6 @@ function MosqueSimulation() {
   const selected = rowChoice==='lower' ? lower : rowChoice==='upper' ? upper : null;
   const selectedRows = rowChoice==='lower' ? fullRows : ceilRows;
   const displayRows = selectedRows || ceilRows;
-  const displayStrips = Array.from({length:displayRows},(_,i)=>{
-    const lo=minV+i*rollWidth;
-    const hi=Math.min(maxV,lo+rollWidth);
-    const width=Math.max(0,hi-lo);
-    let polygon=clipAt(corners,lo,true);
-    if(polygon.length) polygon=clipAt(polygon,hi,false);
-    return {points:polygon.map(screenPoint),partial:width<rollWidth-1e-7};
-  });
   const bounds = corners.length ? {
     minX: Math.min(...corners.map(p=>p[0])),
     maxX: Math.max(...corners.map(p=>p[0])),
@@ -210,6 +202,14 @@ function MosqueSimulation() {
   const planScale = valid ? Math.min(270/Math.max(bounds.maxX-bounds.minX,0.01),150/Math.max(bounds.maxY-bounds.minY,0.01)) : 1;
   const screenPoint = ([x,y])=>[160+x*planScale,95-y*planScale];
   const roomScreenPoints = corners.map(screenPoint);
+  const displayStrips = Array.from({length:displayRows},(_,i)=>{
+    const lo=minV+i*rollWidth;
+    const hi=Math.min(maxV,lo+rollWidth);
+    const width=Math.max(0,hi-lo);
+    let polygon=clipAt(corners,lo,true);
+    if(polygon.length) polygon=clipAt(polygon,hi,false);
+    return {points:polygon.map(screenPoint),partial:width<rollWidth-1e-7};
+  });
   const finalStripWidth = rowChoice==='upper' && remainder>0 ? remainder : rollWidth;
   return (
     <section className="ls-panel">
