@@ -183,10 +183,10 @@ function MosqueSimulation() {
     let polygon=clipAt(localCorners,band.lo,true);if(polygon.length)polygon=clipAt(polygon,band.hi,false);
     const points=polygon.map(toRoom);
     const centerLocal=polygon.length?polygon.reduce((sum,p)=>[sum[0]+p[0]/polygon.length,sum[1]+p[1]/polygon.length],[0,0]):[0,0];
-    const center=toRoom(centerLocal);
-    // Place the row-length annotation just outside this carpet strip, on its lower-v side.
-    const labelPoint=toRoom([centerLocal[0],centerLocal[1]-0.22]);
-    return {points,center,labelPoint,partial:band.width<rollWidth-1e-7,length:displayCalculation.lengths[i]};
+    const maxU=polygon.length?Math.max(...polygon.map(p=>p[0])):centerLocal[0];
+    // Put the measurement beyond the long outer edge of the trapezoid, not inside the carpet.
+    const labelPoint=toRoom([maxU+0.55,centerLocal[1]]);
+    return {points,labelPoint,partial:band.width<rollWidth-1e-7,length:displayCalculation.lengths[i]};
   });
   const planScale=valid?Math.min(270/Math.max(L,0.01),150/Math.max(W,0.01)):1;
   const screenPoint=([x,y])=>[160+x*planScale,95-y*planScale];
@@ -214,7 +214,7 @@ function MosqueSimulation() {
             {confirmed&&displayStrips.map((strip,i)=>strip.points.length>=3&&(
               <g key={i}>
                 <polygon points={strip.points.map(p=>screenPoint(p).join(',')).join(' ')} fill="#607A9B" fillOpacity=".25" stroke="#607A9B" strokeWidth="1.5" strokeDasharray={strip.partial&&!selected?"5 4":undefined}/>
-                <text x={screenPoint(strip.labelPoint)[0]} y={screenPoint(strip.labelPoint)[1]} textAnchor="middle" dominantBaseline="middle" fontSize="8" fontWeight="700" fill="#1e293b" stroke="#fff" strokeWidth="2.5" paintOrder="stroke">{fmt(strip.length)} m</text>
+                <text x={screenPoint(strip.labelPoint)[0]} y={screenPoint(strip.labelPoint)[1]} textAnchor="start" dominantBaseline="middle" fontSize="8" fontWeight="700" fill="#1e293b" stroke="#fff" strokeWidth="2.5" paintOrder="stroke">{fmt(strip.length)} m</text>
               </g>
             ))}
             <path d={`M160 95 L${160+Math.cos(rad)*arrowLength} ${95-Math.sin(rad)*arrowLength}`} stroke="#D69E36" strokeWidth="4" strokeLinecap="round"/>
