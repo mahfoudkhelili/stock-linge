@@ -115,7 +115,7 @@ function MosqueSimulation() {
   const L = Number(roomLength), W = Number(roomWidth);
   const valid = Number.isFinite(L) && Number.isFinite(W) && L > 0 && W > 0 && L <= 500 && W <= 500;
   const rad = angle * Math.PI / 180;
-  const corners = valid ? [[-L/2,-W/2],[L/2,-W/2],[L/2,W/2],[-L/2,W/2]].map(([x,y]) => [x*Math.cos(rad)+y*Math.sin(rad), -x*Math.sin(rad)+y*Math.cos(rad)]) : [];
+  const corners = valid ? [[-L/2,-W/2],[L/2,-W/2],[L/2,W/2],[-L/2,W/2]].map(([x,y]) => [x*Math.cos(rad)-y*Math.sin(rad), x*Math.sin(rad)+y*Math.cos(rad)]) : [];
   const minV = corners.length ? Math.min(...corners.map(p=>p[1])) : 0;
   const maxV = corners.length ? Math.max(...corners.map(p=>p[1])) : 0;
   const across = maxV-minV;
@@ -149,7 +149,7 @@ function MosqueSimulation() {
     }
     if(hits.length<2)return null;
     const u1=Math.min(...hits),u2=Math.max(...hits);
-    const toRoom=(u,v)=>[u*Math.cos(rad)-v*Math.sin(rad),u*Math.sin(rad)+v*Math.cos(rad)];
+    const toRoom=(u,v)=>[u*Math.cos(rad)+v*Math.sin(rad),-u*Math.sin(rad)+v*Math.cos(rad)];
     return [toRoom(u1,v),toRoom(u2,v)];
   };
   const calculate = (rows) => {
