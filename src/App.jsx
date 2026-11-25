@@ -716,9 +716,21 @@ export default function App() {
       tapisStart += pageSize;
     }
 
-    // Catalogue dédié au devis mosquée : inclure toutes les variétés Tapis
-    // correspondantes, même si elles sont masquées ou inactives dans les listes ordinaires.
-    let allMosqueTapis = [];
+    // Base fiable : catalogue Tapis déjà chargé avec les droits de lecture habituels.
+    // Normaliser les accents pour reconnaître MOSQUE, MOSQUEE et MOSQUÉE.
+    const normalizeMosqueName = (value) => String(value || '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toUpperCase();
+    const mosqueMap = new Map();
+    for (const product of tapisProducts) {
+      if (normalizeMosqueName(product.name).includes('MOSQUE')) {
+        mosqueMap.set(String(product.id), product);
+      }
+    }
+
+    // Ajouter aussi les variétés masquées/inactives quand les droits le permettent.
+    // Une erreur sur cette requête complémentaire ne doit jamais vider la liste visible.
     let mosqueStart = 0;
     while (true) {
       const { data: mosquePage, error: mosqueError } = await supabase
@@ -728,14 +740,20 @@ export default function App() {
         .order('name')
         .range(mosqueStart, mosqueStart + pageSize - 1);
       if (mosqueError) {
-        setMessage('Erreur chargement variétés moquette mosquée : ' + mosqueError.message);
-        return;
+        console.warn('Chargement complémentaire MOSQUE indisponible :', mosqueError.message);
+        break;
       }
-      allMosqueTapis = allMosqueTapis.concat(mosquePage || []);
+      for (const product of mosquePage || []) {
+        if (normalizeMosqueName(product.name).includes('MOSQUE')) {
+          mosqueMap.set(String(product.id), product);
+        }
+      }
       if (!mosquePage || mosquePage.length < pageSize) break;
       mosqueStart += pageSize;
     }
-    setMosqueTapisProducts(allMosqueTapis);
+    setMosqueTapisProducts(Array.from(mosqueMap.values()).sort((a, b) =>
+      String(a.name || '').localeCompare(String(b.name || ''), 'fr')
+    ));
     // Sécurité temporaire : ne pas remplacer une quantité correcte par 0
     // tant que la détection des références présentes dans le PDF n'est pas fiabilisée.
     // La quantité enregistrée en base reste affichée sans modification.
