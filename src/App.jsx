@@ -257,12 +257,12 @@ function MosqueSimulation({ tapisProducts = [] }) {
           {mosqueCarpetOptions.map(p=><option key={p.id} value={p.id}>{p.name} — {fmt(p.wholesale_price)} DA/m²</option>)}
         </select>
       </label>
-      {chosenCostCarpet&&<p className="ls-muted" style={{margin:'7px 0'}}>سعر الجملة: <strong>{fmt(carpetUnit)} DA/m²</strong> — الكمية المسجلة في المخزون: <strong>{fmt(stock)} م²</strong></p>}
+      {chosenCostCarpet&&<p className="ls-muted" style={{margin:'7px 0'}}>سعر الجملة: <strong>{fmt(carpetUnit)} DA/m²</strong> — الكمية المسجلة في المخزون: <strong>{fmt(stock)}</strong></p>}
       <label style={{display:'grid',gap:6,fontWeight:700,marginTop:12}}>المساحة المشتراة (م²) — قابلة للتعديل حسب المخزون
         <input type="number" min="0" step="0.01" value={manualPurchaseArea!==''?manualPurchaseArea:suggestedArea.toFixed(2)} onChange={e=>setManualPurchaseArea(e.target.value)} style={styles.field}/>
       </label>
       <p className="ls-muted" style={{margin:'5px 0 10px'}}>المساحة المقترحة حسب الحساب: {fmt(suggestedArea)} م². تغيير هذه الكمية هنا خاص بالتسعير فقط ولا يغيّر المخزون.</p>
-      {overStock&&<p className="ls-message">تنبيه: المساحة المدخلة أكبر من الكمية المسجلة في المخزون ({fmt(stock)} م²).</p>}
+      {overStock&&<p className="ls-message">تنبيه: المساحة المدخلة أكبر من الكمية المسجلة في المخزون ({fmt(stock)}).</p>}
       <div style={{display:'grid',gap:10,marginTop:12}}>
         <label style={{display:'flex',alignItems:'center',gap:8,fontWeight:700}}><input type="checkbox" checked={includeFeutre} onChange={e=>setIncludeFeutre(e.target.checked)}/> Avec feutre</label>
         {includeFeutre&&<label style={{display:'grid',gap:6}}>سعر Feutre (DA/m²)<input type="number" min="0" step="0.01" value={feutreUnitPrice} onChange={e=>setFeutreUnitPrice(e.target.value)} style={styles.field}/></label>}
