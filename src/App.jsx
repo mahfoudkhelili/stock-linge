@@ -5338,7 +5338,7 @@ export default function App() {
               </section>
             )}
 
-            {activePage === 'mosque-simulation' && isAdmin && (<MosqueSimulation tapisProducts={mosqueTapisProducts} />)}
+            {activePage === 'mosque-simulation' && isAdmin && (<MosqueSimulation tapisProducts={mosqueTapisProducts.length ? mosqueTapisProducts : catalogProducts.filter(p => p.catalog_source === 'tapis_products')} />)}
 
             {activePage === 'tapis-analysis' && canViewPage('tapis-analysis') && (
               <section className="ls-panel">
