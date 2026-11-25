@@ -98,7 +98,7 @@ function DashboardIcon({ name, className = '' }) {
 }
 
 
-function MosqueSimulation() {
+function MosqueSimulation({ tapisProducts = [] }) {
   const [roomLength, setRoomLength] = useState('20');
   const [roomWidth, setRoomWidth] = useState('12');
   const [roomMode,setRoomMode]=useState(null);
@@ -111,6 +111,12 @@ function MosqueSimulation() {
   const [irregularAngle,setIrregularAngle]=useState(0);
   const [irregularDragging,setIrregularDragging]=useState(false);
   const [irregularVertexDragging,setIrregularVertexDragging]=useState(null);
+  const [costCarpetId,setCostCarpetId]=useState('');
+  const [manualPurchaseArea,setManualPurchaseArea]=useState('');
+  const [includeFeutre,setIncludeFeutre]=useState(false);
+  const [feutreUnitPrice,setFeutreUnitPrice]=useState('');
+  const [includePose,setIncludePose]=useState(false);
+  const [poseUnitPrice,setPoseUnitPrice]=useState('');
   const irregularAngleSnapRef=useRef({});
   const irregularDrawRef=useRef(null);
   const irregularPlanRef=useRef(null);
@@ -231,6 +237,49 @@ function MosqueSimulation() {
   const roomScreenPoints=roomCorners.map(screenPoint);
   const arrowLength=Math.min(78,Math.max(24,Math.max(L,W)*planScale*.38));
   const finalStripWidth=rowChoice==='upper'&&remainder>0?remainder:rollWidth;
+  const mosqueCarpetOptions=(tapisProducts||[]).filter(p=>/^tapis\s+mosquee\b/i.test(p.name||''));
+  const chosenCostCarpet=mosqueCarpetOptions.find(p=>String(p.id)===String(costCarpetId));
+  const renderCostSection=(calculatedArea)=>{
+    const suggestedArea=Math.max(0,Number(calculatedArea)||0);
+    const purchaseArea=manualPurchaseArea!==''?Math.max(0,Number(manualPurchaseArea)||0):suggestedArea;
+    const carpetUnit=Number(chosenCostCarpet?.wholesale_price)||0;
+    const carpetCost=purchaseArea*carpetUnit;
+    const feutreCost=includeFeutre?purchaseArea*(Number(feutreUnitPrice)||0):0;
+    const poseCost=includePose?purchaseArea*(Number(poseUnitPrice)||0):0;
+    const totalCost=carpetCost+feutreCost+poseCost;
+    const stock=Number(chosenCostCarpet?.current_quantity);
+    const overStock=chosenCostCarpet&&Number.isFinite(stock)&&purchaseArea>stock+1e-8;
+    return <div style={{marginTop:18,padding:14,border:'1px solid var(--ls-border,#cbd5e1)',borderRadius:12}}>
+      <h3 style={{marginTop:0}}>Devis estimatif — تكلفة التفريش</h3>
+      <label style={{display:'grid',gap:6,fontWeight:700}}>اختيار نوعية السجاد
+        <select value={costCarpetId} onChange={e=>setCostCarpetId(e.target.value)} style={styles.field}>
+          <option value="">اختار نوعية TAPIS MOSQUEE</option>
+          {mosqueCarpetOptions.map(p=><option key={p.id} value={p.id}>{p.name} — {fmt(p.wholesale_price)} DA/m²</option>)}
+        </select>
+      </label>
+      {chosenCostCarpet&&<p className="ls-muted" style={{margin:'7px 0'}}>سعر الجملة: <strong>{fmt(carpetUnit)} DA/m²</strong> — الكمية المسجلة في المخزون: <strong>{fmt(stock)} م²</strong></p>}
+      <label style={{display:'grid',gap:6,fontWeight:700,marginTop:12}}>المساحة المشتراة (م²) — قابلة للتعديل حسب المخزون
+        <input type="number" min="0" step="0.01" value={manualPurchaseArea!==''?manualPurchaseArea:suggestedArea.toFixed(2)} onChange={e=>setManualPurchaseArea(e.target.value)} style={styles.field}/>
+      </label>
+      <p className="ls-muted" style={{margin:'5px 0 10px'}}>المساحة المقترحة حسب الحساب: {fmt(suggestedArea)} م². تغيير هذه الكمية هنا خاص بالتسعير فقط ولا يغيّر المخزون.</p>
+      {overStock&&<p className="ls-message">تنبيه: المساحة المدخلة أكبر من الكمية المسجلة في المخزون ({fmt(stock)} م²).</p>}
+      <div style={{display:'grid',gap:10,marginTop:12}}>
+        <label style={{display:'flex',alignItems:'center',gap:8,fontWeight:700}}><input type="checkbox" checked={includeFeutre} onChange={e=>setIncludeFeutre(e.target.checked)}/> Avec feutre</label>
+        {includeFeutre&&<label style={{display:'grid',gap:6}}>سعر Feutre (DA/m²)<input type="number" min="0" step="0.01" value={feutreUnitPrice} onChange={e=>setFeutreUnitPrice(e.target.value)} style={styles.field}/></label>}
+        <label style={{display:'flex',alignItems:'center',gap:8,fontWeight:700}}><input type="checkbox" checked={includePose} onChange={e=>setIncludePose(e.target.checked)}/> Avec pose</label>
+        {includePose&&<label style={{display:'grid',gap:6}}>سعر Pose (DA/m²)<input type="number" min="0" step="0.01" value={poseUnitPrice} onChange={e=>setPoseUnitPrice(e.target.value)} style={styles.field}/></label>}
+      </div>
+      <div style={{marginTop:14,borderTop:'1px solid var(--ls-border,#e2e8f0)',paddingTop:12}}><strong>تفصيل التكلفة</strong>
+        <div style={{display:'grid',gridTemplateColumns:'1fr auto',gap:8,marginTop:9}}>
+          <span>السجاد ({fmt(purchaseArea)} × {fmt(carpetUnit)} DA)</span><strong>{fmt(carpetCost)} DA</strong>
+          {includeFeutre&&<><span>Feutre ({fmt(purchaseArea)} × {fmt(Number(feutreUnitPrice)||0)} DA)</span><strong>{fmt(feutreCost)} DA</strong></>}
+          {includePose&&<><span>Pose ({fmt(purchaseArea)} × {fmt(Number(poseUnitPrice)||0)} DA)</span><strong>{fmt(poseCost)} DA</strong></>}
+        </div>
+        <div style={{display:'flex',justifyContent:'space-between',gap:10,marginTop:14,paddingTop:10,borderTop:'2px solid #607A9B',fontSize:18,fontWeight:800}}><span>السعر النهائي</span><span>{fmt(totalCost)} DA</span></div>
+        {!chosenCostCarpet&&<p className="ls-muted" style={{marginBottom:0}}>اختار نوعية السجاد لاحتساب سعره. تقدر تحسب Feutre وPose اختيارياً.</p>}
+      </div>
+    </div>;
+  };
   if(roomMode==='irregular'){
     const centroid=irregularPoints.length?irregularPoints.reduce((a,p)=>[a[0]+p[0]/irregularPoints.length,a[1]+p[1]/irregularPoints.length],[0,0]):[160,110];
     const positions=irregularClosed?(()=>{
@@ -335,7 +384,8 @@ function MosqueSimulation() {
         <button type="button" style={styles.secondary} onClick={()=>setIrregularStage('draw')}>رجوع لتعديل الأطوال</button>
         <button type="button" style={styles.button} onClick={solveRealGeometry}>موافق — ضبط الأطوال الحقيقية</button>
       </>}
-      {irregularStage==='review'&&<div style={{marginTop:14,padding:12,border:'1px solid var(--ls-border,#cbd5e1)',borderRadius:10}}><strong>تم تحديد شكل القاعة واتجاه القبلة</strong><p className="ls-muted">الأطوال: {irregularLengths.map((v,i)=>'ضلع '+(i+1)+': '+v+' م').join(' — ')}.</p><p className="ls-muted">اتجاه القبلة: {irregularAngle}°.</p>{irregularSolveError&&<p className="ls-message">{irregularSolveError}</p>}{irregularSolved&&(()=>{const result=calculateIrregularCarpet();return <><p><strong>تم ضبط المضلع بالأطوال الحقيقية.</strong></p><p>مساحة القاعة: {irregularSolved.area.toFixed(2)} م² — أكبر فرق في الأطوال: {irregularSolved.maxError.toFixed(3)} م.</p><svg viewBox="0 0 320 220" width="100%" style={{maxHeight:280,background:'var(--ls-card,#fff)',borderRadius:8}}>{result.rows.map(r=>{const minX=Math.min(...irregularSolved.points.map(p=>p[0])),maxX=Math.max(...irregularSolved.points.map(p=>p[0])),minY=Math.min(...irregularSolved.points.map(p=>p[1])),maxY=Math.max(...irregularSolved.points.map(p=>p[1])),scale=Math.min(280/Math.max(maxX-minX,.01),180/Math.max(maxY-minY,.01)),map=p=>[160+(p[0]-(minX+maxX)/2)*scale,110-(p[1]-(minY+maxY)/2)*scale],rp=r.points.map(map),label=rp.reduce((s,p)=>[s[0]+p[0]/rp.length,s[1]+p[1]/rp.length],[0,0]);return <g key={r.number}><polygon points={rp.map(p=>p.join(',')).join(' ')} fill="#607A9B" fillOpacity=".28" stroke="#607A9B" strokeWidth="1.2"/>{rp.length>0&&<text x={label[0]} y={label[1]} textAnchor="middle" dominantBaseline="middle" fontSize="9" fontWeight="700" fill="#1e293b" stroke="#fff" strokeWidth="2.5" paintOrder="stroke">{r.length.toFixed(2)} م</text>}</g>;})}<polygon points={irregularSolved.points.map(p=>{const minX=Math.min(...irregularSolved.points.map(q=>q[0])),maxX=Math.max(...irregularSolved.points.map(q=>q[0])),minY=Math.min(...irregularSolved.points.map(q=>q[1])),maxY=Math.max(...irregularSolved.points.map(q=>q[1])),scale=Math.min(280/Math.max(maxX-minX,.01),180/Math.max(maxY-minY,.01));return [160+(p[0]-(minX+maxX)/2)*scale,110-(p[1]-(minY+maxY)/2)*scale].join(',');}).join(' ')} fill="none" stroke="#334155" strokeWidth="2.5"/><text x="160" y="16" textAnchor="middle" fontSize="10" fill="currentColor">صفوف السجاد داخل القاعة</text></svg><div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(130px,1fr))',gap:8}}><div><span className="ls-muted">عدد الصفوف</span><br/><strong>{result.rows.length}</strong></div><div><span className="ls-muted">إجمالي المتر الطولي</span><br/><strong>{result.total.toFixed(2)} م</strong></div><div><span className="ls-muted">مساحة الرولات المشتراة</span><br/><strong>{result.purchasedArea.toFixed(2)} م²</strong></div><div><span className="ls-muted">المساحة المغطاة تقديرياً</span><br/><strong>{result.coveredArea.toFixed(2)} م²</strong></div></div><p style={{fontWeight:700}}>طول كل صف من جهة القبلة:</p><ol>{result.rows.map(r=><li key={r.number}>الصف {r.number}: {r.length.toFixed(2)} م {r.width<1.325?' — عرض الصف '+r.width.toFixed(2)+' م (قص)':''}</li>)}</ol><p className="ls-muted">عرض الرول 1.33 م. أطوال الصفوف محسوبة من امتداد تقاطع الشريط مع المضلع؛ يلزم التحقق الميداني من القص عند الزوايا.</p></>;})()}</div>}
+      {irregularStage==='review'&&<div style={{marginTop:14,padding:12,border:'1px solid var(--ls-border,#cbd5e1)',borderRadius:10}}><strong>تم تحديد شكل القاعة واتجاه القبلة</strong><p className="ls-muted">الأطوال: {irregularLengths.map((v,i)=>'ضلع '+(i+1)+': '+v+' م').join(' — ')}.</p><p className="ls-muted">اتجاه القبلة: {irregularAngle}°.</p>{irregularSolveError&&<p className="ls-message">{irregularSolveError}</p>}{irregularSolved&&(()=>{const result=calculateIrregularCarpet();return <><p><strong>تم ضبط المضلع بالأطوال الحقيقية.</strong></p><p>مساحة القاعة: {irregularSolved.area.toFixed(2)} م² — أكبر فرق في الأطوال: {irregularSolved.maxError.toFixed(3)} م.</p><svg viewBox="0 0 320 220" width="100%" style={{maxHeight:280,background:'var(--ls-card,#fff)',borderRadius:8}}>{result.rows.map(r=>{const minX=Math.min(...irregularSolved.points.map(p=>p[0])),maxX=Math.max(...irregularSolved.points.map(p=>p[0])),minY=Math.min(...irregularSolved.points.map(p=>p[1])),maxY=Math.max(...irregularSolved.points.map(p=>p[1])),scale=Math.min(280/Math.max(maxX-minX,.01),180/Math.max(maxY-minY,.01)),map=p=>[160+(p[0]-(minX+maxX)/2)*scale,110-(p[1]-(minY+maxY)/2)*scale],rp=r.points.map(map),label=rp.reduce((s,p)=>[s[0]+p[0]/rp.length,s[1]+p[1]/rp.length],[0,0]);return <g key={r.number}><polygon points={rp.map(p=>p.join(',')).join(' ')} fill="#607A9B" fillOpacity=".28" stroke="#607A9B" strokeWidth="1.2"/>{rp.length>0&&<text x={label[0]} y={label[1]} textAnchor="middle" dominantBaseline="middle" fontSize="9" fontWeight="700" fill="#1e293b" stroke="#fff" strokeWidth="2.5" paintOrder="stroke">{r.length.toFixed(2)} م</text>}</g>;})}<polygon points={irregularSolved.points.map(p=>{const minX=Math.min(...irregularSolved.points.map(q=>q[0])),maxX=Math.max(...irregularSolved.points.map(q=>q[0])),minY=Math.min(...irregularSolved.points.map(q=>q[1])),maxY=Math.max(...irregularSolved.points.map(q=>q[1])),scale=Math.min(280/Math.max(maxX-minX,.01),180/Math.max(maxY-minY,.01));return [160+(p[0]-(minX+maxX)/2)*scale,110-(p[1]-(minY+maxY)/2)*scale].join(',');}).join(' ')} fill="none" stroke="#334155" strokeWidth="2.5"/><text x="160" y="16" textAnchor="middle" fontSize="10" fill="currentColor">صفوف السجاد داخل القاعة</text></svg><div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(130px,1fr))',gap:8}}><div><span className="ls-muted">عدد الصفوف</span><br/><strong>{result.rows.length}</strong></div><div><span className="ls-muted">إجمالي المتر الطولي</span><br/><strong>{result.total.toFixed(2)} م</strong></div><div><span className="ls-muted">مساحة الرولات المشتراة</span><br/><strong>{result.purchasedArea.toFixed(2)} م²</strong></div><div><span className="ls-muted">المساحة المغطاة تقديرياً</span><br/><strong>{result.coveredArea.toFixed(2)} م²</strong></div></div><p style={{fontWeight:700}}>طول كل صف من جهة القبلة:</p><ol>{result.rows.map(r=><li key={r.number}>الصف {r.number}: {r.length.toFixed(2)} م {r.width<1.325?' — عرض الصف '+r.width.toFixed(2)+' م (قص)':''}</li>)}</ol><p className="ls-muted">عرض الرول 1.33 م. أطوال الصفوف محسوبة من امتداد تقاطع الشريط مع المضلع؛ يلزم التحقق الميداني من القص عند الزوايا.</p>
+{renderCostSection(result.purchasedArea)}</>;})()}</div>}
     </section>;
   }
 
@@ -414,9 +464,10 @@ function MosqueSimulation() {
                 <div><div className="ls-muted">Surface couverte estimée</div><strong style={{fontSize:22}}>{fmt(selected.coveredArea)} m²</strong></div>
                 <div><div className="ls-muted">Largeur de la dernière bande</div><strong style={{fontSize:22}}>{fmt(finalStripWidth)} m</strong></div>
               </div>
-              <p className="ls-muted" style={{marginBottom:0}}>أطوال الشرائط المقدّرة: {selected.lengths.map(fmt).join(' + ')} متر.</p>
+              <p className="ls-muted" style={{marginBottom:0}}>أطوال الشرائط المقدّرة: {selected.lengths.map(fmt).join(' + ')} متر.</p>{renderCostSection(selected.purchasedArea)}
             </div>
           )}
+          {remainder<0.01&&renderCostSection(lower.purchasedArea)}
         </div>
       )}
       <p className="ls-muted" style={{marginTop:18,fontSize:12}}>ملاحظة: هذه محاكاة أولية. الحساب يعتمد على تقاطع صفوف بعرض 1.33 م مع حدود القاعة؛ راجع القص النهائي ميدانياً قبل الشراء، خصوصاً عند الزوايا المائلة.</p>
@@ -5221,7 +5272,7 @@ export default function App() {
               </section>
             )}
 
-            {activePage === 'mosque-simulation' && isAdmin && (<MosqueSimulation />)}
+            {activePage === 'mosque-simulation' && isAdmin && (<MosqueSimulation tapisProducts={catalogProducts.filter(p=>p.catalog_source==='tapis_products' && /^tapis\s+mosquee\b/i.test(p.name||''))} />)}
 
             {activePage === 'tapis-analysis' && canViewPage('tapis-analysis') && (
               <section className="ls-panel">
