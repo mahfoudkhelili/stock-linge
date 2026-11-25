@@ -233,7 +233,39 @@ function MosqueSimulation() {
   const finalStripWidth=rowChoice==='upper'&&remainder>0?remainder:rollWidth;
   if(roomMode==='irregular'){
     const centroid=irregularPoints.length?irregularPoints.reduce((a,p)=>[a[0]+p[0]/irregularPoints.length,a[1]+p[1]/irregularPoints.length],[0,0]):[160,110];
-    const positions=irregularClosed?irregularPoints.map((p,i)=>{const q=irregularPoints[(i+1)%irregularPoints.length],mx=(p[0]+q[0])/2,my=(p[1]+q[1])/2,dx=q[0]-p[0],dy=q[1]-p[1],len=Math.hypot(dx,dy)||1;let nx=dy/len,ny=-dx/len;if(nx*(mx-centroid[0])+ny*(my-centroid[1])<0){nx=-nx;ny=-ny;}return{x:Math.max(2,Math.min(264,mx+nx*25-28)),y:Math.max(2,Math.min(184,my+ny*25-17))};}):[];
+    const positions=irregularClosed?(()=>{
+      const placed=[];
+      const boxW=56,boxH=36,gap=5,margin=4;
+      const overlaps=(a,b)=>a.x<b.x+b.w+gap&&a.x+a.w+gap>b.x&&a.y<b.y+b.h+gap&&a.y+a.h+gap>b.y;
+      for(let i=0;i<irregularPoints.length;i++){
+        const p=irregularPoints[i],q=irregularPoints[(i+1)%irregularPoints.length];
+        const dx=q[0]-p[0],dy=q[1]-p[1],len=Math.hypot(dx,dy)||1;
+        let nx=dy/len,ny=-dx/len;
+        const mx=(p[0]+q[0])/2,my=(p[1]+q[1])/2;
+        if(nx*(mx-centroid[0])+ny*(my-centroid[1])<0){nx=-nx;ny=-ny;}
+        const tx=dx/len,ty=dy/len;
+        const candidates=[];
+        for(const distance of [25,43,61,79])for(const offset of [0,-22,22,-44,44,-66,66,-88,88]){
+          const cx=mx+nx*distance+tx*offset,cy=my+ny*distance+ty*offset;
+          const x=cx-boxW/2,y=cy-boxH/2;
+          if(x<margin||y<margin||x+boxW>316-margin||y+boxH>216-margin)continue;
+          const candidate={x,y,w:boxW,h:boxH};
+          const collisionCount=placed.filter(other=>overlaps(candidate,other)).length;
+          const score=distance+Math.abs(offset)*0.72+collisionCount*10000;
+          candidates.push({candidate,score,collisionCount});
+        }
+        candidates.sort((a,b)=>a.score-b.score);
+        let chosen=candidates.find(item=>item.collisionCount===0)?.candidate;
+        if(!chosen&&candidates.length)chosen=candidates[0].candidate;
+        if(!chosen){
+          const x=Math.max(margin,Math.min(316-margin-boxW,mx-boxW/2));
+          const y=Math.max(margin,Math.min(216-margin-boxH,my-boxH/2));
+          chosen={x,y,w:boxW,h:boxH};
+        }
+        placed.push(chosen);
+      }
+      return placed.map(({x,y})=>({x,y}));
+    })():[];
     const addPoint=e=>{if(irregularClosed)return;const r=e.currentTarget.getBoundingClientRect();setIrregularPoints(old=>[...old,[Math.max(8,Math.min(312,(e.clientX-r.left)/r.width*320)),Math.max(8,Math.min(212,(e.clientY-r.top)/r.height*220))]]);};
     const validLengths=irregularClosed&&irregularLengths.length===irregularPoints.length&&irregularLengths.every(v=>Number(v)>0&&Number(v)<=500);
     const pointFromEvent=e=>{const r=irregularDrawRef.current?.getBoundingClientRect();if(!r)return null;return [Math.max(8,Math.min(312,(e.clientX-r.left)/r.width*320)),Math.max(8,Math.min(212,(e.clientY-r.top)/r.height*220))];};
