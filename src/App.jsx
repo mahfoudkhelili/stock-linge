@@ -237,7 +237,7 @@ function MosqueSimulation({ tapisProducts = [] }) {
   const roomScreenPoints=roomCorners.map(screenPoint);
   const arrowLength=Math.min(78,Math.max(24,Math.max(L,W)*planScale*.38));
   const finalStripWidth=rowChoice==='upper'&&remainder>0?remainder:rollWidth;
-  const mosqueCarpetOptions=(tapisProducts||[]).filter(p=>/^tapis\s+mosquee\b/i.test(p.name||''));
+  const mosqueCarpetOptions=(tapisProducts||[]).filter(p=>String(p.name||'').normalize('NFD').replace(/[\\u0300-\\u036f]/g,'').toLowerCase().includes('mosque'));
   const chosenCostCarpet=mosqueCarpetOptions.find(p=>String(p.id)===String(costCarpetId));
   const renderCostSection=(calculatedArea)=>{
     const suggestedArea=Math.max(0,Number(calculatedArea)||0);
@@ -5272,7 +5272,7 @@ export default function App() {
               </section>
             )}
 
-            {activePage === 'mosque-simulation' && isAdmin && (<MosqueSimulation tapisProducts={catalogProducts.filter(p=>p.catalog_source==='tapis_products' && /^tapis\s+mosquee\b/i.test(p.name||''))} />)}
+            {activePage === 'mosque-simulation' && isAdmin && (<MosqueSimulation tapisProducts={catalogProducts.filter(p=>p.catalog_source==='tapis_products' && String(p.name||'').normalize('NFD').replace(/[\\u0300-\\u036f]/g,'').toLowerCase().includes('mosque'))} />)}
 
             {activePage === 'tapis-analysis' && canViewPage('tapis-analysis') && (
               <section className="ls-panel">
