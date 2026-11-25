@@ -628,6 +628,7 @@ export default function App() {
   const [scannerTarget, setScannerTarget] = useState(null);
   const [scannerStatus, setScannerStatus] = useState('');
   const scannerVideoRef = useRef(null);
+  const [mosqueTapisProducts, setMosqueTapisProducts] = useState([]);
   const [tapisTickets, setTapisTickets] = useState([]);
   const [ticketDraft, setTicketDraft] = useState({type:'',denomination:'',dimension:'',dessin:'',couleur:'',code_barres:''});
   const [ticketPhoto, setTicketPhoto] = useState('');
@@ -715,6 +716,26 @@ export default function App() {
       tapisStart += pageSize;
     }
 
+    // Catalogue dédié au devis mosquée : inclure toutes les variétés Tapis
+    // correspondantes, même si elles sont masquées ou inactives dans les listes ordinaires.
+    let allMosqueTapis = [];
+    let mosqueStart = 0;
+    while (true) {
+      const { data: mosquePage, error: mosqueError } = await supabase
+        .from('tapis_products')
+        .select('id, product_ref, reference_1, name, current_quantity, wholesale_price, retail_price, min_stock_level, is_hidden, is_active, is_in_latest_pdf')
+        .ilike('name', '%MOSQUE%')
+        .order('name')
+        .range(mosqueStart, mosqueStart + pageSize - 1);
+      if (mosqueError) {
+        setMessage('Erreur chargement variétés moquette mosquée : ' + mosqueError.message);
+        return;
+      }
+      allMosqueTapis = allMosqueTapis.concat(mosquePage || []);
+      if (!mosquePage || mosquePage.length < pageSize) break;
+      mosqueStart += pageSize;
+    }
+    setMosqueTapisProducts(allMosqueTapis);
     // Sécurité temporaire : ne pas remplacer une quantité correcte par 0
     // tant que la détection des références présentes dans le PDF n'est pas fiabilisée.
     // La quantité enregistrée en base reste affichée sans modification.
@@ -5295,7 +5316,7 @@ export default function App() {
               </section>
             )}
 
-            {activePage === 'mosque-simulation' && isAdmin && (<MosqueSimulation tapisProducts={catalogProducts.filter(p=>p.catalog_source==='tapis_products' && String(p.name||'').normalize('NFD').replace(/[\\u0300-\\u036f]/g,'').toLowerCase().includes('mosque'))} />)}
+            {activePage === 'mosque-simulation' && isAdmin && (<MosqueSimulation tapisProducts={mosqueTapisProducts} />)}
 
             {activePage === 'tapis-analysis' && canViewPage('tapis-analysis') && (
               <section className="ls-panel">
