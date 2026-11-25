@@ -237,7 +237,11 @@ function MosqueSimulation({ tapisProducts = [] }) {
   const roomScreenPoints=roomCorners.map(screenPoint);
   const arrowLength=Math.min(78,Math.max(24,Math.max(L,W)*planScale*.38));
   const finalStripWidth=rowChoice==='upper'&&remainder>0?remainder:rollWidth;
-  const mosqueCarpetOptions=(tapisProducts||[]).filter(p=>String(p.name||'').normalize('NFD').replace(/[\\u0300-\\u036f]/g,'').toLowerCase().includes('mosque'));
+  const normalizedMosqueName=(value)=>String(value||'').normalize('NFD').replace(/[\\u0300-\\u036f]/g,'').toLowerCase();
+  const mosqueMatches=(tapisProducts||[]).filter(p=>normalizedMosqueName(p.name).includes('mosque'));
+  // Ne jamais laisser le sélecteur vide si le catalogue Tapis est chargé
+  // mais que les désignations utilisent une autre abréviation/orthographe.
+  const mosqueCarpetOptions=mosqueMatches.length?mosqueMatches:(tapisProducts||[]);
   const chosenCostCarpet=mosqueCarpetOptions.find(p=>String(p.id)===String(costCarpetId));
   const exportMosquePdf=({kind,rows,purchaseArea,coveredArea,roomDetails})=>{
     const area=manualPurchaseArea!==''?Math.max(0,Number(manualPurchaseArea)||0):Math.max(0,Number(purchaseArea)||0);
