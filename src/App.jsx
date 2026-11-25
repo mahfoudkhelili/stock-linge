@@ -259,8 +259,8 @@ function MosqueSimulation({ tapisProducts = [] }) {
       '<h2>Schéma final des rangées</h2><div class="plan">'+svgHtml+'</div>'+
       '<div class="two"><section><h2>Dimensions et surfaces</h2><table class="tbl"><tbody><tr><td>'+esc(roomDetails)+'</td></tr><tr><td>Surface achetée après ajustement</td><td><b>'+money(area)+' m²</b></td></tr><tr><td>Surface couverte estimée</td><td>'+money(coveredArea)+' m²</td></tr><tr><td>Nombre de rangées</td><td>'+rows.length+'</td></tr></tbody></table></section><section><h2>Longueur de chaque rangée</h2><table class="tbl"><thead><tr><th>Rangée</th><th>Longueur</th><th>Largeur</th></tr></thead><tbody>'+rowHtml+'</tbody></table></section></div>'+
       '<h2>Détail des coûts</h2><table class="tbl"><thead><tr><th>Désignation</th><th>Surface</th><th>Prix unitaire</th><th>Montant</th></tr></thead><tbody>'+costRows+'</tbody></table><div class="total"><span>COÛT TOTAL ESTIMÉ</span><span>'+totalText+'</span></div>'+
-      '<p class="note">La surface achetée tient compte de la modification manuelle éventuelle. Les dimensions et découpes doivent être vérifiées sur place avant achat et pose.</p><script>window.onload=function(){setTimeout(function(){window.print()},400)};<\\/script></body></html>';
-    win.document.open();win.document.write(html);win.document.close();
+      '<p class="note">La surface achetée tient compte de la modification manuelle éventuelle. Les dimensions et découpes doivent être vérifiées sur place avant achat et pose.</p></body></html>';
+    win.document.open();win.document.write(html);win.document.close();setTimeout(()=>{win.focus();win.print();},500);
   };
   const renderCostSection=(calculatedArea)=>{
     const suggestedArea=Math.max(0,Number(calculatedArea)||0);
