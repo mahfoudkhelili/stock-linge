@@ -2977,7 +2977,7 @@ export default function App() {
       const canvas=document.createElement('canvas'); canvas.width=img.height*2; canvas.height=img.width*2;
       const ctx=canvas.getContext('2d');
       ctx.translate(canvas.width/2,canvas.height/2); ctx.rotate(-Math.PI/2);
-      ctx.drawImage(img,-img.width,-img.height/2,img.width*2,img.height*2);
+      ctx.drawImage(img,-img.width,-img.height,img.width*2,img.height*2);
       const imageData=ctx.getImageData(0,0,canvas.width,canvas.height);
       for(let i=0;i<imageData.data.length;i+=4){
         const gray=0.299*imageData.data[i]+0.587*imageData.data[i+1]+0.114*imageData.data[i+2];
