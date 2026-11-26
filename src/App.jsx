@@ -2964,23 +2964,50 @@ export default function App() {
   }
   async function readTapisTicket(file) {
     if(!file)return;
-    setTicketPhoto(URL.createObjectURL(file)); setTicketBusy(true); setTicketMessage('Lecture OCR en cours…');
+    const photoUrl=URL.createObjectURL(file);
+    setTicketPhoto(photoUrl); setTicketBusy(true); setTicketMessage('نحسّن الصورة ونقرأ بيانات التيكي…');
     try {
       if(!window.Tesseract) await new Promise((resolve,reject)=>{
         const script=document.createElement('script'); script.src='https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';
         script.onload=resolve; script.onerror=()=>reject(new Error('Impossible de charger le moteur OCR.')); document.head.appendChild(script);
       });
-      const result=await window.Tesseract.recognize(file,'eng',{logger:()=>{}});
-      const img=new Image(); img.src=URL.createObjectURL(file);
+      const img=new Image(); img.src=photoUrl;
       await new Promise((resolve,reject)=>{img.onload=resolve;img.onerror=reject;});
-      const canvas=document.createElement('canvas'); canvas.width=img.height; canvas.height=img.width;
-      const ctx=canvas.getContext('2d'); ctx.translate(canvas.width/2,canvas.height/2); ctx.rotate(Math.PI/2); ctx.drawImage(img,-img.width/2,-img.height/2);
-      const rotated=await window.Tesseract.recognize(canvas,'eng',{logger:()=>{}});
-      const txt=[result.data.text||'',rotated.data.text||''].join('\n'), lines=txt.split(/\r?\n/).map(x=>x.trim()).filter(Boolean);
-      const code=(txt.match(/\b\d{10,14}\b/)||[])[0]||'';
-      const dim=(txt.match(/\b\d{2,3}\s*[xX×]\s*\d{2,3}\b/)||[])[0]||'';
-      setTicketDraft({type:lines.find(x=>/ECLAT|MANISA/i.test(x))||'',denomination:lines.find(x=>/TAPIS|ENS/i.test(x))||'',dimension:dim.replace(/\s/g,''),dessin:lines.find(x=>/\b[A-Z0-9]{4,8}\b/i.test(x)&&!/ECLAT|MANISA|TAPIS|ENS/i.test(x))||'',couleur:lines.find(x=>/ECRU|BRONZ|BEIGE|GRIS|NOIR|BLANC|IVOIRE/i.test(x))||'',code_barres:code});
-      setTicketMessage('قراءة أولية فقط. راجع وصحّح كل المعلومات، خاصة الرقم العمودي بجانب QR، قبل الحفظ.');
+      // Étiquette photographiée de côté : rotation horaire de 90 degrés.
+      const canvas=document.createElement('canvas'); canvas.width=img.height*2; canvas.height=img.width*2;
+      const ctx=canvas.getContext('2d');
+      ctx.translate(canvas.width/2,canvas.height/2); ctx.rotate(-Math.PI/2);
+      ctx.drawImage(img,-img.width,-img.height/2,img.width*2,img.height*2);
+      const imageData=ctx.getImageData(0,0,canvas.width,canvas.height);
+      for(let i=0;i<imageData.data.length;i+=4){
+        const gray=0.299*imageData.data[i]+0.587*imageData.data[i+1]+0.114*imageData.data[i+2];
+        const value=Math.max(0,Math.min(255,(gray-128)*1.35+128));
+        imageData.data[i]=imageData.data[i+1]=imageData.data[i+2]=value;
+      }
+      ctx.putImageData(imageData,0,0);
+      const ocr=await window.Tesseract.recognize(canvas,'eng',{logger:()=>{},tessedit_pageseg_mode:6,preserve_interword_spaces:1});
+      const txt=String(ocr.data.text||'').toUpperCase().replace(/[–—]/g,'-');
+      const lines=txt.split(/\r?\n/).map(x=>x.replace(/[^A-Z0-9%+./: x×-]/g,' ').replace(/\s+/g,' ').trim()).filter(Boolean);
+      const valueAfter=(label,pattern)=>{
+        const line=lines.find(x=>new RegExp(label,'i').test(x));
+        if(!line)return '';
+        const after=line.replace(new RegExp('.*?'+label+'\\s*:?\\s*','i'),'').trim();
+        const match=after.match(pattern);
+        return match?match[0].trim():'';
+      };
+      const dimension=(txt.match(/\bT?\s*\d{2,3}\s*[X×]\s*\d{2,3}\b/)||[])[0]||'';
+      const codes=txt.match(/\b\d{10,14}\b/g)||[];
+      const code=codes.sort((x,y)=>y.length-x.length)[0]||'';
+      const denomination=valueAfter('DENOMINATION',/TAPIS|ENS(?:EMBLE)?/i)||(/\bTAPIS\b/.test(txt)?'TAPIS':'');
+      const dessin=valueAfter('DESSIN',/[A-Z0-9]{3,10}/i);
+      const couleur=valueAfter('COULEUR',/[A-Z][A-Z -]{2,20}/i);
+      const type=/\bSILKAR\b/.test(txt)?'SILKAR':(lines.find(x=>/\b(ECLAT|MANISA)\b/.test(x))||'');
+      setTicketDraft({
+        type, denomination,
+        dimension:dimension.replace(/^T\s*/i,'').replace(/\s/g,'').replace('X','x').replace('×','x'),
+        dessin, couleur:couleur.replace(/\s+/g,' ').trim(), code_barres:code
+      });
+      setTicketMessage('قراءة محسّنة أولية. راجع الحقول قبل الحفظ؛ إذا كانت الصورة غير واضحة، صحّحها يدوياً.');
     } catch(e){setTicketMessage(e.message||'تعذرت قراءة الصورة؛ يمكنك إدخال المعلومات يدوياً.');}
     finally{setTicketBusy(false);}
   }
