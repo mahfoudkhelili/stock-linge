@@ -240,7 +240,14 @@ function MosqueSimulation({ tapisProducts = [] }) {
   const normalizedMosqueName=(value)=>String(value||'').toUpperCase();
   // Recherche directe dans les champs désignation et références.
   const mosqueMatches=(tapisProducts||[]).filter(p=>[p.name,p.product_ref,p.reference_1].some(value=>normalizedMosqueName(value).includes('MOSQ')));
-  const mosqueCarpetOptions=mosqueMatches;
+  // Afficher les modèles du moins cher au plus cher (prix de gros au m²).
+  const mosqueCarpetOptions=[...mosqueMatches].sort((a,b)=>{
+    const priceA=Number(a.wholesale_price);
+    const priceB=Number(b.wholesale_price);
+    const validA=Number.isFinite(priceA)?priceA:Number.POSITIVE_INFINITY;
+    const validB=Number.isFinite(priceB)?priceB:Number.POSITIVE_INFINITY;
+    return validA-validB || String(a.name||'').localeCompare(String(b.name||''),'fr');
+  });
   const chosenCostCarpet=mosqueCarpetOptions.find(p=>String(p.id)===String(costCarpetId));
   const exportMosquePdf=({kind,rows,purchaseArea,coveredArea,roomDetails})=>{
     const area=manualPurchaseArea!==''?Math.max(0,Number(manualPurchaseArea)||0):Math.max(0,Number(purchaseArea)||0);
