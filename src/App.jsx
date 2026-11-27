@@ -634,6 +634,7 @@ export default function App() {
   const scannerVideoRef = useRef(null);
   const [mosqueTapisProducts, setMosqueTapisProducts] = useState([]);
   const [tapisTickets, setTapisTickets] = useState([]);
+  const [ticketModel, setTicketModel] = useState('');
   const [ticketDraft, setTicketDraft] = useState({type:'',denomination:'',dimension:'',dessin:'',couleur:'',code_barres:''});
   const [ticketPhoto, setTicketPhoto] = useState('');
   const [ticketMessage, setTicketMessage] = useState('');
@@ -2968,7 +2969,7 @@ export default function App() {
     const photoUrl = URL.createObjectURL(file);
     setTicketPhoto(photoUrl);
     setTicketBusy(true);
-    setTicketMessage('نحسّن الصورة ونقرأ التيكي من أكثر من اتجاه…');
+    setTicketMessage('قراءة سريعة للتيكي…');
     try {
       if (!window.Tesseract) await new Promise((resolve, reject) => {
         const script = document.createElement('script');
@@ -3004,23 +3005,35 @@ export default function App() {
         return canvas;
       };
 
-      const results = [];
-      for (const rotation of [0, -90, 90]) {
-        const canvas = makeVariant(rotation);
-        for (const psm of [6, 11]) {
-          const result = await window.Tesseract.recognize(canvas, 'eng', {
-            logger: () => {},
-            tessedit_pageseg_mode: psm,
-            preserve_interword_spaces: 1
-          });
-          const text = String(result.data.text || '').toUpperCase().replace(/[–—]/g, '-');
-          if (text.trim()) results.push({ text, confidence: Number(result.data.confidence) || 0 });
+      // Fast first pass. Retry one rotated orientation only when the first
+      // pass is too weak, avoiding six expensive OCR runs on every phone photo.
+      const runOcr = async (canvas) => window.Tesseract.recognize(canvas, 'eng', {
+        logger: () => {},
+        tessedit_pageseg_mode: 6,
+        preserve_interword_spaces: 1
+      });
+      let firstResult = await runOcr(makeVariant(0));
+      let firstText = String(firstResult.data.text || '').toUpperCase().replace(/[–—]/g, '-');
+      let chosenResult = firstResult;
+      let chosenText = firstText;
+      const firstConfidence = Number(firstResult.data.confidence) || 0;
+      if (firstConfidence < 48 || firstText.trim().length < 35) {
+        const retryResult = await runOcr(makeVariant(img.width > img.height ? -90 : 90));
+        const retryText = String(retryResult.data.text || '').toUpperCase().replace(/[–—]/g, '-');
+        if ((Number(retryResult.data.confidence) || 0) > firstConfidence || retryText.length > firstText.length) {
+          chosenResult = retryResult;
+          chosenText = retryText;
         }
       }
-      if (!results.length) throw new Error('لم أستطع قراءة النص من الصورة. جرّب صورة أوضح.');
+      const combinedText = chosenText;
+      if (!combinedText.trim()) throw new Error('لم أستطع قراءة النص من الصورة. جرّب صورة أوضح.');
+      const modelHint = String(ticketModel || '').trim().toUpperCase();
+      // The selected model is kept as context for the current batch. It is
+      // deliberately not written into Type or any other ticket field.
+      if (modelHint && !combinedText.includes(modelHint)) {
+        setTicketMessage('نقرأ التيكي مع اعتماد المودال ' + modelHint + ' كمرجع…');
+      }
 
-      // Keep all passes: a field missed in one orientation may be visible in another.
-      const combinedText = results.sort((a, b) => b.confidence - a.confidence).map(x => x.text).join('\n');
       const clean = value => String(value || '').toUpperCase()
         .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
         .replace(/[^A-Z0-9%+./: x×-]/g, ' ').replace(/\s+/g, ' ').trim();
@@ -3088,7 +3101,7 @@ export default function App() {
         code_barres: code
       });
       const found = [type, denomination, dimension, dessin, couleur, code].filter(Boolean).length;
-      setTicketMessage('تمت القراءة عبر عدة محاولات OCR: ' + found + '/6 خانات. راجع القيم وصحّح أي خانة غير مؤكدة قبل الحفظ.');
+      setTicketMessage('تمت القراءة السريعة: ' + found + '/6 خانات' + (modelHint ? ' — المودال: ' + modelHint : '') + '. راجع القيم قبل الحفظ.');
     } catch (e) {
       setTicketMessage(e.message || 'تعذرت قراءة الصورة؛ يمكنك إدخال المعلومات يدوياً.');
     } finally {
@@ -5441,7 +5454,10 @@ export default function App() {
             {activePage === 'tapis' && isAdmin && (
               <section className="ls-panel">
                 <h2 style={{marginTop:0}}>Catalogue des tickets Tapis</h2>
-                <p className="ls-muted">Scanner le ticket, vérifier les informations, puis enregistrer. Catalogue indépendant du stock officiel.</p>
+                <p className="ls-muted">Choisissez le modèle une seule fois, puis scannez ses tickets à la suite. Le modèle reste sélectionné après chaque enregistrement.</p>
+                <label style={{display:'grid',gap:5,fontWeight:600,maxWidth:420,marginBottom:12}}>Nom du modèle / المودال
+                  <input style={styles.field} value={ticketModel} onChange={e=>setTicketModel(e.target.value)} placeholder="مثال: NOMADE" />
+                </label>
                 <button type="button" style={styles.button} onClick={()=>ticketFileRef.current?.click()} disabled={ticketBusy}>{ticketBusy?'Lecture en cours…':'🖼️ Choisir une image / prendre une photo'}</button>
                 <input ref={ticketFileRef} type="file" accept="image/jpeg,image/png,image/webp,image/*" style={{display:'none'}} onChange={e=>readTapisTicket(e.target.files?.[0])}/>
                 {ticketPhoto && <img src={ticketPhoto} alt="Ticket photographié" style={{display:'block',width:'100%',maxWidth:340,maxHeight:260,objectFit:'contain',marginTop:12,borderRadius:10}}/>}
