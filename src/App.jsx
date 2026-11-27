@@ -730,32 +730,25 @@ export default function App() {
       tapisStart += pageSize;
     }
 
-    // Recherche directe dans la désignation et les deux références.
+    // Modèles de moquette de mosquée : recherche dans le catalogue général products.
+    // On conserve les champs/prix/stock de la ligne générale, sans copier ni déplacer de données.
     const normalizeMosqueName = (value) => String(value || '').toUpperCase();
     const mosqueMap = new Map();
-    for (const product of tapisProducts) {
-      if ([product.name, product.product_ref, product.reference_1].some(value => normalizeMosqueName(value).includes('MOSQ'))) {
-        mosqueMap.set(String(product.id), product);
-      }
-    }
-
-    // Ajouter aussi les variétés masquées/inactives quand les droits le permettent.
-    // Une erreur sur cette requête complémentaire ne doit jamais vider la liste visible.
     let mosqueStart = 0;
     while (true) {
       const { data: mosquePage, error: mosqueError } = await supabase
-        .from('tapis_products')
+        .from('products')
         .select('id, product_ref, reference_1, name, current_quantity, wholesale_price, retail_price, min_stock_level, is_hidden, is_active, is_in_latest_pdf')
         .or('name.ilike.%MOSQ%,product_ref.ilike.%MOSQ%,reference_1.ilike.%MOSQ%')
         .order('name')
         .range(mosqueStart, mosqueStart + pageSize - 1);
       if (mosqueError) {
-        console.warn('Chargement complémentaire MOSQUE indisponible :', mosqueError.message);
+        console.warn('Chargement des modèles MOSQUE depuis products indisponible :', mosqueError.message);
         break;
       }
       for (const product of mosquePage || []) {
         if ([product.name, product.product_ref, product.reference_1].some(value => normalizeMosqueName(value).includes('MOSQ'))) {
-          mosqueMap.set(String(product.id), product);
+          mosqueMap.set(String(product.id), { ...product, catalog_source: 'products' });
         }
       }
       if (!mosquePage || mosquePage.length < pageSize) break;
