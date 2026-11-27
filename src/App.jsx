@@ -2963,53 +2963,136 @@ export default function App() {
     if(error) setTicketMessage('Erreur : '+error.message); else setTapisTickets(data||[]);
   }
   async function readTapisTicket(file) {
-    if(!file)return;
-    const photoUrl=URL.createObjectURL(file);
-    setTicketPhoto(photoUrl); setTicketBusy(true); setTicketMessage('نحسّن الصورة ونقرأ بيانات التيكي…');
+    if (!file) return;
+    const photoUrl = URL.createObjectURL(file);
+    setTicketPhoto(photoUrl);
+    setTicketBusy(true);
+    setTicketMessage('نحسّن الصورة ونقرأ التيكي من أكثر من اتجاه…');
     try {
-      if(!window.Tesseract) await new Promise((resolve,reject)=>{
-        const script=document.createElement('script'); script.src='https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';
-        script.onload=resolve; script.onerror=()=>reject(new Error('Impossible de charger le moteur OCR.')); document.head.appendChild(script);
+      if (!window.Tesseract) await new Promise((resolve, reject) => {
+        const script = document.createElement('script');
+        script.src = 'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';
+        script.onload = resolve;
+        script.onerror = () => reject(new Error('Impossible de charger le moteur OCR.'));
+        document.head.appendChild(script);
       });
-      const img=new Image(); img.src=photoUrl;
-      await new Promise((resolve,reject)=>{img.onload=resolve;img.onerror=reject;});
-      // Étiquette photographiée de côté : rotation horaire de 90 degrés.
-      const canvas=document.createElement('canvas'); canvas.width=img.height*2; canvas.height=img.width*2;
-      const ctx=canvas.getContext('2d');
-      ctx.translate(canvas.width/2,canvas.height/2); ctx.rotate(-Math.PI/2);
-      ctx.drawImage(img,-img.width,-img.height,img.width*2,img.height*2);
-      const imageData=ctx.getImageData(0,0,canvas.width,canvas.height);
-      for(let i=0;i<imageData.data.length;i+=4){
-        const gray=0.299*imageData.data[i]+0.587*imageData.data[i+1]+0.114*imageData.data[i+2];
-        const value=Math.max(0,Math.min(255,(gray-128)*1.35+128));
-        imageData.data[i]=imageData.data[i+1]=imageData.data[i+2]=value;
-      }
-      ctx.putImageData(imageData,0,0);
-      const ocr=await window.Tesseract.recognize(canvas,'eng',{logger:()=>{},tessedit_pageseg_mode:6,preserve_interword_spaces:1});
-      const txt=String(ocr.data.text||'').toUpperCase().replace(/[–—]/g,'-');
-      const lines=txt.split(/\r?\n/).map(x=>x.replace(/[^A-Z0-9%+./: x×-]/g,' ').replace(/\s+/g,' ').trim()).filter(Boolean);
-      const valueAfter=(label,pattern)=>{
-        const line=lines.find(x=>new RegExp(label,'i').test(x));
-        if(!line)return '';
-        const after=line.replace(new RegExp('.*?'+label+'\\s*:?\\s*','i'),'').trim();
-        const match=after.match(pattern);
-        return match?match[0].trim():'';
+
+      const img = new Image();
+      img.src = photoUrl;
+      await new Promise((resolve, reject) => { img.onload = resolve; img.onerror = reject; });
+
+      // Read both landscape orientations. Upscale before OCR; keep a clean
+      // grayscale image instead of applying an aggressive global threshold.
+      const makeVariant = (rotation) => {
+        const swap = Math.abs(rotation) === 90;
+        const scale = Math.min(3, 2400 / Math.max(img.width, img.height));
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.round((swap ? img.height : img.width) * scale);
+        canvas.height = Math.round((swap ? img.width : img.height) * scale);
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+        ctx.translate(canvas.width / 2, canvas.height / 2);
+        ctx.rotate(rotation * Math.PI / 180);
+        ctx.drawImage(img, -img.width * scale / 2, -img.height * scale / 2, img.width * scale, img.height * scale);
+        const pixels = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        for (let i = 0; i < pixels.data.length; i += 4) {
+          const gray = 0.299 * pixels.data[i] + 0.587 * pixels.data[i + 1] + 0.114 * pixels.data[i + 2];
+          const adjusted = Math.max(0, Math.min(255, (gray - 118) * 1.28 + 128));
+          pixels.data[i] = pixels.data[i + 1] = pixels.data[i + 2] = adjusted;
+        }
+        ctx.putImageData(pixels, 0, 0);
+        return canvas;
       };
-      const dimension=(txt.match(/\bT?\s*\d{2,3}\s*[X×]\s*\d{2,3}\b/)||[])[0]||'';
-      const codes=txt.match(/\b\d{10,14}\b/g)||[];
-      const code=codes.sort((x,y)=>y.length-x.length)[0]||'';
-      const denomination=valueAfter('DENOMINATION',/TAPIS|ENS(?:EMBLE)?/i)||(/\bTAPIS\b/.test(txt)?'TAPIS':'');
-      const dessin=valueAfter('DESSIN',/[A-Z0-9]{3,10}/i);
-      const couleur=valueAfter('COULEUR',/[A-Z][A-Z -]{2,20}/i);
-      const type=/\bSILKAR\b/.test(txt)?'SILKAR':(lines.find(x=>/\b(ECLAT|MANISA)\b/.test(x))||'');
-      setTicketDraft({
-        type, denomination,
-        dimension:dimension.replace(/^T\s*/i,'').replace(/\s/g,'').replace('X','x').replace('×','x'),
-        dessin, couleur:couleur.replace(/\s+/g,' ').trim(), code_barres:code
+
+      const results = [];
+      for (const rotation of [0, -90, 90]) {
+        const canvas = makeVariant(rotation);
+        for (const psm of [6, 11]) {
+          const result = await window.Tesseract.recognize(canvas, 'eng', {
+            logger: () => {},
+            tessedit_pageseg_mode: psm,
+            preserve_interword_spaces: 1
+          });
+          const text = String(result.data.text || '').toUpperCase().replace(/[–—]/g, '-');
+          if (text.trim()) results.push({ text, confidence: Number(result.data.confidence) || 0 });
+        }
+      }
+      if (!results.length) throw new Error('لم أستطع قراءة النص من الصورة. جرّب صورة أوضح.');
+
+      // Keep all passes: a field missed in one orientation may be visible in another.
+      const combinedText = results.sort((a, b) => b.confidence - a.confidence).map(x => x.text).join('\n');
+      const clean = value => String(value || '').toUpperCase()
+        .normalize('NFD').replace(/[\\u0300-\\u036f]/g, '')
+        .replace(/[^A-Z0-9%+./: x×-]/g, ' ').replace(/\\s+/g, ' ').trim();
+      const lines = combinedText.split(/\\r?\\n/).map(clean).filter(Boolean);
+      const allText = clean(combinedText);
+      const findValueAfterLabel = (labels, validator) => {
+        const labelRe = new RegExp('\\\\b(?:' + labels.join('|') + ')\\\\b', 'i');
+        for (let i = 0; i < lines.length; i++) {
+          if (!labelRe.test(lines[i])) continue;
+          const sameLine = lines[i].replace(labelRe, '').replace(/^[: -]+/, '').trim();
+          if (sameLine && validator(sameLine)) return validator(sameLine);
+          for (let j = i + 1; j < Math.min(lines.length, i + 3); j++) {
+            if (/^(TYPE|DENOMINATION|DIMENSION|DESSIN|COULEUR|COMPOSITION|REFERENCE)/.test(lines[j])) break;
+            const candidate = validator(lines[j]);
+            if (candidate) return candidate;
+          }
+        }
+        return '';
+      };
+
+      const dimensionMatch = allText.match(/\\bT?\\s*\\d{2,3}\\s*[X×]\\s*\\d{2,3}\\s*(?:CM)?\\b/);
+      const dimension = dimensionMatch ? dimensionMatch[0].replace(/^T\\s*/i, '').replace(/\\s*CM$/i, '').replace(/\\s/g, '').replace(/[X×]/g, 'x') : '';
+      const dessin = findValueAfterLabel(['DESSIN', 'DESIGN'], value => {
+        const m = value.match(/\\b[A-Z0-9]{3,10}\\b/);
+        return m ? m[0] : '';
       });
-      setTicketMessage('قراءة محسّنة أولية. راجع الحقول قبل الحفظ؛ إذا كانت الصورة غير واضحة، صحّحها يدوياً.');
-    } catch(e){setTicketMessage(e.message||'تعذرت قراءة الصورة؛ يمكنك إدخال المعلومات يدوياً.');}
-    finally{setTicketBusy(false);}
+      const couleur = findValueAfterLabel(['COULEUR', 'COLOR'], value => {
+        const v = value.replace(/^(?:COULEUR|COLOR)\\s*/i, '').trim();
+        if (!v || /^(TYPE|DESSIN|DIMENSION|DENOMINATION)/.test(v)) return '';
+        const m = v.match(/\\b(?:BORDEAUX|BEIGE|GRIS|NOIR|BLANC|ROUGE|BLEU|VERT|MARRON|CREME|IVOIRE|TAUPE|MULTICOLORE|ANTHRACITE)\\b/);
+        return m ? m[0] : (/^[A-Z][A-Z -]{2,20}$/.test(v) ? v : '');
+      });
+      const denomination = /\\bTAPIS\\b/.test(allText) ? 'TAPIS' : findValueAfterLabel(['DENOMINATION', 'DESIGNATION'], value => {
+        const m = value.match(/\\bTAPIS\\b|\\bENSEMBLE\\b/);
+        return m ? m[0] : '';
+      });
+
+      // On this label TEPIDOR is the brand; SAHAR immediately following it
+      // is the product type. Never mistake the brand itself for Type.
+      let type = '';
+      for (let i = 0; i < lines.length; i++) {
+        if (/\\bTEPIDOR\\b/.test(lines[i])) {
+          for (let j = i + 1; j < Math.min(lines.length, i + 4); j++) {
+            const candidate = lines[j].match(/\\b(SAHAR|SILKAR|ECLAT|MANISA)\\b/);
+            if (candidate) { type = candidate[1]; break; }
+          }
+          if (type) break;
+        }
+      }
+      if (!type) {
+        const knownType = allText.match(/\\b(SAHAR|SILKAR|ECLAT|MANISA)\\b/);
+        type = knownType ? knownType[1] : '';
+      }
+
+      const codeCandidates = [...new Set((combinedText.match(/\\d[\\d\\s]{8,18}\\d/g) || [])
+        .map(x => x.replace(/\\s/g, '')).filter(x => /^\\d{10,14}$/.test(x)))];
+      const code = codeCandidates.sort((a, b) => b.length - a.length)[0] || '';
+
+      setTicketDraft({
+        type,
+        denomination,
+        dimension,
+        dessin,
+        couleur,
+        code_barres: code
+      });
+      const found = [type, denomination, dimension, dessin, couleur, code].filter(Boolean).length;
+      setTicketMessage('تمت القراءة عبر عدة محاولات OCR: ' + found + '/6 خانات. راجع القيم وصحّح أي خانة غير مؤكدة قبل الحفظ.');
+    } catch (e) {
+      setTicketMessage(e.message || 'تعذرت قراءة الصورة؛ يمكنك إدخال المعلومات يدوياً.');
+    } finally {
+      setTicketBusy(false);
+    }
   }
   async function saveTapisTicket() {
     const v=Object.fromEntries(Object.entries(ticketDraft).map(([k,x])=>[k,String(x||'').trim()]));
