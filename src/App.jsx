@@ -2964,6 +2964,7 @@ export default function App() {
   }
   async function readTapisTicket(file) {
     if (!file) return;
+    if (ticketPhoto && ticketPhoto.startsWith('blob:')) URL.revokeObjectURL(ticketPhoto);
     const photoUrl = URL.createObjectURL(file);
     setTicketPhoto(photoUrl);
     setTicketBusy(true);
@@ -3101,10 +3102,16 @@ export default function App() {
     const {data:old,error:check}=await supabase.from('tapis_ticket_catalog').select('id').eq('code_barres',v.code_barres).maybeSingle();
     if(check){setTicketMessage('تعذر التحقق: '+check.message);return;}
     if(old){setTicketMessage('هذا التيكي مسجل من قبل، لم تتم إضافة تكرار.');return;}
-    const {error}=await supabase.from('tapis_ticket_catalog').insert({...v,created_by:user.id,source_label:'camera'});
+    const {error}=await supabase.from('tapis_ticket_catalog').insert({...v,created_by:user.id,source_label:'image'});
     if(error){setTicketMessage('فشل الحفظ: '+error.message);return;}
-    setTicketMessage('تم تسجيل التيكي بنجاح.'); setTicketDraft({type:'',denomination:'',dimension:'',dessin:'',couleur:'',code_barres:''}); setTicketPhoto('');
-    if(ticketFileRef.current)ticketFileRef.current.value=''; await loadTapisTickets();
+    // The image is processed locally only; after the database confirms the
+    // text fields were saved, release the preview URL and clear the file input.
+    if(ticketPhoto && ticketPhoto.startsWith('blob:')) URL.revokeObjectURL(ticketPhoto);
+    setTicketPhoto('');
+    if(ticketFileRef.current) ticketFileRef.current.value='';
+    setTicketDraft({type:'',denomination:'',dimension:'',dessin:'',couleur:'',code_barres:''});
+    setTicketMessage('تم حفظ المعلومات بنجاح وحذف الصورة المؤقتة من الجهاز.');
+    await loadTapisTickets();
   }
 
   function navigateTo(page) {
@@ -5435,14 +5442,14 @@ export default function App() {
               <section className="ls-panel">
                 <h2 style={{marginTop:0}}>Catalogue des tickets Tapis</h2>
                 <p className="ls-muted">Scanner le ticket, vérifier les informations, puis enregistrer. Catalogue indépendant du stock officiel.</p>
-                <button type="button" style={styles.button} onClick={()=>ticketFileRef.current?.click()} disabled={ticketBusy}>{ticketBusy?'Lecture en cours…':'📷 Scanner ticket'}</button>
-                <input ref={ticketFileRef} type="file" accept="image/*" capture="environment" style={{display:'none'}} onChange={e=>readTapisTicket(e.target.files?.[0])}/>
+                <button type="button" style={styles.button} onClick={()=>ticketFileRef.current?.click()} disabled={ticketBusy}>{ticketBusy?'Lecture en cours…':'🖼️ Choisir une image / prendre une photo'}</button>
+                <input ref={ticketFileRef} type="file" accept="image/jpeg,image/png,image/webp,image/*" style={{display:'none'}} onChange={e=>readTapisTicket(e.target.files?.[0])}/>
                 {ticketPhoto && <img src={ticketPhoto} alt="Ticket photographié" style={{display:'block',width:'100%',maxWidth:340,maxHeight:260,objectFit:'contain',marginTop:12,borderRadius:10}}/>}
                 {ticketMessage && <p className="ls-message" role="status">{ticketMessage}</p>}
                 <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(180px,1fr))',gap:12,marginTop:14}}>
                   { [['type','Type'],['denomination','Dénomination'],['dimension','Dimension'],['dessin','Dessin'],['couleur','Couleur'],['code_barres','N° vertical à côté du QR']].map(([k,label])=><label key={k} style={{display:'grid',gap:5,fontWeight:600}}>{label}<input style={styles.field} value={ticketDraft[k]} onChange={e=>setTicketDraft(v=>({...v,[k]:e.target.value}))}/></label>)}
                 </div>
-                <div style={{display:'flex',gap:10,marginTop:14,flexWrap:'wrap'}}><button type="button" style={styles.button} onClick={saveTapisTicket}>Valider et enregistrer</button><button type="button" style={styles.secondary} onClick={()=>{setTicketDraft({type:'',denomination:'',dimension:'',dessin:'',couleur:'',code_barres:''});setTicketPhoto('');setTicketMessage('');}}>Effacer</button></div>
+                <div style={{display:'flex',gap:10,marginTop:14,flexWrap:'wrap'}}><button type="button" style={styles.button} onClick={saveTapisTicket}>Valider et enregistrer</button><button type="button" style={styles.secondary} onClick={()=>{if(ticketPhoto && ticketPhoto.startsWith('blob:')) URL.revokeObjectURL(ticketPhoto);setTicketDraft({type:'',denomination:'',dimension:'',dessin:'',couleur:'',code_barres:''});setTicketPhoto('');setTicketMessage('');if(ticketFileRef.current)ticketFileRef.current.value='';}}>Effacer</button></div>
                 <h3 style={{marginTop:24}}>Tickets enregistrés ({tapisTickets.length})</h3>
                 <div style={{overflowX:'auto'}}><table className="ls-table"><thead><tr>{['Type','Dénomination','Dimension','Dessin','Couleur','N° vertical'].map(x=><th style={styles.th} key={x}>{x}</th>)}</tr></thead><tbody>{tapisTickets.map(x=><tr key={x.id}>{[x.type,x.denomination,x.dimension,x.dessin,x.couleur,x.code_barres].map((v,i)=><td style={styles.td} key={i}>{v}</td>)}</tr>)}</tbody></table></div>
               </section>
