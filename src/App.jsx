@@ -3021,12 +3021,12 @@ export default function App() {
       // Keep all passes: a field missed in one orientation may be visible in another.
       const combinedText = results.sort((a, b) => b.confidence - a.confidence).map(x => x.text).join('\n');
       const clean = value => String(value || '').toUpperCase()
-        .normalize('NFD').replace(/[\\u0300-\\u036f]/g, '')
-        .replace(/[^A-Z0-9%+./: x×-]/g, ' ').replace(/\\s+/g, ' ').trim();
-      const lines = combinedText.split(/\\r?\\n/).map(clean).filter(Boolean);
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^A-Z0-9%+./: x×-]/g, ' ').replace(/\s+/g, ' ').trim();
+      const lines = combinedText.split(/\r?\n/).map(clean).filter(Boolean);
       const allText = clean(combinedText);
       const findValueAfterLabel = (labels, validator) => {
-        const labelRe = new RegExp('\\\\b(?:' + labels.join('|') + ')\\\\b', 'i');
+        const labelRe = new RegExp('\\b(?:' + labels.join('|') + ')\\b', 'i');
         for (let i = 0; i < lines.length; i++) {
           if (!labelRe.test(lines[i])) continue;
           const sameLine = lines[i].replace(labelRe, '').replace(/^[: -]+/, '').trim();
@@ -3040,20 +3040,20 @@ export default function App() {
         return '';
       };
 
-      const dimensionMatch = allText.match(/\\bT?\\s*\\d{2,3}\\s*[X×]\\s*\\d{2,3}\\s*(?:CM)?\\b/);
-      const dimension = dimensionMatch ? dimensionMatch[0].replace(/^T\\s*/i, '').replace(/\\s*CM$/i, '').replace(/\\s/g, '').replace(/[X×]/g, 'x') : '';
+      const dimensionMatch = allText.match(/\bT?\s*\d{2,3}\s*[X×]\s*\d{2,3}\s*(?:CM)?\b/);
+      const dimension = dimensionMatch ? dimensionMatch[0].replace(/^T\s*/i, '').replace(/\s*CM$/i, '').replace(/\s/g, '').replace(/[X×]/g, 'x') : '';
       const dessin = findValueAfterLabel(['DESSIN', 'DESIGN'], value => {
-        const m = value.match(/\\b[A-Z0-9]{3,10}\\b/);
+        const m = value.match(/\b[A-Z0-9]{3,10}\b/);
         return m ? m[0] : '';
       });
       const couleur = findValueAfterLabel(['COULEUR', 'COLOR'], value => {
-        const v = value.replace(/^(?:COULEUR|COLOR)\\s*/i, '').trim();
+        const v = value.replace(/^(?:COULEUR|COLOR)\s*/i, '').trim();
         if (!v || /^(TYPE|DESSIN|DIMENSION|DENOMINATION)/.test(v)) return '';
-        const m = v.match(/\\b(?:BORDEAUX|BEIGE|GRIS|NOIR|BLANC|ROUGE|BLEU|VERT|MARRON|CREME|IVOIRE|TAUPE|MULTICOLORE|ANTHRACITE)\\b/);
+        const m = v.match(/\b(?:BORDEAUX|BEIGE|GRIS|NOIR|BLANC|ROUGE|BLEU|VERT|MARRON|CREME|IVOIRE|TAUPE|MULTICOLORE|ANTHRACITE)\b/);
         return m ? m[0] : (/^[A-Z][A-Z -]{2,20}$/.test(v) ? v : '');
       });
-      const denomination = /\\bTAPIS\\b/.test(allText) ? 'TAPIS' : findValueAfterLabel(['DENOMINATION', 'DESIGNATION'], value => {
-        const m = value.match(/\\bTAPIS\\b|\\bENSEMBLE\\b/);
+      const denomination = /\bTAPIS\b/.test(allText) ? 'TAPIS' : findValueAfterLabel(['DENOMINATION', 'DESIGNATION'], value => {
+        const m = value.match(/\bTAPIS\b|\bENSEMBLE\b/);
         return m ? m[0] : '';
       });
 
@@ -3061,21 +3061,21 @@ export default function App() {
       // is the product type. Never mistake the brand itself for Type.
       let type = '';
       for (let i = 0; i < lines.length; i++) {
-        if (/\\bTEPIDOR\\b/.test(lines[i])) {
+        if (/\bTEPIDOR\b/.test(lines[i])) {
           for (let j = i + 1; j < Math.min(lines.length, i + 4); j++) {
-            const candidate = lines[j].match(/\\b(SAHAR|SILKAR|ECLAT|MANISA)\\b/);
+            const candidate = lines[j].match(/\b(SAHAR|SILKAR|ECLAT|MANISA)\b/);
             if (candidate) { type = candidate[1]; break; }
           }
           if (type) break;
         }
       }
       if (!type) {
-        const knownType = allText.match(/\\b(SAHAR|SILKAR|ECLAT|MANISA)\\b/);
+        const knownType = allText.match(/\b(SAHAR|SILKAR|ECLAT|MANISA)\b/);
         type = knownType ? knownType[1] : '';
       }
 
-      const codeCandidates = [...new Set((combinedText.match(/\\d[\\d\\s]{8,18}\\d/g) || [])
-        .map(x => x.replace(/\\s/g, '')).filter(x => /^\\d{10,14}$/.test(x)))];
+      const codeCandidates = [...new Set((combinedText.match(/\d[\d\s]{8,18}\d/g) || [])
+        .map(x => x.replace(/\s/g, '')).filter(x => /^\d{10,14}$/.test(x)))];
       const code = codeCandidates.sort((a, b) => b.length - a.length)[0] || '';
 
       setTicketDraft({
