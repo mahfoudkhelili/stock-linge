@@ -6222,50 +6222,67 @@ export default function App() {
                         }
                         pageDragMoved.current = false;
                       };
+                      const startHandleDrag = (event) => {
+                        if (event.button !== 0) return;
+                        event.preventDefault();
+                        event.stopPropagation();
+                        if (pageDragTimer.current) clearTimeout(pageDragTimer.current);
+                        const handle = event.currentTarget;
+                        const pointerId = event.pointerId;
+                        const startOrder = [...baseOrder];
+                        pageDragMoved.current = false;
+                        pageDragTimer.current = setTimeout(() => {
+                          setPageDragId(item.id);
+                          setPageDragOrder(startOrder);
+                          try { handle.setPointerCapture(pointerId); } catch {}
+                          if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate(30);
+                        },450);
+                      };
+                      const moveHandleDrag = (event) => {
+                        if (pageDragId !== item.id) return;
+                        event.preventDefault();
+                        const target = document.elementFromPoint(event.clientX,event.clientY)?.closest('[data-page-order-id]');
+                        const targetId = target?.getAttribute('data-page-order-id');
+                        if (!targetId || targetId === item.id) return;
+                        setPageDragOrder(current=>{
+                          const next=[...current], from=next.indexOf(item.id), to=next.indexOf(targetId);
+                          if(from<0||to<0||from===to)return current;
+                          next.splice(from,1);next.splice(to,0,item.id);
+                          pageDragMoved.current = true;
+                          return next;
+                        });
+                      };
                       return <div
                         key={item.id}
                         data-page-order-id={item.id}
-                        onPointerDown={(event)=>{
-                          if (event.button !== 0) return;
-                          pageDragMoved.current = false;
-                          const startOrder = [...baseOrder];
-                          pageDragTimer.current = setTimeout(()=>{
-                            setPageDragId(item.id);
-                            setPageDragOrder(startOrder);
-                            if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate(30);
-                          },450);
-                          try { event.currentTarget.setPointerCapture(event.pointerId); } catch {}
-                        }}
-                        onPointerMove={(event)=>{
-                          if (!pageDragId || pageDragId !== item.id) return;
-                          event.preventDefault();
-                          const target = document.elementFromPoint(event.clientX,event.clientY)?.closest('[data-page-order-id]');
-                          const targetId = target?.getAttribute('data-page-order-id');
-                          if (!targetId || targetId === item.id) return;
-                          setPageDragOrder(current=>{
-                            const next=[...current], from=next.indexOf(item.id), to=next.indexOf(targetId);
-                            if(from<0||to<0||from===to)return current;
-                            next.splice(from,1);next.splice(to,0,item.id);
-                            pageDragMoved.current = true;
-                            return next;
-                          });
-                        }}
-                        onPointerUp={stopDrag}
-                        onPointerCancel={stopDrag}
-                        onLostPointerCapture={stopDrag}
-                        onContextMenu={(event)=>event.preventDefault()}
                         style={{
                           display:'flex',gap:10,alignItems:'center',padding:'10px 8px',
                           borderBottom:'1px solid #e2e8f0',flexWrap:'wrap',
                           borderRadius:pageDragId===item.id?8:0,
                           background:pageDragId===item.id?'#eaf1f8':'transparent',
                           outline:pageDragId===item.id?'2px dashed #607A9B':'none',
-                          cursor:pageDragId?'grabbing':'grab',
-                          touchAction:'none',userSelect:'none',
+                          cursor:pageDragId?'grabbing':'default',
+                          touchAction:'auto',userSelect:'auto',
                           opacity:pageDragId && pageDragId!==item.id ? 0.72 : 1
                         }}
                       >
-                        <span aria-hidden="true" style={{color:'#607A9B',fontSize:19,fontWeight:800}}>⠿</span>
+                        <span
+                          aria-label="Maintenir puis déplacer pour réorganiser"
+                          title="Maintenir puis glisser pour déplacer"
+                          onPointerDown={startHandleDrag}
+                          onPointerMove={moveHandleDrag}
+                          onPointerUp={stopDrag}
+                          onPointerCancel={stopDrag}
+                          onLostPointerCapture={stopDrag}
+                          onContextMenu={(event)=>event.preventDefault()}
+                          style={{
+                            color:'#607A9B',fontSize:22,fontWeight:800,
+                            cursor:pageDragId===item.id?'grabbing':'grab',
+                            touchAction:'none',userSelect:'none',WebkitUserSelect:'none',
+                            padding:'4px 7px',borderRadius:7,background:'#eef3f8',
+                            display:'inline-flex',alignItems:'center',justifyContent:'center'
+                          }}
+                        >⠿</span>
                         <strong style={{flex:1}}>{item.label}</strong>
                         <label style={{display:'flex',gap:5,alignItems:'center'}} onPointerDown={(e)=>e.stopPropagation()}><input type="checkbox" checked={visible} onChange={(e)=>savePagePreferences(baseOrder,e.target.checked?hiddenPages.filter(x=>x!==item.id):[...hiddenPages,item.id])}/>Afficher</label>
                         <button style={styles.secondary} disabled={index===0} onPointerDown={(e)=>e.stopPropagation()} onClick={()=>{const order=[...baseOrder];const i=order.indexOf(item.id);if(i>0){[order[i-1],order[i]]=[order[i],order[i-1]];savePagePreferences(order,hiddenPages);}}}>↑</button>
