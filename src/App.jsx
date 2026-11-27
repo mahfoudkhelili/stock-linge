@@ -558,6 +558,10 @@ export default function App() {
   const [sortDirection, setSortDirection] = useState('asc');
   const [pageOrder, setPageOrder] = useState([]);
   const [hiddenPages, setHiddenPages] = useState([]);
+  const [pageDragId, setPageDragId] = useState(null);
+  const [pageDragOrder, setPageDragOrder] = useState([]);
+  const pageDragTimer = useRef(null);
+  const pageDragMoved = useRef(false);
   const [pagePermissions, setPagePermissions] = useState({});
   const [photoPreview, setPhotoPreview] = useState(null);
   const [tableSearch, setTableSearch] = useState('');
@@ -6200,16 +6204,75 @@ export default function App() {
                 <section className="ls-panel" style={{marginTop:16}}>
                   <h3 style={{marginTop:0}}>Personnaliser mes pages</h3>
                   <p className="ls-muted">Masquez les pages inutiles ou changez leur ordre. Le réglage est propre à votre compte.</p>
-                  {navItems.filter((item)=>(!item.adminOnly || isAdmin) && (!item.admin || isAdmin)).map((item,index)=>{
-                    const order = pageOrder.length ? [...pageOrder, ...navItems.map(x=>x.id).filter(id=>!pageOrder.includes(id))] : navItems.map(x=>x.id);
-                    const visible = !hiddenPages.includes(item.id);
-                    return <div key={item.id} style={{display:'flex',gap:10,alignItems:'center',padding:'8px 0',borderBottom:'1px solid #e2e8f0',flexWrap:'wrap'}}>
-                      <strong style={{flex:1}}>{item.label}</strong>
-                      <label style={{display:'flex',gap:5,alignItems:'center'}}><input type="checkbox" checked={visible} onChange={(e)=>savePagePreferences(order,e.target.checked?hiddenPages.filter(x=>x!==item.id):[...hiddenPages,item.id])}/>Afficher</label>
-                      <button style={styles.secondary} disabled={index===0} onClick={()=>{const i=order.indexOf(item.id);if(i>0){[order[i-1],order[i]]=[order[i],order[i-1]];savePagePreferences(order,hiddenPages);}}}>↑</button>
-                      <button style={styles.secondary} disabled={index===navItems.length-1} onClick={()=>{const i=order.indexOf(item.id);if(i>=0&&i<order.length-1){[order[i+1],order[i]]=[order[i],order[i+1]];savePagePreferences(order,hiddenPages);}}}>↓</button>
-                    </div>;
-                  })}
+                  {(() => {
+                    const availableItems = navItems.filter((item)=>(!item.adminOnly || isAdmin) && (!item.admin || isAdmin));
+                    const baseOrder = pageOrder.length ? [...pageOrder, ...navItems.map(x=>x.id).filter(id=>!pageOrder.includes(id))] : navItems.map(x=>x.id);
+                    const visibleOrder = pageDragId ? pageDragOrder : baseOrder;
+                    const orderedItems = visibleOrder.map(id=>availableItems.find(item=>item.id===id)).filter(Boolean);
+                    return orderedItems.map((item,index)=>{
+                      const visible = !hiddenPages.includes(item.id);
+                      const stopDrag = () => {
+                        if (pageDragTimer.current) clearTimeout(pageDragTimer.current);
+                        pageDragTimer.current = null;
+                        if (pageDragId) {
+                          const finalOrder = pageDragOrder.length ? pageDragOrder : baseOrder;
+                          setPageDragId(null);
+                          setPageDragOrder([]);
+                          if (pageDragMoved.current) savePagePreferences(finalOrder,hiddenPages);
+                        }
+                        pageDragMoved.current = false;
+                      };
+                      return <div
+                        key={item.id}
+                        data-page-order-id={item.id}
+                        onPointerDown={(event)=>{
+                          if (event.button !== 0) return;
+                          pageDragMoved.current = false;
+                          const startOrder = [...baseOrder];
+                          pageDragTimer.current = setTimeout(()=>{
+                            setPageDragId(item.id);
+                            setPageDragOrder(startOrder);
+                            if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate(30);
+                          },450);
+                          try { event.currentTarget.setPointerCapture(event.pointerId); } catch {}
+                        }}
+                        onPointerMove={(event)=>{
+                          if (!pageDragId || pageDragId !== item.id) return;
+                          event.preventDefault();
+                          const target = document.elementFromPoint(event.clientX,event.clientY)?.closest('[data-page-order-id]');
+                          const targetId = target?.getAttribute('data-page-order-id');
+                          if (!targetId || targetId === item.id) return;
+                          setPageDragOrder(current=>{
+                            const next=[...current], from=next.indexOf(item.id), to=next.indexOf(targetId);
+                            if(from<0||to<0||from===to)return current;
+                            next.splice(from,1);next.splice(to,0,item.id);
+                            pageDragMoved.current = true;
+                            return next;
+                          });
+                        }}
+                        onPointerUp={stopDrag}
+                        onPointerCancel={stopDrag}
+                        onLostPointerCapture={stopDrag}
+                        onContextMenu={(event)=>event.preventDefault()}
+                        style={{
+                          display:'flex',gap:10,alignItems:'center',padding:'10px 8px',
+                          borderBottom:'1px solid #e2e8f0',flexWrap:'wrap',
+                          borderRadius:pageDragId===item.id?8:0,
+                          background:pageDragId===item.id?'#eaf1f8':'transparent',
+                          outline:pageDragId===item.id?'2px dashed #607A9B':'none',
+                          cursor:pageDragId?'grabbing':'grab',
+                          touchAction:'none',userSelect:'none',
+                          opacity:pageDragId && pageDragId!==item.id ? 0.72 : 1
+                        }}
+                      >
+                        <span aria-hidden="true" style={{color:'#607A9B',fontSize:19,fontWeight:800}}>⠿</span>
+                        <strong style={{flex:1}}>{item.label}</strong>
+                        <label style={{display:'flex',gap:5,alignItems:'center'}} onPointerDown={(e)=>e.stopPropagation()}><input type="checkbox" checked={visible} onChange={(e)=>savePagePreferences(baseOrder,e.target.checked?hiddenPages.filter(x=>x!==item.id):[...hiddenPages,item.id])}/>Afficher</label>
+                        <button style={styles.secondary} disabled={index===0} onPointerDown={(e)=>e.stopPropagation()} onClick={()=>{const order=[...baseOrder];const i=order.indexOf(item.id);if(i>0){[order[i-1],order[i]]=[order[i],order[i-1]];savePagePreferences(order,hiddenPages);}}}>↑</button>
+                        <button style={styles.secondary} disabled={index===orderedItems.length-1} onPointerDown={(e)=>e.stopPropagation()} onClick={()=>{const order=[...baseOrder];const i=order.indexOf(item.id);if(i>=0&&i<order.length-1){[order[i+1],order[i]]=[order[i],order[i+1]];savePagePreferences(order,hiddenPages);}}}>↓</button>
+                      </div>;
+                    });
+                  })()}
                 </section>
                 <section
                   style={{
