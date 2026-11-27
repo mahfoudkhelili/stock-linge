@@ -237,8 +237,8 @@ function MosqueSimulation({ tapisProducts = [] }) {
   const roomScreenPoints=roomCorners.map(screenPoint);
   const arrowLength=Math.min(78,Math.max(24,Math.max(L,W)*planScale*.38));
   const finalStripWidth=rowChoice==='upper'&&remainder>0?remainder:rollWidth;
-  const normalizedMosqueName=(value)=>String(value||'').normalize('NFD').replace(/[\\u0300-\\u036f]/g,'').toUpperCase().replace(/[^A-Z0-9]+/g,' ');
-  // Plusieurs orthographes/abréviations sont utilisées pour les tapis de mosquée.
+  const normalizedMosqueName=(value)=>String(value||'').toUpperCase();
+  // Recherche directe dans les champs désignation et références.
   const mosqueMatches=(tapisProducts||[]).filter(p=>[p.name,p.product_ref,p.reference_1].some(value=>normalizedMosqueName(value).includes('MOSQ')));
   const mosqueCarpetOptions=mosqueMatches;
   const chosenCostCarpet=mosqueCarpetOptions.find(p=>String(p.id)===String(costCarpetId));
@@ -734,11 +734,8 @@ export default function App() {
     // Normaliser les accents pour reconnaître MOSQUE, MOSQUEE et MOSQUÉE.
     const normalizeMosqueName = (value) => String(value || '')
       .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .toUpperCase();
-    const mosqueMap = new Map();
-    for (const product of tapisProducts) {
-      if ([product.name, product.product_ref, product.reference_1].some(value => normalizeMosqueName(value).includes('MOSQ'))) {
+      .replconst normalizeMosqueName = (value) => String(value || '').toUpperCase();
+    e, product.product_ref, product.reference_1].some(value => normalizeMosqueName(value).includes('MOSQ'))) {
         mosqueMap.set(String(product.id), product);
       }
     }
