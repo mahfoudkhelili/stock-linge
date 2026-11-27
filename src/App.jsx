@@ -730,12 +730,11 @@ export default function App() {
       tapisStart += pageSize;
     }
 
-    // Base fiable : catalogue Tapis déjà chargé avec les droits de lecture habituels.
-    // Normaliser les accents pour reconnaître MOSQUE, MOSQUEE et MOSQUÉE.
-    const normalizeMosqueName = (value) => String(value || '')
-      .normalize('NFD')
-      .replconst normalizeMosqueName = (value) => String(value || '').toUpperCase();
-    e, product.product_ref, product.reference_1].some(value => normalizeMosqueName(value).includes('MOSQ'))) {
+    // Recherche directe dans la désignation et les deux références.
+    const normalizeMosqueName = (value) => String(value || '').toUpperCase();
+    const mosqueMap = new Map();
+    for (const product of tapisProducts) {
+      if ([product.name, product.product_ref, product.reference_1].some(value => normalizeMosqueName(value).includes('MOSQ'))) {
         mosqueMap.set(String(product.id), product);
       }
     }
