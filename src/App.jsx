@@ -239,7 +239,7 @@ function MosqueSimulation({ tapisProducts = [] }) {
   const finalStripWidth=rowChoice==='upper'&&remainder>0?remainder:rollWidth;
   const normalizedMosqueName=(value)=>String(value||'').normalize('NFD').replace(/[\\u0300-\\u036f]/g,'').toUpperCase().replace(/[^A-Z0-9]+/g,' ');
   // Plusieurs orthographes/abréviations sont utilisées pour les tapis de mosquée.
-  const mosqueMatches=(tapisProducts||[]).filter(p=>/(?:TAPIS\s+)?MOSQUEE?/.test(normalizedMosqueName(p.name))||/(?:TAPIS\s+)?MOSQUEE?/.test(normalizedMosqueName(p.product_ref)));
+  const mosqueMatches=(tapisProducts||[]).filter(p=>[p.name,p.product_ref,p.reference_1].some(value=>normalizedMosqueName(value).includes('MOSQ')));
   const mosqueCarpetOptions=mosqueMatches;
   const chosenCostCarpet=mosqueCarpetOptions.find(p=>String(p.id)===String(costCarpetId));
   const exportMosquePdf=({kind,rows,purchaseArea,coveredArea,roomDetails})=>{
@@ -738,7 +738,7 @@ export default function App() {
       .toUpperCase();
     const mosqueMap = new Map();
     for (const product of tapisProducts) {
-      if (/(?:TAPIS\s+)?MOSQUEE?/.test(normalizeMosqueName(product.name)) || /(?:TAPIS\s+)?MOSQUEE?/.test(normalizeMosqueName(product.product_ref))) {
+      if ([product.name, product.product_ref, product.reference_1].some(value => normalizeMosqueName(value).includes('MOSQ'))) {
         mosqueMap.set(String(product.id), product);
       }
     }
@@ -750,7 +750,7 @@ export default function App() {
       const { data: mosquePage, error: mosqueError } = await supabase
         .from('tapis_products')
         .select('id, product_ref, reference_1, name, current_quantity, wholesale_price, retail_price, min_stock_level, is_hidden, is_active, is_in_latest_pdf')
-        .or('name.ilike.%MOSQ%,product_ref.ilike.%MOSQ%')
+        .or('name.ilike.%MOSQ%,product_ref.ilike.%MOSQ%,reference_1.ilike.%MOSQ%')
         .order('name')
         .range(mosqueStart, mosqueStart + pageSize - 1);
       if (mosqueError) {
@@ -758,7 +758,7 @@ export default function App() {
         break;
       }
       for (const product of mosquePage || []) {
-        if (/(?:TAPIS\s+)?MOSQUEE?/.test(normalizeMosqueName(product.name)) || /(?:TAPIS\s+)?MOSQUEE?/.test(normalizeMosqueName(product.product_ref))) {
+        if ([product.name, product.product_ref, product.reference_1].some(value => normalizeMosqueName(value).includes('MOSQ'))) {
           mosqueMap.set(String(product.id), product);
         }
       }
