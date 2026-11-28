@@ -3206,7 +3206,7 @@ export default function App() {
       admin: true,
     },
     { id: 'tapis', label: 'Tapis', icon: '▧', adminOnly: true },
-    { id: 'mosque-simulation', label: 'Simulation mosquée', icon: '▦', adminOnly: true },
+    { id: 'mosque-simulation', label: 'Simulation mosquée', icon: '▦' },
     {
       id: 'tapis-analysis',
       label: language === 'ar' ? 'Analyse Tapis' : 'Analyse Tapis',
@@ -5480,7 +5480,7 @@ export default function App() {
               </section>
             )}
 
-            {activePage === 'mosque-simulation' && isAdmin && (<MosqueSimulation tapisProducts={[...new Map([...catalogProducts.filter(p => p.catalog_source === 'tapis_products'), ...mosqueTapisProducts].filter(p => [p.name, p.product_ref, p.reference_1].some(value => String(value || '').toUpperCase().includes('MOSQ'))).map(p => [`${p.catalog_source || 'products'}:${p.id}`, p])).values()]} />)}
+            {activePage === 'mosque-simulation' && canViewPage('mosque-simulation') && (<MosqueSimulation tapisProducts={[...new Map([...catalogProducts.filter(p => p.catalog_source === 'tapis_products'), ...mosqueTapisProducts].filter(p => [p.name, p.product_ref, p.reference_1].some(value => String(value || '').toUpperCase().includes('MOSQ'))).map(p => [`${p.catalog_source || 'products'}:${p.id}`, p])).values()]} />)}
 
             {activePage === 'tapis-analysis' && canViewPage('tapis-analysis') && (
               <section className="ls-panel">
